@@ -167,13 +167,43 @@ func TestCompletionCmdStructure(t *testing.T) {
 		}
 	})
 
-	t.Run("has bash subcommand", func(t *testing.T) {
-		bashCmd, _, err := cmd.Find([]string{"bash"})
-		if err != nil {
-			t.Fatalf("failed to find bash subcommand: %v", err)
+	t.Run("has short description", func(t *testing.T) {
+		if cmd.Short == "" {
+			t.Error("completion command missing Short description")
 		}
-		if bashCmd.Use != "bash" {
-			t.Errorf("expected Use='bash', got %q", bashCmd.Use)
+	})
+
+	t.Run("has long description with installation instructions", func(t *testing.T) {
+		if cmd.Long == "" {
+			t.Error("completion command missing Long description")
+		}
+		// Verify Long description includes installation instructions for all shells
+		expectedPatterns := []string{
+			"bash",
+			"zsh",
+			"fish",
+			"powershell",
+			"bash_completion",
+			"compinit",
+		}
+		for _, pattern := range expectedPatterns {
+			if !strings.Contains(strings.ToLower(cmd.Long), strings.ToLower(pattern)) {
+				t.Errorf("Long description missing expected pattern: %q", pattern)
+			}
+		}
+	})
+
+	t.Run("has all shell subcommands", func(t *testing.T) {
+		shells := []string{"bash", "zsh", "fish", "powershell"}
+		for _, shell := range shells {
+			subCmd, _, err := cmd.Find([]string{shell})
+			if err != nil {
+				t.Errorf("failed to find %s subcommand: %v", shell, err)
+				continue
+			}
+			if subCmd.Use != shell {
+				t.Errorf("expected Use=%q, got %q", shell, subCmd.Use)
+			}
 		}
 	})
 
