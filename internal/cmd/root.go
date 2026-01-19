@@ -8,8 +8,21 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/spf13/cobra"
 )
+
+// Global flag variables
+var (
+	configFile   string
+	debugFlag    bool
+	outputFormat string
+	noColor      bool
+)
+
+// loadedConfig holds the configuration loaded during PersistentPreRunE.
+// Subcommands access this via GetConfig().
+var loadedConfig *config.Config
 
 // rootCmd is the base command for the CLI.
 var rootCmd = &cobra.Command{
@@ -30,6 +43,88 @@ For more information about a command:
   stackeye [command] --help`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return loadConfig()
+	},
+}
+
+func init() {
+	// Register persistent flags available to all commands
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable debug output")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "output format: table, json, yaml, wide")
+	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
+}
+
+// loadConfig loads the configuration file and applies flag overrides.
+// Called by PersistentPreRunE before any subcommand executes.
+func loadConfig() error {
+	var cfg *config.Config
+	var err error
+
+	// Load config from custom path or default location
+	if configFile != "" {
+		cfg, err = config.LoadFrom(configFile)
+	} else {
+		cfg, err = config.Load()
+	}
+
+	if err != nil {
+		// Config read/parse errors are fatal
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Apply flag overrides to preferences
+	if cfg.Preferences == nil {
+		cfg.Preferences = config.NewPreferences()
+	}
+
+	// --debug flag overrides config preference
+	if debugFlag {
+		cfg.Preferences.Debug = true
+	}
+
+	// --output flag overrides config preference
+	if outputFormat != "" {
+		switch outputFormat {
+		case "table":
+			cfg.Preferences.OutputFormat = config.OutputFormatTable
+		case "json":
+			cfg.Preferences.OutputFormat = config.OutputFormatJSON
+		case "yaml":
+			cfg.Preferences.OutputFormat = config.OutputFormatYAML
+		case "wide":
+			cfg.Preferences.OutputFormat = config.OutputFormatWide
+		default:
+			return fmt.Errorf("invalid output format %q: must be table, json, yaml, or wide", outputFormat)
+		}
+	}
+
+	// --no-color flag overrides config preference
+	if noColor {
+		cfg.Preferences.Color = config.ColorModeNever
+	}
+
+	loadedConfig = cfg
+	return nil
+}
+
+// GetConfig returns the loaded configuration.
+// Returns nil if called before Execute() or if config loading failed.
+// Subcommands should call this in their Run/RunE functions.
+func GetConfig() *config.Config {
+	return loadedConfig
+}
+
+// GetConfigOrFail returns the loaded configuration or exits with an error.
+// This is a convenience function for commands that require a valid config.
+func GetConfigOrFail() *config.Config {
+	cfg := GetConfig()
+	if cfg == nil {
+		fmt.Fprintln(os.Stderr, "Error: configuration not loaded")
+		os.Exit(1)
+	}
+	return cfg
 }
 
 // Execute runs the root command and returns any error.
@@ -40,4 +135,10 @@ func Execute() error {
 		return err
 	}
 	return nil
+}
+
+// RootCmd returns the root command for adding subcommands.
+// This is used by subcommand packages to register themselves.
+func RootCmd() *cobra.Command {
+	return rootCmd
 }
