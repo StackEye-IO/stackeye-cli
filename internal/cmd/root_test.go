@@ -8,13 +8,21 @@ import (
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
 
-func TestLoadConfig_DefaultPath(t *testing.T) {
-	// Reset global state
+// resetGlobalState resets all global flag variables to their default values.
+// This should be called at the start of each test to prevent test pollution.
+func resetGlobalState() {
 	loadedConfig = nil
 	configFile = ""
+	contextOverride = ""
 	debugFlag = false
 	outputFormat = ""
 	noColor = false
+	noInput = false
+	dryRun = false
+}
+
+func TestLoadConfig_DefaultPath(t *testing.T) {
+	resetGlobalState()
 
 	// Load config from default path
 	err := loadConfig()
@@ -51,12 +59,8 @@ preferences:
 		t.Fatalf("Failed to write temp config: %v", err)
 	}
 
-	// Reset global state
-	loadedConfig = nil
+	resetGlobalState()
 	configFile = tempFile
-	debugFlag = false
-	outputFormat = ""
-	noColor = false
 
 	// Load config
 	err := loadConfig()
@@ -75,14 +79,10 @@ preferences:
 		t.Errorf("Expected output format 'json', got %q", cfg.Preferences.OutputFormat)
 	}
 
-	// Cleanup
-	configFile = ""
 }
 
 func TestLoadConfig_FlagOverrides(t *testing.T) {
-	// Reset global state
-	loadedConfig = nil
-	configFile = ""
+	resetGlobalState()
 	debugFlag = true
 	outputFormat = "yaml"
 	noColor = true
@@ -108,34 +108,96 @@ func TestLoadConfig_FlagOverrides(t *testing.T) {
 	if cfg.Preferences.Color != config.ColorModeNever {
 		t.Errorf("Expected color mode 'never', got %q", cfg.Preferences.Color)
 	}
-
-	// Cleanup
-	debugFlag = false
-	outputFormat = ""
-	noColor = false
 }
 
 func TestLoadConfig_InvalidOutputFormat(t *testing.T) {
-	// Reset global state
-	loadedConfig = nil
-	configFile = ""
-	debugFlag = false
+	resetGlobalState()
 	outputFormat = "invalid"
-	noColor = false
 
 	// Load config should fail
 	err := loadConfig()
 	if err == nil {
 		t.Fatal("Expected error for invalid output format")
 	}
+}
 
-	// Cleanup
-	outputFormat = ""
+func TestLoadConfig_ContextOverride(t *testing.T) {
+	// Create temp config file with multiple contexts
+	tempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, "config.yaml")
+	content := `current_context: default
+contexts:
+  default:
+    api_url: https://default.example.com
+  production:
+    api_url: https://prod.example.com
+`
+	if err := os.WriteFile(tempFile, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write temp config: %v", err)
+	}
+
+	resetGlobalState()
+	configFile = tempFile
+	contextOverride = "production"
+
+	// Load config
+	err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	cfg := GetConfig()
+	if cfg == nil {
+		t.Fatal("GetConfig() returned nil")
+	}
+	if cfg.CurrentContext != "production" {
+		t.Errorf("Expected current_context 'production', got %q", cfg.CurrentContext)
+	}
+}
+
+func TestLoadConfig_ContextOverride_Invalid(t *testing.T) {
+	resetGlobalState()
+	contextOverride = "nonexistent"
+
+	// Load config should fail with invalid context
+	err := loadConfig()
+	if err == nil {
+		t.Fatal("Expected error for nonexistent context")
+	}
+}
+
+func TestGetNoInput(t *testing.T) {
+	resetGlobalState()
+
+	// Default should be false
+	if GetNoInput() {
+		t.Error("Expected GetNoInput() = false when flag not set")
+	}
+
+	// Set to true
+	noInput = true
+	if !GetNoInput() {
+		t.Error("Expected GetNoInput() = true when flag set")
+	}
+}
+
+func TestGetDryRun(t *testing.T) {
+	resetGlobalState()
+
+	// Default should be false
+	if GetDryRun() {
+		t.Error("Expected GetDryRun() = false when flag not set")
+	}
+
+	// Set to true
+	dryRun = true
+	if !GetDryRun() {
+		t.Error("Expected GetDryRun() = true when flag set")
+	}
 }
 
 func TestGetConfigOrFail_NilConfig(t *testing.T) {
-	// Reset global state
-	loadedConfig = nil
+	resetGlobalState()
 
 	// GetConfigOrFail would call os.Exit, so we just test GetConfig
 	cfg := GetConfig()

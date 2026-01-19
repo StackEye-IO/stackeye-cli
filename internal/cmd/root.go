@@ -14,10 +14,13 @@ import (
 
 // Global flag variables
 var (
-	configFile   string
-	debugFlag    bool
-	outputFormat string
-	noColor      bool
+	configFile      string
+	contextOverride string
+	debugFlag       bool
+	outputFormat    string
+	noColor         bool
+	noInput         bool
+	dryRun          bool
 )
 
 // loadedConfig holds the configuration loaded during PersistentPreRunE.
@@ -51,9 +54,12 @@ For more information about a command:
 func init() {
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&contextOverride, "context", "", "override current context from config")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable debug output")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "output format: table, json, yaml, wide")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
+	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "disable interactive prompts")
+	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without executing")
 }
 
 // loadConfig loads the configuration file and applies flag overrides.
@@ -105,6 +111,15 @@ func loadConfig() error {
 		cfg.Preferences.Color = config.ColorModeNever
 	}
 
+	// --context flag overrides current_context from config
+	if contextOverride != "" {
+		// Validate that the context exists before overriding
+		if _, err := cfg.GetContext(contextOverride); err != nil {
+			return fmt.Errorf("context %q not found in configuration", contextOverride)
+		}
+		cfg.CurrentContext = contextOverride
+	}
+
 	loadedConfig = cfg
 	return nil
 }
@@ -125,6 +140,18 @@ func GetConfigOrFail() *config.Config {
 		os.Exit(1)
 	}
 	return cfg
+}
+
+// GetNoInput returns true if interactive prompts should be disabled.
+// Commands should check this before prompting for user input.
+func GetNoInput() bool {
+	return noInput
+}
+
+// GetDryRun returns true if commands should show what would be done without executing.
+// Commands that modify state should check this and print their intended actions instead.
+func GetDryRun() bool {
+	return dryRun
 }
 
 // Execute runs the root command and returns any error.
