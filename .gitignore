@@ -1,6 +1,7 @@
 # Build artifacts
 bin/
 dist/
+/stackeye
 
 # Test coverage
 coverage.out
