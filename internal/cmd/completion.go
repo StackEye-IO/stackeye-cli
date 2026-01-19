@@ -21,6 +21,7 @@ in your terminal.
 Currently supported shells:
   - bash
   - zsh
+  - fish
 
 Bash:
 
@@ -47,6 +48,15 @@ Zsh:
 
   # macOS with Homebrew
   stackeye completion zsh > $(brew --prefix)/share/zsh/site-functions/_stackeye
+
+Fish:
+
+  # User-specific completions
+  mkdir -p ~/.config/fish/completions
+  stackeye completion fish > ~/.config/fish/completions/stackeye.fish
+
+  # System-wide (requires sudo)
+  stackeye completion fish | sudo tee /usr/share/fish/vendor_completions.d/stackeye.fish > /dev/null
 `,
 		// Skip config loading - completion commands must work without authentication
 		// and should have minimal latency since they run on every tab press.
@@ -58,6 +68,7 @@ Zsh:
 	// Add shell-specific subcommands
 	cmd.AddCommand(newBashCompletionCmd())
 	cmd.AddCommand(newZshCompletionCmd())
+	cmd.AddCommand(newFishCompletionCmd())
 
 	return cmd
 }
