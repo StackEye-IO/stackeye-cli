@@ -11,6 +11,7 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
+	"github.com/StackEye-IO/stackeye-go-sdk/output"
 	"github.com/spf13/cobra"
 )
 
@@ -74,6 +75,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "disable interactive prompts")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without executing")
+
+	// Initialize custom help system with colored output and grouped commands
+	InitHelp(rootCmd, &HelpConfig{
+		ColorManager: output.NewColorManager(output.ColorAuto),
+		Writer:       os.Stdout,
+	})
 }
 
 // loadConfig loads the configuration file and applies flag overrides.
@@ -123,6 +130,7 @@ func loadConfig() error {
 	// --no-color flag overrides config preference
 	if noColor {
 		cfg.Preferences.Color = config.ColorModeNever
+		SetNoColor(true)
 	}
 
 	// --context flag overrides current_context from config
