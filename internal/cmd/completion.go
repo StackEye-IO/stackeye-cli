@@ -20,6 +20,7 @@ in your terminal.
 
 Currently supported shells:
   - bash
+  - zsh
 
 Bash:
 
@@ -32,6 +33,20 @@ Bash:
   stackeye completion bash > $(brew --prefix)/etc/bash_completion.d/stackeye
 
   Restart your shell or source the completion script to activate.
+
+Zsh:
+
+  # Add to your fpath (recommended)
+  mkdir -p ~/.zsh/completions
+  stackeye completion zsh > ~/.zsh/completions/_stackeye
+  # Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath)
+  # Then: autoload -Uz compinit && compinit
+
+  # Or source directly in ~/.zshrc
+  source <(stackeye completion zsh)
+
+  # macOS with Homebrew
+  stackeye completion zsh > $(brew --prefix)/share/zsh/site-functions/_stackeye
 `,
 		// Skip config loading - completion commands must work without authentication
 		// and should have minimal latency since they run on every tab press.
@@ -42,6 +57,7 @@ Bash:
 
 	// Add shell-specific subcommands
 	cmd.AddCommand(newBashCompletionCmd())
+	cmd.AddCommand(newZshCompletionCmd())
 
 	return cmd
 }
