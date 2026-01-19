@@ -33,6 +33,7 @@ Examples:
 
 	// Add subcommands
 	cmd.AddCommand(newContextListCmd())
+	cmd.AddCommand(newContextUseCmd())
 
 	return cmd
 }
@@ -53,6 +54,31 @@ Examples:
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runContextList()
+		},
+	}
+
+	return cmd
+}
+
+// newContextUseCmd creates the use subcommand to switch active context.
+func newContextUseCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "use <name>",
+		Short: "Switch to a different context",
+		Long: `Switch to a different organization context.
+
+This command changes the active context used for all subsequent commands.
+The context must already exist in your configuration.
+
+Examples:
+  # Switch to the production context
+  stackeye context use acme-prod
+
+  # Switch to staging
+  stackeye context use acme-staging`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runContextUse(args[0])
 		},
 	}
 
@@ -106,6 +132,49 @@ func runContextList() error {
 		// Print context row
 		fmt.Printf("%-2s %-20s %-25s %s\n", marker, displayName, displayOrg, apiURL)
 	}
+
+	return nil
+}
+
+// runContextUse executes the context use command.
+func runContextUse(name string) error {
+	cfg := GetConfig()
+	if cfg == nil {
+		return fmt.Errorf("configuration not loaded")
+	}
+
+	// Validate the context exists
+	ctx, err := cfg.GetContext(name)
+	if err != nil {
+		return fmt.Errorf("context %q not found", name)
+	}
+	if ctx == nil {
+		return fmt.Errorf("context %q is invalid", name)
+	}
+
+	// Check if already using this context
+	if cfg.CurrentContext == name {
+		fmt.Printf("Already using context %q\n", name)
+		return nil
+	}
+
+	// Update current context
+	previousContext := cfg.CurrentContext
+	cfg.CurrentContext = name
+
+	// Save the configuration
+	if err := cfg.Save(); err != nil {
+		// Restore previous context on save failure
+		cfg.CurrentContext = previousContext
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	// Print success message with context details
+	fmt.Printf("Switched to context %q", name)
+	if ctx.OrganizationName != "" {
+		fmt.Printf(" (%s)", ctx.OrganizationName)
+	}
+	fmt.Println()
 
 	return nil
 }
