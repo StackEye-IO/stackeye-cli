@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/spf13/cobra"
 )
@@ -63,6 +64,7 @@ func init() {
 	rootCmd.AddCommand(NewWhoamiCmd())
 	rootCmd.AddCommand(NewConfigCmd())
 	rootCmd.AddCommand(NewContextCmd())
+	rootCmd.AddCommand(NewCompletionCmd())
 
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
@@ -168,12 +170,37 @@ func GetDryRun() bool {
 
 // Execute runs the root command and returns any error.
 // This is called by main.main() and handles command execution.
+// Deprecated: Use ExecuteWithExitCode() for proper exit code handling.
 func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 	return nil
+}
+
+// ExecuteWithExitCode runs the root command and returns an appropriate exit code.
+// This maps errors to exit codes for proper CLI behavior:
+//   - 0: Success
+//   - 1: General error
+//   - 2: Command misuse (invalid arguments)
+//   - 3: Authentication required
+//   - 4: Permission denied
+//   - 5: Resource not found
+//   - 6: Rate limited
+//   - 7: Server error
+//   - 8: Network error
+//   - 9: Timeout
+//   - 10: Plan limit exceeded
+//
+// Example usage in main.go:
+//
+//	func main() {
+//	    os.Exit(cmd.ExecuteWithExitCode())
+//	}
+func ExecuteWithExitCode() int {
+	err := rootCmd.Execute()
+	return clierrors.HandleError(err)
 }
 
 // RootCmd returns the root command for adding subcommands.
