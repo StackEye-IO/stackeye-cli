@@ -52,6 +52,9 @@ For more information about a command:
 }
 
 func init() {
+	// Register subcommands
+	rootCmd.AddCommand(NewVersionCmd())
+
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&contextOverride, "context", "", "override current context from config")
