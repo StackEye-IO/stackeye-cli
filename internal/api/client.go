@@ -1,0 +1,177 @@
+// Package api provides helpers for initializing and using the StackEye API client.
+//
+// This package centralizes the pattern of creating an SDK client from the CLI
+// configuration, providing consistent error handling across all commands that
+// need API access.
+package api
+
+import (
+	"errors"
+	"fmt"
+	"os"
+
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	"github.com/StackEye-IO/stackeye-go-sdk/config"
+)
+
+// Error types for API client initialization failures.
+var (
+	// ErrConfigNotLoaded is returned when GetClient is called before config is loaded.
+	ErrConfigNotLoaded = errors.New("api: configuration not loaded")
+
+	// ErrNoCurrentContext is returned when no context is set in the configuration.
+	ErrNoCurrentContext = errors.New("api: no context configured")
+
+	// ErrContextNotFound is returned when the current context doesn't exist.
+	ErrContextNotFound = errors.New("api: context not found")
+
+	// ErrNoAPIKey is returned when the context has no API key configured.
+	ErrNoAPIKey = errors.New("api: no API key configured for context")
+)
+
+// configGetter is the interface for getting the loaded configuration.
+// This allows for testing by providing a mock config getter.
+type configGetter func() *config.Config
+
+// defaultConfigGetter returns nil - subcommands should provide their own.
+// This is overridden via SetConfigGetter in init or tests.
+var currentConfigGetter configGetter
+
+// SetConfigGetter sets the function used to get the loaded configuration.
+// This should be called during CLI initialization to wire up the config loader.
+//
+// Example usage in root.go init():
+//
+//	api.SetConfigGetter(GetConfig)
+func SetConfigGetter(getter func() *config.Config) {
+	currentConfigGetter = getter
+}
+
+// GetClient creates and returns an SDK client from the current configuration context.
+//
+// The function:
+//  1. Gets the loaded configuration via the configured getter
+//  2. Retrieves the current context
+//  3. Validates that an API key is present
+//  4. Creates and returns an SDK client
+//
+// Returns an error if:
+//   - Configuration is not loaded (ErrConfigNotLoaded)
+//   - No current context is set (ErrNoCurrentContext)
+//   - Current context doesn't exist (ErrContextNotFound)
+//   - No API key is configured (ErrNoAPIKey)
+//
+// Example:
+//
+//	client, err := api.GetClient()
+//	if err != nil {
+//	    return fmt.Errorf("failed to initialize API client: %w", err)
+//	}
+//	// Use client for API calls
+func GetClient() (*client.Client, error) {
+	if currentConfigGetter == nil {
+		return nil, ErrConfigNotLoaded
+	}
+
+	cfg := currentConfigGetter()
+	if cfg == nil {
+		return nil, ErrConfigNotLoaded
+	}
+
+	// Check if there's a current context
+	if cfg.CurrentContext == "" {
+		return nil, ErrNoCurrentContext
+	}
+
+	// Get the current context
+	ctx, err := cfg.GetCurrentContext()
+	if err != nil {
+		if errors.Is(err, config.ErrContextNotFound) {
+			return nil, fmt.Errorf("%w: %q", ErrContextNotFound, cfg.CurrentContext)
+		}
+		return nil, fmt.Errorf("failed to get context: %w", err)
+	}
+
+	// Check if there's an API key
+	if ctx.APIKey == "" {
+		return nil, fmt.Errorf("%w: %q", ErrNoAPIKey, cfg.CurrentContext)
+	}
+
+	// Create and return the SDK client
+	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL())
+	return apiClient, nil
+}
+
+// RequireClient creates and returns an SDK client, exiting on error.
+//
+// This is a convenience function for commands that require authentication.
+// If the client cannot be created, it prints an error message to stderr
+// and exits with code 1.
+//
+// Example:
+//
+//	func runMyCommand() error {
+//	    client := api.RequireClient()
+//	    // Use client for API calls
+//	}
+func RequireClient() *client.Client {
+	apiClient, err := GetClient()
+	if err != nil {
+		printAuthError(err)
+		os.Exit(1)
+	}
+	return apiClient
+}
+
+// printAuthError prints a user-friendly error message for authentication failures.
+func printAuthError(err error) {
+	fmt.Fprintln(os.Stderr, "Error: Not authenticated")
+	fmt.Fprintln(os.Stderr)
+
+	switch {
+	case errors.Is(err, ErrConfigNotLoaded):
+		fmt.Fprintln(os.Stderr, "Configuration is not loaded.")
+	case errors.Is(err, ErrNoCurrentContext):
+		fmt.Fprintln(os.Stderr, "No context configured. Run 'stackeye login' to authenticate.")
+	case errors.Is(err, ErrContextNotFound):
+		fmt.Fprintln(os.Stderr, "Context not found. Run 'stackeye context list' to see available contexts.")
+	case errors.Is(err, ErrNoAPIKey):
+		fmt.Fprintln(os.Stderr, "No API key configured. Run 'stackeye login' to authenticate.")
+	default:
+		fmt.Fprintf(os.Stderr, "Failed to initialize API client: %v\n", err)
+	}
+}
+
+// GetClientWithContext creates an SDK client for a specific named context.
+// This is useful for commands that need to operate on a different context
+// than the current one.
+//
+// Returns the same errors as GetClient, but for the specified context name.
+func GetClientWithContext(contextName string) (*client.Client, error) {
+	if currentConfigGetter == nil {
+		return nil, ErrConfigNotLoaded
+	}
+
+	cfg := currentConfigGetter()
+	if cfg == nil {
+		return nil, ErrConfigNotLoaded
+	}
+
+	// Get the specified context
+	ctx, err := cfg.GetContext(contextName)
+	if err != nil {
+		if errors.Is(err, config.ErrContextNotFound) {
+			return nil, fmt.Errorf("%w: %q", ErrContextNotFound, contextName)
+		}
+		return nil, fmt.Errorf("failed to get context: %w", err)
+	}
+
+	// Check if there's an API key
+	if ctx.APIKey == "" {
+		return nil, fmt.Errorf("%w: %q", ErrNoAPIKey, contextName)
+	}
+
+	// Create and return the SDK client
+	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL())
+	return apiClient, nil
+}

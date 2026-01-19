@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/spf13/cobra"
 )
@@ -52,6 +53,9 @@ For more information about a command:
 }
 
 func init() {
+	// Wire up the API client helper to use our config getter
+	api.SetConfigGetter(GetConfig)
+
 	// Register subcommands
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewLoginCmd())
