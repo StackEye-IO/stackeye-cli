@@ -22,6 +22,7 @@ Currently supported shells:
   - bash
   - zsh
   - fish
+  - powershell
 
 Bash:
 
@@ -57,6 +58,17 @@ Fish:
 
   # System-wide (requires sudo)
   stackeye completion fish | sudo tee /usr/share/fish/vendor_completions.d/stackeye.fish > /dev/null
+
+PowerShell:
+
+  # Add to your PowerShell profile
+  stackeye completion powershell >> $PROFILE
+
+  # Or save to a separate file and source it from your profile
+  stackeye completion powershell > "$env:USERPROFILE\.stackeye-completion.ps1"
+  # Then add to $PROFILE: . "$env:USERPROFILE\.stackeye-completion.ps1"
+
+  Restart PowerShell or reload your profile to activate.
 `,
 		// Skip config loading - completion commands must work without authentication
 		// and should have minimal latency since they run on every tab press.
@@ -69,6 +81,7 @@ Fish:
 	cmd.AddCommand(newBashCompletionCmd())
 	cmd.AddCommand(newZshCompletionCmd())
 	cmd.AddCommand(newFishCompletionCmd())
+	cmd.AddCommand(newPowerShellCompletionCmd())
 
 	return cmd
 }
