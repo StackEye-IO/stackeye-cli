@@ -437,4 +437,3 @@ func TestNewLoginCmd(t *testing.T) {
 		t.Errorf("unexpected default for --api-url: got %v want %v", flag.DefValue, defaultAPIURL)
 	}
 }
-
