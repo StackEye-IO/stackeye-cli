@@ -308,6 +308,197 @@ func TestNewContextUseCmd(t *testing.T) {
 	}
 }
 
+func TestNewContextCurrentCmd(t *testing.T) {
+	cmd := NewContextCmd()
+
+	// Verify current subcommand is registered
+	currentCmd, _, err := cmd.Find([]string{"current"})
+	if err != nil {
+		t.Errorf("current subcommand not found: %v", err)
+	}
+	if currentCmd.Use != "current" {
+		t.Errorf("expected Use='current', got %q", currentCmd.Use)
+	}
+}
+
+func TestRunContextCurrent_Success(t *testing.T) {
+	// Create config with current context set
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "prod"
+	cfg.SetContext("prod", &config.Context{
+		APIURL:           "https://api.stackeye.io",
+		OrganizationName: "Acme Corp",
+		OrganizationID:   "org_123",
+		APIKey:           "se_test123",
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextCurrent()
+
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Check context name is displayed
+	if !strings.Contains(output, "prod") {
+		t.Error("expected output to contain context name 'prod'")
+	}
+
+	// Check organization name is displayed
+	if !strings.Contains(output, "Acme Corp") {
+		t.Error("expected output to contain organization name 'Acme Corp'")
+	}
+
+	// Check API URL is displayed
+	if !strings.Contains(output, "https://api.stackeye.io") {
+		t.Error("expected output to contain API URL")
+	}
+}
+
+func TestRunContextCurrent_NoCurrentContext(t *testing.T) {
+	// Create empty config with no current context
+	cfg := config.NewConfig()
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextCurrent()
+
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Check helpful message is displayed
+	if !strings.Contains(output, "No current context set") {
+		t.Error("expected output to contain 'No current context set'")
+	}
+	if !strings.Contains(output, "stackeye login") {
+		t.Error("expected output to contain login hint")
+	}
+}
+
+func TestRunContextCurrent_NilConfig(t *testing.T) {
+	loadedConfig = nil
+
+	err := runContextCurrent()
+
+	if err == nil {
+		t.Error("expected error for nil config, got nil")
+	}
+	if !strings.Contains(err.Error(), "configuration not loaded") {
+		t.Errorf("expected error to contain 'configuration not loaded', got %q", err.Error())
+	}
+}
+
+func TestRunContextCurrent_NoOrgName(t *testing.T) {
+	// Create config with context without org name
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "default"
+	cfg.SetContext("default", &config.Context{
+		APIURL: "https://api.stackeye.io",
+		APIKey: "se_test123",
+		// No OrganizationName
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextCurrent()
+
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Check that (not set) is displayed for missing org name
+	if !strings.Contains(output, "(not set)") {
+		t.Error("expected output to contain '(not set)' for missing org name")
+	}
+}
+
+func TestRunContextCurrent_DefaultAPIURL(t *testing.T) {
+	// Create config with context using default API URL
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "default"
+	cfg.SetContext("default", &config.Context{
+		// APIURL intentionally left empty to test default
+		OrganizationName: "Test Org",
+		APIKey:           "se_test123",
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextCurrent()
+
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Check that default API URL is shown
+	if !strings.Contains(output, config.DefaultAPIURL) {
+		t.Errorf("expected output to contain default API URL %q", config.DefaultAPIURL)
+	}
+}
+
+func TestRunContextCurrent_NilContextValue(t *testing.T) {
+	// Create config with a nil context value for the current context
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "nilctx"
+	cfg.Contexts["nilctx"] = nil
+	loadedConfig = cfg
+
+	err := runContextCurrent()
+
+	if err == nil {
+		t.Error("expected error for nil context value, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("expected error to contain 'invalid', got %q", err.Error())
+	}
+}
+
 func TestRunContextUse_Success(t *testing.T) {
 	// Create config with multiple contexts
 	cfg := config.NewConfig()

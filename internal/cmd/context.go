@@ -34,6 +34,7 @@ Examples:
 	// Add subcommands
 	cmd.AddCommand(newContextListCmd())
 	cmd.AddCommand(newContextUseCmd())
+	cmd.AddCommand(newContextCurrentCmd())
 
 	return cmd
 }
@@ -175,6 +176,66 @@ func runContextUse(name string) error {
 		fmt.Printf(" (%s)", ctx.OrganizationName)
 	}
 	fmt.Println()
+
+	return nil
+}
+
+// newContextCurrentCmd creates the current subcommand to display active context.
+func newContextCurrentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "current",
+		Short: "Display the current context",
+		Long: `Display the currently active organization context.
+
+Shows the context name, organization name, and API URL for the active context.
+Use 'stackeye context use <name>' to switch to a different context.
+
+Examples:
+  # Show current context
+  stackeye context current`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runContextCurrent()
+		},
+	}
+
+	return cmd
+}
+
+// runContextCurrent executes the context current command.
+func runContextCurrent() error {
+	cfg := GetConfig()
+	if cfg == nil {
+		return fmt.Errorf("configuration not loaded")
+	}
+
+	// Check if a current context is set
+	if cfg.CurrentContext == "" {
+		fmt.Println("No current context set.")
+		fmt.Println("")
+		fmt.Println("Run 'stackeye login' to authenticate and create a context,")
+		fmt.Println("or use 'stackeye context use <name>' to switch to an existing context.")
+		return nil
+	}
+
+	// Get the current context details
+	ctx, err := cfg.GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("current context %q not found in configuration", cfg.CurrentContext)
+	}
+	if ctx == nil {
+		return fmt.Errorf("current context %q is invalid", cfg.CurrentContext)
+	}
+
+	// Display context information
+	fmt.Printf("Current context: %s\n", cfg.CurrentContext)
+
+	orgName := ctx.OrganizationName
+	if orgName == "" {
+		orgName = "(not set)"
+	}
+	fmt.Printf("Organization:    %s\n", orgName)
+
+	fmt.Printf("API URL:         %s\n", ctx.EffectiveAPIURL())
 
 	return nil
 }
