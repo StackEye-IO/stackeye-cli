@@ -86,12 +86,26 @@ func TestNewProbeCmd_Examples(t *testing.T) {
 	}
 }
 
-func TestNewProbeCmd_NoSubcommands(t *testing.T) {
+func TestNewProbeCmd_Subcommands(t *testing.T) {
 	cmd := NewProbeCmd()
 
-	// Parent command should have no subcommands registered yet
-	// (they're added by later tasks)
-	if len(cmd.Commands()) != 0 {
-		t.Errorf("expected no subcommands, got %d", len(cmd.Commands()))
+	// Verify expected subcommands are registered
+	expectedSubcommands := []string{"list"}
+
+	if len(cmd.Commands()) != len(expectedSubcommands) {
+		t.Errorf("expected %d subcommands, got %d", len(expectedSubcommands), len(cmd.Commands()))
+	}
+
+	for _, name := range expectedSubcommands {
+		found := false
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected subcommand %q not found", name)
+		}
 	}
 }

@@ -58,19 +58,8 @@ For more information about a specific command:
 		Aliases: []string{"probes", "monitor", "monitors"},
 	}
 
-	// Subcommands are registered by their respective task implementations:
-	// - probe list (#7035)
-	// - probe get (#7036)
-	// - probe create (#7037)
-	// - probe update (#7038)
-	// - probe delete (#7039)
-	// - probe pause (#7040)
-	// - probe resume (#7041)
-	// - probe test (#7042)
-	// - probe history (#7043)
-	// - probe stats (#7044)
-	// - probe link-channel (#7073)
-	// - probe unlink-channel (#7074)
+	// Register subcommands
+	cmd.AddCommand(NewProbeListCmd())
 
 	return cmd
 }
