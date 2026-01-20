@@ -66,6 +66,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeDeleteCmd())
 	cmd.AddCommand(NewProbePauseCmd())
 	cmd.AddCommand(NewProbeResumeCmd())
+	cmd.AddCommand(NewProbeTestCmd())
 
 	return cmd
 }
