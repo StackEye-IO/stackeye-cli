@@ -30,7 +30,6 @@ Available Commands:
   create      Create a new notification channel
   update      Update an existing channel
   delete      Delete a notification channel
-  test        Send a test notification to verify configuration
 
 Examples:
   # List all channels
@@ -57,11 +56,11 @@ Examples:
   # Disable a channel
   stackeye channel update <channel-id> --enabled=false
 
-  # Test a channel
-  stackeye channel test <channel-id>
-
   # Delete a channel
   stackeye channel delete <channel-id>
+
+  # Delete without confirmation
+  stackeye channel delete <channel-id> --yes
 
 For more information about a specific command:
   stackeye channel [command] --help`,
@@ -70,6 +69,10 @@ For more information about a specific command:
 
 	// Register subcommands
 	cmd.AddCommand(NewChannelListCmd())
+	cmd.AddCommand(NewChannelGetCmd())
+	cmd.AddCommand(NewChannelCreateCmd())
+	cmd.AddCommand(NewChannelUpdateCmd())
+	cmd.AddCommand(NewChannelDeleteCmd())
 
 	return cmd
 }
