@@ -30,6 +30,7 @@ Available Commands:
   create      Create a new notification channel
   update      Update an existing channel
   delete      Delete a notification channel
+  test        Send a test notification through a channel
 
 Examples:
   # List all channels
@@ -73,6 +74,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewChannelCreateCmd())
 	cmd.AddCommand(NewChannelUpdateCmd())
 	cmd.AddCommand(NewChannelDeleteCmd())
+	cmd.AddCommand(NewChannelTestCmd())
 
 	return cmd
 }
