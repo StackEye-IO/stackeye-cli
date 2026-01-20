@@ -28,6 +28,7 @@ Alert Severities:
 Available Commands:
   list          List all alerts with optional filtering
   get           Get detailed alert information by ID
+  ack           Acknowledge one or more alerts
 
 Examples:
   # List all active alerts
@@ -50,6 +51,7 @@ For more information about a specific command:
 	// Register subcommands
 	cmd.AddCommand(NewAlertListCmd())
 	cmd.AddCommand(NewAlertGetCmd())
+	cmd.AddCommand(NewAlertAckCmd())
 
 	return cmd
 }
