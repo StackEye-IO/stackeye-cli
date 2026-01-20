@@ -63,6 +63,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeGetCmd())
 	cmd.AddCommand(NewProbeCreateCmd())
 	cmd.AddCommand(NewProbeUpdateCmd())
+	cmd.AddCommand(NewProbeDeleteCmd())
 
 	return cmd
 }
