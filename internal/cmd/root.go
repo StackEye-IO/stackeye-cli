@@ -10,6 +10,7 @@ import (
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
+	clioutput "github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/StackEye-IO/stackeye-go-sdk/output"
 	"github.com/spf13/cobra"
@@ -57,6 +58,9 @@ For more information about a command:
 func init() {
 	// Wire up the API client helper to use our config getter
 	api.SetConfigGetter(GetConfig)
+
+	// Wire up the output package to use our config getter
+	clioutput.SetConfigGetter(GetConfig)
 
 	// Register subcommands
 	rootCmd.AddCommand(NewVersionCmd())
