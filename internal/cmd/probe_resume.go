@@ -1,0 +1,144 @@
+// Package cmd implements the CLI commands for StackEye.
+package cmd
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
+	"github.com/google/uuid"
+	"github.com/spf13/cobra"
+)
+
+// probeResumeTimeout is the maximum time to wait for a single resume API response.
+const probeResumeTimeout = 30 * time.Second
+
+// probeResumeFlags holds the flag values for the probe resume command.
+type probeResumeFlags struct {
+	yes bool // Skip confirmation prompt
+}
+
+// NewProbeResumeCmd creates and returns the probe resume subcommand.
+func NewProbeResumeCmd() *cobra.Command {
+	flags := &probeResumeFlags{}
+
+	cmd := &cobra.Command{
+		Use:   "resume <id> [id...]",
+		Short: "Resume monitoring for one or more paused probes",
+		Long: `Resume monitoring for one or more paused probes by their IDs.
+
+Resuming a probe restarts all monitoring checks that were previously paused.
+The probe will immediately begin executing scheduled checks again and can
+trigger alerts based on the probe configuration.
+
+Resumed probes:
+  - Restart executing scheduled checks immediately
+  - Can trigger alerts based on check results
+  - Retain all configuration and historical data from before the pause
+  - Status transitions from 'paused' to 'pending' until the first check completes
+
+By default, the command will prompt for confirmation before resuming. Use --yes
+to skip the confirmation prompt for scripting or automation.
+
+Examples:
+  # Resume a single probe (with confirmation)
+  stackeye probe resume 550e8400-e29b-41d4-a716-446655440000
+
+  # Resume a probe without confirmation
+  stackeye probe resume 550e8400-e29b-41d4-a716-446655440000 --yes
+
+  # Resume multiple probes at once
+  stackeye probe resume 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+
+  # Resume multiple probes without confirmation (for scripting)
+  stackeye probe resume --yes 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runProbeResume(cmd.Context(), args, flags)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&flags.yes, "yes", "y", false, "skip confirmation prompt")
+
+	return cmd
+}
+
+// runProbeResume executes the probe resume command logic.
+func runProbeResume(ctx context.Context, idArgs []string, flags *probeResumeFlags) error {
+	// Parse and validate all UUIDs first before making any API calls
+	probeIDs := make([]uuid.UUID, 0, len(idArgs))
+	for _, idArg := range idArgs {
+		probeID, err := uuid.Parse(idArg)
+		if err != nil {
+			return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
+		}
+		probeIDs = append(probeIDs, probeID)
+	}
+
+	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
+	if !flags.yes && !GetNoInput() {
+		message := "Are you sure you want to resume monitoring for this probe?"
+		if len(probeIDs) > 1 {
+			message = fmt.Sprintf("Are you sure you want to resume monitoring for %d probes?", len(probeIDs))
+		}
+
+		confirmed, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
+			Message: message,
+			Default: false,
+		})
+		if err != nil {
+			if errors.Is(err, interactive.ErrPromptCancelled) {
+				return fmt.Errorf("operation cancelled by user")
+			}
+			return fmt.Errorf("failed to prompt for confirmation: %w", err)
+		}
+
+		if !confirmed {
+			fmt.Println("Resume cancelled.")
+			return nil
+		}
+	}
+
+	// Get authenticated API client
+	apiClient, err := api.GetClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resume each probe
+	var resumeErrors []error
+	resumedCount := 0
+
+	for _, probeID := range probeIDs {
+		reqCtx, cancel := context.WithTimeout(ctx, probeResumeTimeout)
+		probe, err := client.ResumeProbe(reqCtx, apiClient, probeID)
+		cancel()
+
+		if err != nil {
+			resumeErrors = append(resumeErrors, fmt.Errorf("failed to resume probe %s: %w", probeID, err))
+			continue
+		}
+
+		resumedCount++
+		fmt.Printf("Resumed probe %s (%s) - status: %s\n", probeID, probe.Name, probe.Status)
+	}
+
+	// Report results
+	if len(resumeErrors) > 0 {
+		fmt.Printf("\nResumed %d of %d probes.\n", resumedCount, len(probeIDs))
+		for _, err := range resumeErrors {
+			fmt.Printf("Error: %v\n", err)
+		}
+		return fmt.Errorf("failed to resume %d probe(s)", len(resumeErrors))
+	}
+
+	if resumedCount > 1 {
+		fmt.Printf("\nSuccessfully resumed %d probes.\n", resumedCount)
+	}
+
+	return nil
+}
