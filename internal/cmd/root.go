@@ -71,6 +71,7 @@ func init() {
 	rootCmd.AddCommand(NewContextCmd())
 	rootCmd.AddCommand(NewCompletionCmd())
 	rootCmd.AddCommand(NewProbeCmd())
+	rootCmd.AddCommand(NewAlertCmd())
 
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
