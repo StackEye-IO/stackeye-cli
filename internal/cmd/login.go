@@ -4,36 +4,21 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/http"
 	"net/url"
-	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/StackEye-IO/stackeye-go-sdk/auth"
+	"github.com/StackEye-IO/stackeye-cli/internal/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/spf13/cobra"
 )
 
-const (
-	// loginTimeout is the maximum time to wait for the callback.
-	loginTimeout = 5 * time.Minute
-
-	// defaultAPIURL is the production API endpoint.
-	defaultAPIURL = "https://api.stackeye.io"
-
-	// callbackPath is the path for the OAuth callback handler.
-	callbackPath = "/callback"
-)
-
 // loginFlags holds the command flags for the login command.
 type loginFlags struct {
 	apiURL string
+	debug  bool
 }
 
 // NewLoginCmd creates and returns the login command.
@@ -68,16 +53,27 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&flags.apiURL, "api-url", defaultAPIURL, "StackEye API URL")
+	cmd.Flags().StringVar(&flags.apiURL, "api-url", auth.DefaultAPIURL, "StackEye API URL")
+	cmd.Flags().BoolVar(&flags.debug, "debug", false, "Enable debug logging for troubleshooting")
 
 	return cmd
 }
 
 // runLogin executes the login flow.
 func runLogin(flags *loginFlags) error {
+	// Enable debug logging if requested
+	if flags.debug {
+		auth.SetDebug(true)
+		fmt.Println("Debug logging enabled")
+	}
+
 	apiURL := flags.apiURL
 	if apiURL == "" {
-		apiURL = defaultAPIURL
+		apiURL = auth.DefaultAPIURL
+	}
+
+	if flags.debug {
+		fmt.Printf("[debug] Using API URL: %s\n", apiURL)
 	}
 
 	// Check if already authenticated to this API URL
@@ -85,225 +81,25 @@ func runLogin(flags *loginFlags) error {
 		return err
 	}
 
-	// Start local HTTP server for callback
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	// Perform browser-based login using the auth package
+	result, err := auth.BrowserLogin(auth.Options{
+		APIURL:  apiURL,
+		Timeout: auth.DefaultTimeout,
+		OnBrowserOpen: func(url string) {
+			fmt.Printf("Opening browser to: %s\n", url)
+		},
+		OnWaiting: func() {
+			fmt.Println("Waiting for authentication...")
+			fmt.Println("(If the browser doesn't open, visit the URL manually)")
+			fmt.Println()
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("failed to start local server: %w", err)
-	}
-	defer listener.Close()
-
-	// Get the assigned port
-	port := listener.Addr().(*net.TCPAddr).Port
-	callbackURL := fmt.Sprintf("http://127.0.0.1:%d%s", port, callbackPath)
-
-	// Build the web UI URL
-	webUIURL, err := buildWebUIURL(apiURL, callbackURL)
-	if err != nil {
-		return fmt.Errorf("failed to build web UI URL: %w", err)
-	}
-
-	// Create a channel to receive the API key
-	resultCh := make(chan loginResult, 1)
-
-	// Create HTTP server with callback handler
-	mux := http.NewServeMux()
-	mux.HandleFunc(callbackPath, makeCallbackHandler(resultCh))
-
-	server := &http.Server{
-		Handler: mux,
-	}
-
-	// Start server in goroutine
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := server.Serve(listener); err != http.ErrServerClosed {
-			// Log error but don't fail - the server might be shut down intentionally
-		}
-	}()
-
-	// Open browser
-	fmt.Printf("Opening browser to: %s\n", webUIURL)
-	fmt.Println("Waiting for authentication...")
-	fmt.Println("(If the browser doesn't open, visit the URL manually)")
-	fmt.Println()
-
-	if err := openBrowser(webUIURL); err != nil {
-		fmt.Printf("Warning: could not open browser: %v\n", err)
-		fmt.Printf("Please visit: %s\n", webUIURL)
-	}
-
-	// Wait for callback with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), loginTimeout)
-	defer cancel()
-
-	var result loginResult
-	select {
-	case result = <-resultCh:
-		// Received callback
-	case <-ctx.Done():
-		// Shutdown server
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		server.Shutdown(shutdownCtx)
-		wg.Wait()
-		return fmt.Errorf("login timed out after %v - please try again", loginTimeout)
-	}
-
-	// Shutdown server
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-	server.Shutdown(shutdownCtx)
-	wg.Wait()
-
-	// Check for callback errors
-	if result.err != nil {
-		return fmt.Errorf("login failed: %w", result.err)
-	}
-
-	// Validate API key format
-	if !auth.ValidateAPIKey(result.apiKey) {
-		return fmt.Errorf("received invalid API key format")
+		return fmt.Errorf("login failed: %w", err)
 	}
 
 	// Complete login (verify key, save config, print success)
-	return completeLogin(apiURL, result.apiKey, result.orgID, result.orgName)
-}
-
-// loginResult holds the result of the callback.
-type loginResult struct {
-	apiKey  string
-	orgID   string
-	orgName string
-	err     error
-}
-
-// makeCallbackHandler creates an HTTP handler for the OAuth callback.
-func makeCallbackHandler(resultCh chan<- loginResult) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Security: only accept requests from localhost
-		remoteIP := extractIP(r.RemoteAddr)
-		if !isLocalhost(remoteIP) {
-			http.Error(w, "Forbidden: requests must come from localhost", http.StatusForbidden)
-			resultCh <- loginResult{err: fmt.Errorf("request from non-localhost IP: %s", remoteIP)}
-			return
-		}
-
-		// Extract API key from query parameters
-		apiKey := r.URL.Query().Get("api_key")
-		if apiKey == "" {
-			http.Error(w, "Missing api_key parameter", http.StatusBadRequest)
-			resultCh <- loginResult{err: fmt.Errorf("missing api_key parameter")}
-			return
-		}
-
-		// Extract optional org info
-		orgID := r.URL.Query().Get("org_id")
-		orgName := r.URL.Query().Get("org_name")
-
-		// Send success response to browser
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head>
-    <title>StackEye CLI - Login Successful</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-               display: flex; justify-content: center; align-items: center; height: 100vh;
-               margin: 0; background: #f5f5f5; }
-        .container { text-align: center; padding: 2rem; background: white;
-                     border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #10b981; margin-bottom: 0.5rem; }
-        p { color: #6b7280; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Login Successful</h1>
-        <p>You can close this window and return to your terminal.</p>
-    </div>
-</body>
-</html>`)
-
-		// Send result to channel
-		resultCh <- loginResult{
-			apiKey:  apiKey,
-			orgID:   orgID,
-			orgName: orgName,
-		}
-	}
-}
-
-// buildWebUIURL constructs the web UI authentication URL.
-func buildWebUIURL(apiURL, callbackURL string) (string, error) {
-	webURL, err := apiURLToWebURL(apiURL)
-	if err != nil {
-		return "", err
-	}
-
-	// Build full URL with callback parameter
-	u, err := url.Parse(webURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse web URL: %w", err)
-	}
-
-	u.Path = "/cli-auth"
-	q := u.Query()
-	q.Set("callback", callbackURL)
-	u.RawQuery = q.Encode()
-
-	return u.String(), nil
-}
-
-// apiURLToWebURL converts an API URL to the corresponding web UI URL.
-// It transforms api.stackeye.io to app.stackeye.io (or api.X.stackeye.io to app.X.stackeye.io).
-func apiURLToWebURL(apiURL string) (string, error) {
-	u, err := url.Parse(apiURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse API URL: %w", err)
-	}
-
-	// Transform the host: api.X -> app.X
-	host := u.Host
-
-	// Handle standard patterns:
-	// api.stackeye.io -> app.stackeye.io
-	// api.dev.stackeye.io -> app.dev.stackeye.io
-	// api.stg.stackeye.io -> app.stg.stackeye.io
-	if strings.HasPrefix(host, "api.") {
-		host = "app." + strings.TrimPrefix(host, "api.")
-	} else {
-		// For non-standard URLs, try to construct a reasonable web URL
-		// This handles cases like localhost or custom domains
-		return apiURL, nil
-	}
-
-	webURL := &url.URL{
-		Scheme: u.Scheme,
-		Host:   host,
-	}
-
-	return webURL.String(), nil
-}
-
-// openBrowser opens the specified URL in the default browser.
-func openBrowser(url string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
-
-	return cmd.Start()
+	return completeLogin(apiURL, result.APIKey, result.OrgID, result.OrgName)
 }
 
 // generateContextName creates a context name from the organization name and environment.
@@ -376,23 +172,33 @@ func extractEnvironment(apiURL string) string {
 
 // completeLogin verifies the API key, saves the configuration, and prints success.
 func completeLogin(apiURL, apiKey, orgID, orgName string) error {
-	// Verify API key works by calling /v1/user/me
+	// Verify API key works by calling /v1/cli-auth/verify
+	// This endpoint works with API keys (unlike /v1/user/me which requires JWT)
 	fmt.Print("Verifying credentials...")
 
 	c := client.New(apiKey, apiURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	userResp, err := client.GetCurrentUser(ctx, c)
+	verifyResp, err := client.VerifyCLICredentials(ctx, c)
 	if err != nil {
 		fmt.Println(" failed")
 		return fmt.Errorf("failed to verify API key: %w", err)
 	}
 	fmt.Println(" done")
 
-	// Use org name from callback or user's email domain as fallback
+	// Use org name from verify response if not provided in callback
+	if orgName == "" && verifyResp.OrganizationName != "" {
+		orgName = verifyResp.OrganizationName
+	}
+	// Use org ID from verify response if not provided in callback
+	if orgID == "" && verifyResp.OrganizationID != "" {
+		orgID = verifyResp.OrganizationID
+	}
+
+	// Fallback to "default" if still no org name
 	if orgName == "" {
-		orgName = extractOrgFromEmail(userResp.User.Email)
+		orgName = "default"
 	}
 
 	// Generate context name
@@ -436,10 +242,7 @@ func completeLogin(apiURL, apiKey, orgID, orgName string) error {
 	// Print success message
 	fmt.Println()
 	fmt.Printf("Successfully logged in!\n")
-	fmt.Printf("  User:         %s (%s)\n", userResp.User.GetDisplayName(), userResp.User.Email)
-	if orgName != "" {
-		fmt.Printf("  Organization: %s\n", orgName)
-	}
+	fmt.Printf("  Organization: %s\n", orgName)
 	fmt.Printf("  Context:      %s\n", contextName)
 	fmt.Printf("  API URL:      %s\n", apiURL)
 	fmt.Println()
@@ -470,7 +273,7 @@ func checkExistingAuth(apiURL string) error {
 
 			// Read user input
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 			response = strings.TrimSpace(strings.ToLower(response))
 
 			if response != "y" && response != "yes" {
@@ -483,47 +286,4 @@ func checkExistingAuth(apiURL string) error {
 	}
 
 	return nil
-}
-
-// extractOrgFromEmail extracts a default organization name from an email address.
-// Uses the domain name without TLD as the org name.
-func extractOrgFromEmail(email string) string {
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
-		return "default"
-	}
-
-	domain := parts[1]
-	domainParts := strings.Split(domain, ".")
-
-	if len(domainParts) >= 2 {
-		// Use the main domain part (e.g., "acme" from "acme.com")
-		return domainParts[0]
-	}
-
-	return domain
-}
-
-// extractIP extracts the IP address from a RemoteAddr string.
-// RemoteAddr may be "IP:port" or just "IP" for certain configurations.
-func extractIP(remoteAddr string) string {
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		// No port, return as-is
-		return remoteAddr
-	}
-	return host
-}
-
-// isLocalhost checks if an IP address is a localhost address.
-func isLocalhost(ip string) bool {
-	// Check for IPv4 localhost
-	if ip == "127.0.0.1" || strings.HasPrefix(ip, "127.") {
-		return true
-	}
-	// Check for IPv6 localhost
-	if ip == "::1" || ip == "[::1]" {
-		return true
-	}
-	return false
 }
