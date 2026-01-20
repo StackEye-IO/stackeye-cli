@@ -52,7 +52,7 @@ func TestNewAlertCmd_Long(t *testing.T) {
 	}
 
 	// Should list available subcommands
-	subcommands := []string{"list", "get", "ack", "resolve", "history"}
+	subcommands := []string{"list"}
 	for _, sub := range subcommands {
 		if !strings.Contains(long, sub) {
 			t.Errorf("expected Long description to mention %q subcommand", sub)
@@ -83,13 +83,11 @@ func TestNewAlertCmd_Aliases(t *testing.T) {
 func TestNewAlertCmd_Examples(t *testing.T) {
 	cmd := NewAlertCmd()
 
-	// Should have practical examples
+	// Should have practical examples for implemented commands
 	examples := []string{
 		"alert list",
-		"alert get",
-		"alert ack",
-		"alert resolve",
-		"alert history",
+		"alert list --severity critical",
+		"alert list --status active",
 	}
 
 	for _, example := range examples {

@@ -25,12 +25,8 @@ Alert Severities:
   warning       Degraded performance or minor issue
   info          Informational, no action required
 
-Alert Operations:
+Available Commands:
   list          List all alerts with optional filtering
-  get           Get detailed alert information
-  ack           Acknowledge an alert (mark as being investigated)
-  resolve       Resolve an alert (mark as fixed)
-  history       View alert timeline and notification history
 
 Examples:
   # List all active alerts
@@ -39,29 +35,19 @@ Examples:
   # List only critical alerts
   stackeye alert list --severity critical
 
-  # Get details for a specific alert
-  stackeye alert get abc123
+  # Filter by status
+  stackeye alert list --status active
 
-  # Acknowledge an alert with a note
-  stackeye alert ack abc123 --note "Investigating slow database queries"
-
-  # Resolve an alert
-  stackeye alert resolve abc123 --note "Fixed by restarting database connection pool"
-
-  # View alert timeline
-  stackeye alert history abc123
+  # Filter by probe
+  stackeye alert list --probe <uuid>
 
 For more information about a specific command:
   stackeye alert [command] --help`,
 		Aliases: []string{"alerts", "alerting"},
 	}
 
-	// Subcommands will be registered as they are implemented:
-	// cmd.AddCommand(NewAlertListCmd())
-	// cmd.AddCommand(NewAlertGetCmd())
-	// cmd.AddCommand(NewAlertAckCmd())
-	// cmd.AddCommand(NewAlertResolveCmd())
-	// cmd.AddCommand(NewAlertHistoryCmd())
+	// Register subcommands
+	cmd.AddCommand(NewAlertListCmd())
 
 	return cmd
 }
