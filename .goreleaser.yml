@@ -1,0 +1,146 @@
+# GoReleaser configuration for StackEye CLI
+# Documentation: https://goreleaser.com/customization/
+version: 2
+
+project_name: stackeye
+
+# Build configuration
+builds:
+  - id: stackeye
+    binary: stackeye
+    main: ./cmd/stackeye
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/StackEye-IO/stackeye-cli/internal/cmd.Version={{.Version}}
+      - -X github.com/StackEye-IO/stackeye-cli/internal/cmd.GitCommit={{.ShortCommit}}
+      - -X github.com/StackEye-IO/stackeye-cli/internal/cmd.BuildTime={{.Date}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows ARM64 not commonly needed
+      - goos: windows
+        goarch: arm64
+
+# Archive configuration
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+# Checksum configuration
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Snapshot configuration (for testing without tags)
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Other
+      order: 999
+
+# Release configuration
+release:
+  github:
+    owner: StackEye-IO
+    name: stackeye-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  name_template: "StackEye CLI v{{.Version}}"
+  header: |
+    ## StackEye CLI {{.Version}}
+
+    Install:
+    ```bash
+    # macOS (Homebrew)
+    brew install stackeye-io/tap/stackeye
+
+    # Linux/macOS (curl)
+    curl -fsSL https://get.stackeye.io/cli | sh
+
+    # Go install
+    go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@{{.Tag}}
+    ```
+
+# Homebrew tap configuration (Phase 5 - placeholder)
+# Uncomment and configure when ready to publish to Homebrew
+#
+# brews:
+#   - name: stackeye
+#     repository:
+#       owner: StackEye-IO
+#       name: homebrew-tap
+#       branch: main
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     folder: Formula
+#     homepage: https://stackeye.io
+#     description: "CLI for StackEye uptime monitoring platform"
+#     license: MIT
+#     install: |
+#       bin.install "stackeye"
+#     test: |
+#       system "#{bin}/stackeye", "version"
+#     dependencies:
+#       - name: git
+#         type: optional
+
+# Scoop manifest configuration (Phase 5 - placeholder)
+# Uncomment and configure when ready to publish to Scoop
+#
+# scoops:
+#   - repository:
+#       owner: StackEye-IO
+#       name: scoop-bucket
+#       branch: main
+#       token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+#     homepage: https://stackeye.io
+#     description: "CLI for StackEye uptime monitoring platform"
+#     license: MIT
+
+# Announce configuration (Phase 5 - placeholder)
+# Uncomment and configure when ready for release announcements
+#
+# announce:
+#   slack:
+#     enabled: false
+#     channel: "#releases"
