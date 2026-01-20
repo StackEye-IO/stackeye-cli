@@ -27,6 +27,7 @@ Alert Severities:
 
 Available Commands:
   list          List all alerts with optional filtering
+  get           Get detailed alert information by ID
 
 Examples:
   # List all active alerts
@@ -48,6 +49,7 @@ For more information about a specific command:
 
 	// Register subcommands
 	cmd.AddCommand(NewAlertListCmd())
+	cmd.AddCommand(NewAlertGetCmd())
 
 	return cmd
 }
