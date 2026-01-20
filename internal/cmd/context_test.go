@@ -500,18 +500,24 @@ func TestRunContextCurrent_NilContextValue(t *testing.T) {
 }
 
 func TestRunContextUse_Success(t *testing.T) {
+	// Use a temp directory for config to avoid writing to user's real config file.
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
 	// Create config with multiple contexts
 	cfg := config.NewConfig()
 	cfg.CurrentContext = "prod"
 	cfg.SetContext("prod", &config.Context{
 		APIURL:           "https://api.stackeye.io",
 		OrganizationName: "Acme Corp",
-		APIKey:           "se_test123",
+		APIKey:           "se_test12300000000000000000000000000000000000000000000000000000",
 	})
 	cfg.SetContext("dev", &config.Context{
 		APIURL:           "https://api.dev.stackeye.io",
 		OrganizationName: "Acme Dev",
-		APIKey:           "se_dev456",
+		APIKey:           "se_dev45600000000000000000000000000000000000000000000000000000",
 	})
 	loadedConfig = cfg
 
@@ -520,8 +526,6 @@ func TestRunContextUse_Success(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Note: This will try to save which may fail without proper setup,
-	// but we're testing the logic flow. In a real test we'd mock Save().
 	err := runContextUse("dev")
 
 	w.Close()
@@ -531,17 +535,18 @@ func TestRunContextUse_Success(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	// The save might fail in test environment, but if it succeeds...
-	if err == nil {
-		if cfg.CurrentContext != "dev" {
-			t.Errorf("expected CurrentContext to be 'dev', got %q", cfg.CurrentContext)
-		}
-		if !strings.Contains(output, "Switched to context") {
-			t.Errorf("expected output to contain 'Switched to context', got %q", output)
-		}
-		if !strings.Contains(output, "Acme Dev") {
-			t.Errorf("expected output to contain org name 'Acme Dev', got %q", output)
-		}
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if cfg.CurrentContext != "dev" {
+		t.Errorf("expected CurrentContext to be 'dev', got %q", cfg.CurrentContext)
+	}
+	if !strings.Contains(output, "Switched to context") {
+		t.Errorf("expected output to contain 'Switched to context', got %q", output)
+	}
+	if !strings.Contains(output, "Acme Dev") {
+		t.Errorf("expected output to contain org name 'Acme Dev', got %q", output)
 	}
 }
 
@@ -635,16 +640,23 @@ func TestRunContextUse_NilContext(t *testing.T) {
 }
 
 func TestRunContextUse_NoOrgName(t *testing.T) {
+	// Use a temp directory for config to avoid writing to user's real config file.
+	// This prevents the test from corrupting the user's actual configuration.
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
 	// Create config with context without org name
 	cfg := config.NewConfig()
 	cfg.CurrentContext = "default"
 	cfg.SetContext("default", &config.Context{
 		APIURL: "https://api.stackeye.io",
-		APIKey: "se_test123",
+		APIKey: "se_test12300000000000000000000000000000000000000000000000000000",
 	})
-	cfg.SetContext("other", &config.Context{
-		APIURL: "https://api.other.stackeye.io",
-		APIKey: "se_other456",
+	cfg.SetContext("staging", &config.Context{
+		APIURL: "https://api.staging.stackeye.io",
+		APIKey: "se_staging0000000000000000000000000000000000000000000000000000",
 		// No OrganizationName
 	})
 	loadedConfig = cfg
@@ -654,7 +666,7 @@ func TestRunContextUse_NoOrgName(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runContextUse("other")
+	err := runContextUse("staging")
 
 	w.Close()
 	os.Stdout = old
@@ -667,7 +679,7 @@ func TestRunContextUse_NoOrgName(t *testing.T) {
 	if err == nil {
 		if strings.Contains(output, "(") && strings.Contains(output, ")") {
 			// There should be no parentheses since there's no org name
-			// Actually let's check more specifically - there shouldn't be parens after "other"
+			// Actually let's check more specifically - there shouldn't be parens after "staging"
 			// This is a weak test but captures the intent
 		}
 		if !strings.Contains(output, "Switched to context") {
