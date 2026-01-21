@@ -1,5 +1,10 @@
 # StackEye CLI
 
+[![License](https://img.shields.io/github/license/StackEye-IO/stackeye-cli)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/StackEye-IO/stackeye-cli)](https://goreportcard.com/report/github.com/StackEye-IO/stackeye-cli)
+[![Release](https://img.shields.io/github/v/release/StackEye-IO/stackeye-cli)](https://github.com/StackEye-IO/stackeye-cli/releases/latest)
+[![CI](https://github.com/StackEye-IO/stackeye-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/StackEye-IO/stackeye-cli/actions/workflows/ci.yml)
+
 Command-line interface for [StackEye](https://stackeye.io) - the full-stack uptime monitoring platform.
 
 ## Overview
@@ -10,13 +15,69 @@ The StackEye CLI (`stackeye`) provides command-line access to the StackEye uptim
 - Browser-based authentication via OAuth
 - Multi-context configuration management
 - API key management
+- Probe management (list, create, update, delete, pause, resume)
+- Alert management (list, acknowledge, resolve)
+- Notification channel management
+- Organization switching
+- Dashboard view
 - Shell completion for bash, zsh, fish, and PowerShell
 
 ## Installation
 
+### Binary Downloads (Recommended)
+
+Download pre-built binaries from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases/latest):
+
+**macOS (Apple Silicon)**:
+```bash
+curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_darwin_arm64
+chmod +x stackeye
+sudo mv stackeye /usr/local/bin/
+```
+
+**macOS (Intel)**:
+```bash
+curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_darwin_amd64
+chmod +x stackeye
+sudo mv stackeye /usr/local/bin/
+```
+
+**Linux (x86_64)**:
+```bash
+curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_linux_amd64
+chmod +x stackeye
+sudo mv stackeye /usr/local/bin/
+```
+
+**Linux (ARM64)**:
+```bash
+curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_linux_arm64
+chmod +x stackeye
+sudo mv stackeye /usr/local/bin/
+```
+
+**Windows (PowerShell)**:
+```powershell
+# Download the executable
+Invoke-WebRequest -Uri https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_windows_amd64.exe -OutFile stackeye.exe
+
+# Move to a directory in your PATH (e.g., C:\Windows\System32 or create a custom bin folder)
+Move-Item stackeye.exe C:\Windows\System32\stackeye.exe
+```
+
+### Go Install
+
+If you have Go 1.25+ installed:
+
+```bash
+go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@latest
+```
+
+The binary will be installed to `$GOPATH/bin/stackeye` (or `$HOME/go/bin/stackeye` if `GOPATH` is not set).
+
 ### Build from Source
 
-Requires Go 1.22 or later:
+Requires Go 1.25 or later:
 
 ```bash
 # Clone the repository
@@ -35,10 +96,14 @@ sudo mv bin/stackeye /usr/local/bin/
 
 The following installation methods will be available in future releases:
 
-- **Homebrew (macOS)**: `brew install stackeye-io/tap/stackeye`
-- **Scoop (Windows)**: `scoop install stackeye`
-- **Binary Downloads**: Pre-built binaries for macOS, Linux, and Windows
-- **Go Install**: `go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@latest`
+| Method | Platform | Status |
+|--------|----------|--------|
+| Homebrew | macOS/Linux | `brew install stackeye-io/tap/stackeye` |
+| Scoop | Windows | `scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket && scoop install stackeye` |
+| APT | Debian/Ubuntu | `.deb` packages |
+| RPM | RHEL/Fedora | `.rpm` packages |
+| Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
+| Installer Script | macOS/Linux | `curl -fsSL https://get.stackeye.io/cli \| sh` |
 
 ## Quick Start
 
@@ -51,13 +116,16 @@ stackeye login
 # Output:
 # Opening browser to: https://stackeye.io/cli-auth?...
 # Waiting for authentication...
+# (If the browser doesn't open, visit the URL manually)
+#
 # Verifying credentials... done
 #
 # Successfully logged in!
-#   User:         John Doe (john@example.com)
-#   Organization: Example Corp
-#   Context:      example-corp
+#   Organization: {org_name}
+#   Context:      {context_name}
 #   API URL:      https://api.stackeye.io
+#
+# Credentials saved to: ~/.config/stackeye/config.yaml
 ```
 
 ### 2. Verify Authentication
@@ -67,9 +135,14 @@ stackeye login
 stackeye whoami
 
 # Output:
-# User: John Doe (john@example.com)
-# Organization: Example Corp (org_...)
-# Role: Admin
+#
+# User:         {user_email}
+# Name:         {user_name}
+#
+# Context:      {context_name}
+# Organization: {org_name} ({org_id})
+# API URL:      https://api.stackeye.io
+# Auth Type:    api_key
 ```
 
 ### 3. View Configuration
@@ -79,14 +152,17 @@ stackeye whoami
 stackeye config get
 
 # Output:
-# Current Context:    example-corp
+# Current Context:    {context_name}
 # API URL:            https://api.stackeye.io
 # API Key:            se_****...xxxx
-# Organization:       Example Corp
-# Config File:        /home/user/.config/stackeye/config.yaml
+# Organization:       {org_name}
+# Organization ID:    {org_id}
+# Config File:        ~/.config/stackeye/config.yaml
 ```
 
 ## Commands
+
+### Authentication & Configuration
 
 | Command | Description |
 |---------|-------------|
@@ -100,6 +176,54 @@ stackeye config get
 | `stackeye context current` | Display active context |
 | `stackeye completion <shell>` | Generate shell completion script |
 | `stackeye version` | Print version information |
+
+### Probe Management
+
+| Command | Description |
+|---------|-------------|
+| `stackeye probe list` | List all monitoring probes |
+| `stackeye probe get <id>` | Get probe details |
+| `stackeye probe create` | Create a new probe |
+| `stackeye probe update <id>` | Update probe configuration |
+| `stackeye probe delete <id>` | Delete a probe |
+| `stackeye probe pause <id>` | Pause probe monitoring |
+| `stackeye probe resume <id>` | Resume probe monitoring |
+| `stackeye probe test <id>` | Run an immediate probe check |
+| `stackeye probe history <id>` | View probe check history |
+| `stackeye probe stats <id>` | View probe statistics |
+
+### Alert Management
+
+| Command | Description |
+|---------|-------------|
+| `stackeye alert list` | List current alerts |
+| `stackeye alert get <id>` | Get alert details |
+| `stackeye alert ack <id>` | Acknowledge an alert |
+| `stackeye alert resolve <id>` | Resolve an alert |
+| `stackeye alert history` | View alert history |
+
+### Notification Channels
+
+| Command | Description |
+|---------|-------------|
+| `stackeye channel list` | List notification channels |
+| `stackeye channel get <id>` | Get channel details |
+| `stackeye channel create` | Create a notification channel |
+| `stackeye channel update <id>` | Update channel configuration |
+| `stackeye channel delete <id>` | Delete a channel |
+| `stackeye channel test <id>` | Send a test notification |
+
+### Organization & Dashboard
+
+| Command | Description |
+|---------|-------------|
+| `stackeye org list` | List accessible organizations |
+| `stackeye org get` | Get current organization details |
+| `stackeye org switch <id>` | Switch to a different organization |
+| `stackeye dashboard` | Display dashboard overview |
+| `stackeye region list` | List available monitoring regions |
+| `stackeye apikey list` | List API keys |
+| `stackeye apikey create` | Create a new API key |
 
 Run `stackeye --help` for complete command documentation.
 
@@ -175,8 +299,8 @@ stackeye context list
 
 # Output:
 #    NAME                 ORGANIZATION              API URL
-# *  example-corp         Example Corp              https://api.stackeye.io
-#    example-corp-dev     Example Corp              https://api.dev.stackeye.io
+# *  {context_name}       {org_name}                https://api.stackeye.io
+#    {context_name_dev}   {org_name}                https://api.dev.stackeye.io
 ```
 
 #### `stackeye context use`
@@ -184,7 +308,7 @@ stackeye context list
 Switch to a different context:
 
 ```bash
-stackeye context use example-corp-dev
+stackeye context use {context_name}
 ```
 
 #### `stackeye context current`
@@ -203,19 +327,19 @@ Configuration is stored in `~/.config/stackeye/config.yaml`:
 
 ```yaml
 # Current active context
-current_context: example-corp
+current_context: {context_name}
 
 # Configured contexts
 contexts:
-  example-corp:
+  {context_name}:
     api_url: https://api.stackeye.io
-    api_key: se_abc123...
-    organization_id: org_...
-    organization_name: Example Corp
-  example-corp-dev:
+    api_key: se_{api_key_suffix}
+    organization_id: {org_id}
+    organization_name: {org_name}
+  {context_name_dev}:
     api_url: https://api.dev.stackeye.io
-    api_key: se_def456...
-    organization_name: Example Corp
+    api_key: se_{api_key_suffix_dev}
+    organization_name: {org_name}
 
 # User preferences
 preferences:
@@ -312,13 +436,11 @@ stackeye completion powershell > stackeye.ps1
 
 Planned features for upcoming releases:
 
-- **Probe Management**: `stackeye probe list`, `create`, `update`, `delete`, `pause`, `resume`
-- **Alert Management**: `stackeye alert list`, `ack`, `resolve`
-- **Channel Management**: `stackeye channel list`, `create`, `test`
-- **Organization Switching**: `stackeye org list`, `switch`
-- **Status Pages**: `stackeye status list`, `create`
-- **Dashboard View**: `stackeye dashboard`
-- **Watch Mode**: `stackeye watch` for live updates
+- **Status Pages**: `stackeye status list`, `create`, `update`
+- **Watch Mode**: `stackeye watch` for live terminal updates
+- **Incident Management**: `stackeye incident list`, `create`, `update`
+- **Team Management**: `stackeye team list`, `invite`, `remove`
+- **Maintenance Windows**: `stackeye maintenance list`, `create`
 
 ## Contributing
 
@@ -346,6 +468,14 @@ make lint
 # Full validation
 make validate
 ```
+
+Submit issues and pull requests on [GitHub](https://github.com/StackEye-IO/stackeye-cli).
+
+## Support
+
+- **Documentation**: [docs.stackeye.io](https://docs.stackeye.io)
+- **Issues**: [GitHub Issues](https://github.com/StackEye-IO/stackeye-cli/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/StackEye-IO/stackeye-cli/discussions)
 
 ## License
 
