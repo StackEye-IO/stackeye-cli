@@ -48,6 +48,7 @@ For more information about a specific command:
 
 	// Register subcommands
 	cmd.AddCommand(NewMuteCreateCmd())
+	cmd.AddCommand(NewMuteListCmd())
 
 	return cmd
 }
