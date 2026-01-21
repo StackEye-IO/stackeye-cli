@@ -139,5 +139,5 @@ func runProbeList(ctx context.Context, flags *probeListFlags) error {
 	}
 
 	// Print the probes using the configured output format
-	return output.Print(result.Probes)
+	return output.PrintProbes(result.Probes)
 }
