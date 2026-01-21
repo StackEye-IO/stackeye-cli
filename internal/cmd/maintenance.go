@@ -40,6 +40,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewMaintenanceCreateCmd())
 	cmd.AddCommand(NewMaintenanceListCmd())
 	cmd.AddCommand(NewMaintenanceCalendarCmd())
+	cmd.AddCommand(NewMaintenanceDeleteCmd())
 
 	return cmd
 }
