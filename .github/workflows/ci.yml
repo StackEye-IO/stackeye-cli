@@ -26,17 +26,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout stackeye-go-sdk (sibling dependency)
-        uses: actions/checkout@v4
-        with:
-          repository: StackEye-IO/stackeye-go-sdk
-          path: ../stackeye-go-sdk
-
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Remove local replace directive for CI
+        run: |
+          # Remove the local replace directive - CI fetches from GitHub
+          sed -i '/replace github.com\/StackEye-IO\/stackeye-go-sdk/d' go.mod
+          go mod tidy
 
       - name: Download dependencies
         run: go mod download
