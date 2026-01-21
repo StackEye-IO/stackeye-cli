@@ -55,9 +55,9 @@ For more information about a specific command:
 		Aliases: []string{"apikey", "apikeys", "api-keys"},
 	}
 
-	// Subcommands will be registered here as they are implemented:
-	// cmd.AddCommand(NewAPIKeyListCmd())
-	// cmd.AddCommand(NewAPIKeyCreateCmd())
+	// Register subcommands
+	cmd.AddCommand(NewAPIKeyListCmd())
+	cmd.AddCommand(NewAPIKeyCreateCmd())
 	// cmd.AddCommand(NewAPIKeyRevokeCmd())
 
 	return cmd

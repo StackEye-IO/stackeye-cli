@@ -30,6 +30,7 @@ Available Commands:
   get           Get detailed alert information by ID
   ack           Acknowledge one or more alerts
   resolve       Resolve one or more alerts
+  history       Show historical (resolved) alerts
 
 Examples:
   # List all active alerts
@@ -54,6 +55,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewAlertGetCmd())
 	cmd.AddCommand(NewAlertAckCmd())
 	cmd.AddCommand(NewAlertResolveCmd())
+	cmd.AddCommand(NewAlertHistoryCmd())
 
 	return cmd
 }

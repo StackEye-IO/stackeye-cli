@@ -21,6 +21,7 @@ var (
 	configFile      string
 	contextOverride string
 	debugFlag       bool
+	verbosity       int // kubectl-style verbosity level (0-10)
 	outputFormat    string
 	noColor         bool
 	noInput         bool
@@ -59,6 +60,9 @@ func init() {
 	// Wire up the API client helper to use our config getter
 	api.SetConfigGetter(GetConfig)
 
+	// Wire up the API client helper to use our verbosity getter
+	api.SetVerbosityGetter(GetVerbosity)
+
 	// Wire up the output package to use our config getter
 	clioutput.SetConfigGetter(GetConfig)
 
@@ -81,7 +85,8 @@ func init() {
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&contextOverride, "context", "", "override current context from config")
-	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable debug output")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable debug output (shorthand for --v=6)")
+	rootCmd.PersistentFlags().IntVarP(&verbosity, "v", "v", 0, "verbosity level (0-10): 5=requests, 6=responses, 7+=headers, 9+=bodies")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "output format: table, json, yaml, wide")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "disable interactive prompts")
@@ -117,8 +122,14 @@ func loadConfig() error {
 		cfg.Preferences = config.NewPreferences()
 	}
 
+	// --debug flag is shorthand for --v=6
+	// Only apply if --v wasn't explicitly set
+	if debugFlag && verbosity == 0 {
+		verbosity = 6
+	}
+
 	// --debug flag overrides config preference
-	if debugFlag {
+	if debugFlag || verbosity > 0 {
 		cfg.Preferences.Debug = true
 	}
 
@@ -226,4 +237,21 @@ func ExecuteWithExitCode() int {
 // This is used by subcommand packages to register themselves.
 func RootCmd() *cobra.Command {
 	return rootCmd
+}
+
+// GetVerbosity returns the kubectl-style verbosity level (0-10).
+// Level meanings:
+//   - 0: Errors only (default)
+//   - 1: Warnings + errors
+//   - 2: Info messages
+//   - 3: Extended info (config/context details)
+//   - 4: Debug messages (internal flow)
+//   - 5: HTTP requests (method, URL, duration)
+//   - 6: HTTP responses (+ status code, body size)
+//   - 7: Request headers (redacted)
+//   - 8: Response headers
+//   - 9: Full bodies (truncated at 10KB)
+//   - 10: Trace (curl equivalent, timing breakdown)
+func GetVerbosity() int {
+	return verbosity
 }

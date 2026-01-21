@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -279,11 +280,12 @@ func verifyAPIKey(apiKey, apiURL string) error {
 
 	// Use default API URL if not set
 	if apiURL == "" {
-		apiURL = defaultAPIURL
+		apiURL = config.DefaultAPIURL
 	}
 
-	// Create client and call user endpoint
-	c := client.New(apiKey, apiURL)
+	// Create client with verbosity options
+	opts := api.GetClientOptions()
+	c := client.New(apiKey, apiURL, opts...)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

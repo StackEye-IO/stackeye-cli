@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -99,7 +101,7 @@ func runLogin(flags *loginFlags) error {
 	}
 
 	// Complete login (verify key, save config, print success)
-	return completeLogin(apiURL, result.APIKey, result.OrgID, result.OrgName)
+	return completeLogin(apiURL, result.APIKey, result.OrgID, result.OrgName, flags.debug)
 }
 
 // generateContextName creates a context name from the organization name and environment.
@@ -171,12 +173,35 @@ func extractEnvironment(apiURL string) string {
 }
 
 // completeLogin verifies the API key, saves the configuration, and prints success.
-func completeLogin(apiURL, apiKey, orgID, orgName string) error {
+func completeLogin(apiURL, apiKey, orgID, orgName string, debug bool) error {
 	// Verify API key works by calling /v1/cli-auth/verify
 	// This endpoint works with API keys (unlike /v1/user/me which requires JWT)
 	fmt.Print("Verifying credentials...")
 
-	c := client.New(apiKey, apiURL)
+	// Debug: show what we're about to verify
+	if debug {
+		fmt.Println()
+		fmt.Printf("[debug] API URL: %s\n", apiURL)
+		fmt.Printf("[debug] API Key length: %d\n", len(apiKey))
+		if len(apiKey) > 10 {
+			fmt.Printf("[debug] API Key prefix: %s...\n", apiKey[:10])
+		} else {
+			fmt.Printf("[debug] API Key: %s (short key)\n", apiKey)
+		}
+		fmt.Printf("[debug] Org ID from callback: %s\n", orgID)
+		fmt.Printf("[debug] Org Name from callback: %s\n", orgName)
+	}
+
+	// Create client with verbosity options
+	// Use global verbosity flag, or if local debug flag is set, use verbosity 6
+	var opts []client.Option
+	if GetVerbosity() > 0 {
+		opts = api.GetClientOptions()
+	} else if debug {
+		// Local --debug flag is shorthand for --v=6
+		opts = append(opts, client.WithVerbosity(6, os.Stderr))
+	}
+	c := client.New(apiKey, apiURL, opts...)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -14,6 +14,32 @@ import (
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
 
+// verbosityGetter is the interface for getting the verbosity level.
+// This allows for testing by providing a mock verbosity getter.
+type verbosityGetter func() int
+
+// currentVerbosityGetter returns 0 - subcommands should provide their own.
+// This is overridden via SetVerbosityGetter in init or tests.
+var currentVerbosityGetter verbosityGetter
+
+// SetVerbosityGetter sets the function used to get the verbosity level.
+// This should be called during CLI initialization to wire up the verbosity flag.
+//
+// Example usage in root.go init():
+//
+//	api.SetVerbosityGetter(GetVerbosity)
+func SetVerbosityGetter(getter func() int) {
+	currentVerbosityGetter = getter
+}
+
+// getVerbosity returns the current verbosity level, or 0 if not configured.
+func getVerbosity() int {
+	if currentVerbosityGetter == nil {
+		return 0
+	}
+	return currentVerbosityGetter()
+}
+
 // Error types for API client initialization failures.
 var (
 	// ErrConfigNotLoaded is returned when GetClient is called before config is loaded.
@@ -97,9 +123,35 @@ func GetClient() (*client.Client, error) {
 		return nil, fmt.Errorf("%w: %q", ErrNoAPIKey, cfg.CurrentContext)
 	}
 
-	// Create and return the SDK client
-	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL())
+	// Create client with optional verbosity logging
+	opts := buildClientOptions()
+	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL(), opts...)
 	return apiClient, nil
+}
+
+// buildClientOptions creates SDK client options based on current settings.
+func buildClientOptions() []client.Option {
+	var opts []client.Option
+
+	// Add verbosity logging if enabled
+	verbosity := getVerbosity()
+	if verbosity > 0 {
+		opts = append(opts, client.WithVerbosity(verbosity, os.Stderr))
+	}
+
+	return opts
+}
+
+// GetClientOptions returns SDK client options for use by commands that create
+// clients directly (e.g., login, config set-api-key). This allows them to
+// use verbosity logging without going through GetClient().
+//
+// Example:
+//
+//	opts := api.GetClientOptions()
+//	c := client.New(apiKey, apiURL, opts...)
+func GetClientOptions() []client.Option {
+	return buildClientOptions()
 }
 
 // RequireClient creates and returns an SDK client, exiting on error.
@@ -171,7 +223,8 @@ func GetClientWithContext(contextName string) (*client.Client, error) {
 		return nil, fmt.Errorf("%w: %q", ErrNoAPIKey, contextName)
 	}
 
-	// Create and return the SDK client
-	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL())
+	// Create client with optional verbosity logging
+	opts := buildClientOptions()
+	apiClient := client.New(ctx.APIKey, ctx.EffectiveAPIURL(), opts...)
 	return apiClient, nil
 }
