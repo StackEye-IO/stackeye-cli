@@ -26,6 +26,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout stackeye-go-sdk (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: StackEye-IO/stackeye-go-sdk
+          path: ../stackeye-go-sdk
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
