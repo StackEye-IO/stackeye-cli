@@ -42,7 +42,8 @@ jobs:
       - name: Update replace directive for CI
         run: |
           # Point to checked-out SDK instead of sibling directory
-          sed -i 's|../stackeye-go-sdk|./.sdk|' go.mod
+          # Escape dots to prevent regex matching the module path
+          sed -i 's|\.\./stackeye-go-sdk|./.sdk|' go.mod
           go mod tidy
 
       - name: Download dependencies
