@@ -1,0 +1,15 @@
+# Lefthook configuration for StackEye CLI
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: false
+  commands:
+    validate-quick:
+      run: make validate-quick
+      stage_fixed: true
+
+pre-push:
+  parallel: false
+  commands:
+    validate:
+      run: make validate
