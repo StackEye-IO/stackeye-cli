@@ -66,8 +66,8 @@ For more information about a specific command:
 		Aliases: []string{"sp", "statuspage"},
 	}
 
-	// Subcommands will be registered here as they are implemented:
-	// cmd.AddCommand(NewStatusPageListCmd())
+	// Register subcommands
+	cmd.AddCommand(NewStatusPageListCmd())
 	// cmd.AddCommand(NewStatusPageGetCmd())
 	// cmd.AddCommand(NewStatusPageCreateCmd())
 	// cmd.AddCommand(NewStatusPageUpdateCmd())
