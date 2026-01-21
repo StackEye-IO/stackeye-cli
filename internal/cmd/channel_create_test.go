@@ -608,7 +608,7 @@ func TestBuildRequestFromFlags_Validation(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 		if req == nil {
-			t.Error("expected request to be non-nil")
+			t.Fatal("expected request to be non-nil")
 		}
 		if req.Name != "Test Email" {
 			t.Errorf("expected name 'Test Email', got %q", req.Name)
@@ -630,7 +630,7 @@ func TestBuildRequestFromFlags_Validation(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 		if req == nil {
-			t.Error("expected request to be non-nil")
+			t.Fatal("expected request to be non-nil")
 		}
 		if req.Type != client.ChannelTypeSlack {
 			t.Errorf("expected type slack, got %q", req.Type)

@@ -61,7 +61,7 @@ func TestRunContextList_NoContexts(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "No contexts configured") {
@@ -102,7 +102,7 @@ func TestRunContextList_WithContexts(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check header
@@ -163,7 +163,7 @@ func TestRunContextList_NoOrgName(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check that (not set) is displayed for missing org name
@@ -211,7 +211,7 @@ func TestRunContextList_DefaultAPIURL(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check that default API URL is shown
@@ -248,7 +248,7 @@ func TestRunContextList_NilContextValue(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Should list valid context without panicking
@@ -286,7 +286,7 @@ func TestRunContextList_LongNames(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Should contain truncated name with ellipsis
@@ -348,7 +348,7 @@ func TestRunContextCurrent_Success(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check context name is displayed
@@ -387,7 +387,7 @@ func TestRunContextCurrent_NoCurrentContext(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check helpful message is displayed
@@ -438,7 +438,7 @@ func TestRunContextCurrent_NoOrgName(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check that (not set) is displayed for missing org name
@@ -473,7 +473,7 @@ func TestRunContextCurrent_DefaultAPIURL(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Check that default API URL is shown
@@ -532,7 +532,7 @@ func TestRunContextUse_Success(t *testing.T) {
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if err != nil {
@@ -576,7 +576,7 @@ func TestRunContextUse_AlreadyUsing(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "Already using context") {
@@ -672,15 +672,14 @@ func TestRunContextUse_NoOrgName(t *testing.T) {
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Save might fail, but if it succeeds, output should not have org name in parens
 	if err == nil {
+		// Check that no parentheses appear (since there's no org name set)
 		if strings.Contains(output, "(") && strings.Contains(output, ")") {
-			// There should be no parentheses since there's no org name
-			// Actually let's check more specifically - there shouldn't be parens after "staging"
-			// This is a weak test but captures the intent
+			t.Error("expected output not to contain parentheses when org name is not set")
 		}
 		if !strings.Contains(output, "Switched to context") {
 			t.Errorf("expected output to contain 'Switched to context', got %q", output)
