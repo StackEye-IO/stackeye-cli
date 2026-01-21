@@ -51,6 +51,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewMuteListCmd())
 	cmd.AddCommand(NewMuteGetCmd())
 	cmd.AddCommand(NewMuteDeleteCmd())
+	cmd.AddCommand(NewMuteExpireCmd())
 
 	return cmd
 }
