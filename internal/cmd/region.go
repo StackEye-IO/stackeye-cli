@@ -31,6 +31,7 @@ Use 'stackeye region [command] --help' for information about available subcomman
 
 	// Register subcommands
 	cmd.AddCommand(NewRegionListCmd())
+	cmd.AddCommand(NewRegionStatusCmd())
 
 	return cmd
 }
