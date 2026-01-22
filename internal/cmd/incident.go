@@ -53,6 +53,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewIncidentCreateCmd())
 	cmd.AddCommand(NewIncidentUpdateCmd())
 	cmd.AddCommand(NewIncidentResolveCmd())
+	cmd.AddCommand(NewIncidentDeleteCmd())
 
 	return cmd
 }
