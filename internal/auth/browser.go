@@ -66,9 +66,9 @@ func BuildWebUIURL(apiURL, callbackURL string) (string, error) {
 // APIURLToWebURL converts an API URL to the corresponding web UI URL.
 //
 // Transformations based on actual infrastructure:
-//   - api.stackeye.io -> stackeye.io (production)
-//   - api-dev.stackeye.io -> dev.stackeye.io
-//   - api-stg.stackeye.io -> staging.stackeye.io
+//   - api.stackeye.io -> app.stackeye.io (production)
+//   - api-dev.stackeye.io -> app-dev.stackeye.io
+//   - api-staging.stackeye.io -> app-staging.stackeye.io
 //
 // For non-standard URLs (e.g., localhost, custom domains), returns unchanged.
 func APIURLToWebURL(apiURL string) (string, error) {
@@ -84,23 +84,18 @@ func APIURLToWebURL(apiURL string) (string, error) {
 	host := u.Host
 	originalHost := host
 
-	// Production: api.stackeye.io -> stackeye.io
+	// Production: api.stackeye.io -> app.stackeye.io
 	if host == "api.stackeye.io" {
-		host = "stackeye.io"
+		host = "app.stackeye.io"
 		debugf("APIURLToWebURL: production transformation: %s -> %s", originalHost, host)
 	} else if strings.HasPrefix(host, "api-") && strings.HasSuffix(host, ".stackeye.io") {
-		// Environment-specific: api-dev.stackeye.io -> dev.stackeye.io
-		//                       api-stg.stackeye.io -> staging.stackeye.io
+		// Environment-specific: api-dev.stackeye.io -> app-dev.stackeye.io
+		//                       api-staging.stackeye.io -> app-staging.stackeye.io
 		env := strings.TrimPrefix(host, "api-")
 		env = strings.TrimSuffix(env, ".stackeye.io")
 		debugf("APIURLToWebURL: extracted environment=%s", env)
 
-		// Map 'stg' to 'staging' for the web URL
-		if env == "stg" {
-			env = "staging"
-			debugf("APIURLToWebURL: mapped stg -> staging")
-		}
-		host = env + ".stackeye.io"
+		host = "app-" + env + ".stackeye.io"
 		debugf("APIURLToWebURL: env transformation: %s -> %s", originalHost, host)
 	} else {
 		// For non-standard URLs (localhost, custom domains), return unchanged

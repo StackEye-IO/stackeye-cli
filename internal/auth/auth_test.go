@@ -22,21 +22,21 @@ func TestBuildWebUIURL(t *testing.T) {
 			name:        "production API",
 			apiURL:      "https://api.stackeye.io",
 			callbackURL: "http://127.0.0.1:12345/callback",
-			want:        "https://stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A12345%2Fcallback",
+			want:        "https://app.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A12345%2Fcallback",
 			wantErr:     false,
 		},
 		{
 			name:        "dev API",
 			apiURL:      "https://api-dev.stackeye.io",
 			callbackURL: "http://127.0.0.1:54321/callback",
-			want:        "https://dev.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A54321%2Fcallback",
+			want:        "https://app-dev.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A54321%2Fcallback",
 			wantErr:     false,
 		},
 		{
 			name:        "staging API",
-			apiURL:      "https://api-stg.stackeye.io",
+			apiURL:      "https://api-staging.stackeye.io",
 			callbackURL: "http://127.0.0.1:8080/callback",
-			want:        "https://staging.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A8080%2Fcallback",
+			want:        "https://app-staging.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A8080%2Fcallback",
 			wantErr:     false,
 		},
 		{
@@ -72,19 +72,19 @@ func TestAPIURLToWebURL(t *testing.T) {
 		{
 			name:    "production",
 			apiURL:  "https://api.stackeye.io",
-			want:    "https://stackeye.io",
+			want:    "https://app.stackeye.io",
 			wantErr: false,
 		},
 		{
 			name:    "dev environment",
 			apiURL:  "https://api-dev.stackeye.io",
-			want:    "https://dev.stackeye.io",
+			want:    "https://app-dev.stackeye.io",
 			wantErr: false,
 		},
 		{
 			name:    "staging environment",
-			apiURL:  "https://api-stg.stackeye.io",
-			want:    "https://staging.stackeye.io",
+			apiURL:  "https://api-staging.stackeye.io",
+			want:    "https://app-staging.stackeye.io",
 			wantErr: false,
 		},
 		{
@@ -102,7 +102,7 @@ func TestAPIURLToWebURL(t *testing.T) {
 		{
 			name:    "http scheme preserved",
 			apiURL:  "http://api.stackeye.io",
-			want:    "http://stackeye.io",
+			want:    "http://app.stackeye.io",
 			wantErr: false,
 		},
 	}
