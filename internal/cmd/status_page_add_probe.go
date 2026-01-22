@@ -9,6 +9,7 @@ import (
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -76,9 +77,13 @@ func runStatusPageAddProbe(ctx context.Context, idArg string, flags *statusPageA
 		return fmt.Errorf("invalid status page ID %q: must be a positive integer", idArg)
 	}
 
-	// Validate probe ID is provided (Cobra should enforce this, but double-check)
+	// Validate probe ID is provided and is a valid UUID
 	if flags.probeID == "" {
 		return fmt.Errorf("--probe-id is required")
+	}
+
+	if _, err := uuid.Parse(flags.probeID); err != nil {
+		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", flags.probeID)
 	}
 
 	// Get authenticated API client

@@ -129,6 +129,21 @@ func TestStatusPageAddProbeCmd_InvalidID(t *testing.T) {
 	}
 }
 
+func TestStatusPageAddProbeCmd_InvalidProbeUUID(t *testing.T) {
+	cmd := NewStatusPageAddProbeCmd()
+	cmd.SetArgs([]string{"123", "--probe-id", "not-a-valid-uuid"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("Expected error for invalid probe UUID, got nil")
+	}
+
+	expectedMsg := "invalid probe ID"
+	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
+		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
+	}
+}
+
 func TestStatusPageAddProbeCmd_NegativeID(t *testing.T) {
 	cmd := NewStatusPageAddProbeCmd()
 	// Use "--" to signal end of flags so "-1" is treated as positional argument

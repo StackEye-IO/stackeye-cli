@@ -73,7 +73,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewStatusPageUpdateCmd())
 	cmd.AddCommand(NewStatusPageDeleteCmd())
 	cmd.AddCommand(NewStatusPageAddProbeCmd())
-	// cmd.AddCommand(NewStatusPageRemoveProbeCmd())
+	cmd.AddCommand(NewStatusPageRemoveProbeCmd())
 	// cmd.AddCommand(NewStatusPageReorderProbesCmd())
 	// cmd.AddCommand(NewStatusPageGetStatusCmd())
 	// cmd.AddCommand(NewStatusPageDomainVerifyCmd())
