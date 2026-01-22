@@ -51,6 +51,7 @@ For more information about a specific command:
 	// Register subcommands
 	cmd.AddCommand(NewIncidentListCmd())
 	cmd.AddCommand(NewIncidentCreateCmd())
+	cmd.AddCommand(NewIncidentUpdateCmd())
 
 	return cmd
 }
