@@ -101,6 +101,10 @@ type Options struct {
 	// OnWaiting is called while waiting for the browser callback.
 	// If nil, a default message is printed to stdout.
 	OnWaiting func()
+
+	// SkipBrowserOpen prevents the actual browser from opening.
+	// Useful for testing - the OnBrowserOpen callback is still called.
+	SkipBrowserOpen bool
 }
 
 // Result holds the authentication result from a successful browser login.
@@ -196,10 +200,12 @@ func BrowserLoginWithContext(ctx context.Context, opts Options) (*Result, error)
 		fmt.Printf("Opening browser to: %s\n", webUIURL)
 	}
 
-	// Open browser
-	if err := OpenBrowser(webUIURL); err != nil {
-		fmt.Printf("Warning: could not open browser: %v\n", err)
-		fmt.Printf("Please visit: %s\n", webUIURL)
+	// Open browser (unless skipped for testing)
+	if !opts.SkipBrowserOpen {
+		if err := OpenBrowser(webUIURL); err != nil {
+			fmt.Printf("Warning: could not open browser: %v\n", err)
+			fmt.Printf("Please visit: %s\n", webUIURL)
+		}
 	}
 
 	// Notify about waiting

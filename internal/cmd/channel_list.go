@@ -186,5 +186,5 @@ func runChannelList(ctx context.Context, flags *channelListFlags) error {
 	}
 
 	// Print the channels using the configured output format
-	return output.Print(result.Channels)
+	return output.PrintChannels(result.Channels)
 }

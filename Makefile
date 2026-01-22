@@ -2,7 +2,7 @@
 # Build, test, and lint targets for the CLI
 
 .PHONY: all build build-all build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64 build-windows-amd64 \
-        build-local install clean test test-verbose coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy help
+        build-local install clean test test-verbose test-e2e test-integration coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy help
 
 # Go parameters
 GOCMD=go
@@ -133,6 +133,17 @@ test:
 test-verbose:
 	@echo "Running tests (verbose)..."
 	$(GOTEST) -race -v $(PACKAGES)
+
+## test-e2e: Run end-to-end tests (requires binary to be built first)
+test-e2e: build
+	@echo "Running E2E tests..."
+	$(GOTEST) -race -v ./test/e2e/...
+
+## test-integration: Run integration tests against live dev API (requires login first)
+test-integration: build
+	@echo "Running integration tests against live API..."
+	@echo "Note: Run 'stackeye login --api-url https://api-dev.stackeye.io' first"
+	STACKEYE_E2E_LIVE=true $(GOTEST) -race -v -tags=integration -count=1 ./test/e2e/...
 
 ## coverage: Generate coverage report
 coverage:

@@ -58,7 +58,7 @@ For more information about a specific command:
 	// Register subcommands
 	cmd.AddCommand(NewAPIKeyListCmd())
 	cmd.AddCommand(NewAPIKeyCreateCmd())
-	// cmd.AddCommand(NewAPIKeyRevokeCmd())
+	cmd.AddCommand(NewAPIKeyDeleteCmd())
 
 	return cmd
 }

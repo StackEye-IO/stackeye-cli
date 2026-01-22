@@ -161,5 +161,5 @@ func runAlertList(ctx context.Context, flags *alertListFlags) error {
 	}
 
 	// Print the alerts using the configured output format
-	return output.Print(result.Alerts)
+	return output.PrintAlerts(result.Alerts)
 }

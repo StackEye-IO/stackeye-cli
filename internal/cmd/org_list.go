@@ -73,5 +73,5 @@ func runOrgList(ctx context.Context) error {
 	}
 
 	// Print the organizations using the configured output format
-	return output.Print(result.Organizations)
+	return output.PrintOrganizations(result.Organizations)
 }

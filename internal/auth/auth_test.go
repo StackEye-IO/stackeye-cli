@@ -278,8 +278,9 @@ func TestBrowserLoginWithContext_Timeout(t *testing.T) {
 	defer cancel()
 
 	_, err := BrowserLoginWithContext(ctx, Options{
-		APIURL:  "https://api.stackeye.io",
-		Timeout: 50 * time.Millisecond,
+		APIURL:          "https://api.stackeye.io",
+		Timeout:         50 * time.Millisecond,
+		SkipBrowserOpen: true,
 		OnBrowserOpen: func(url string) {
 			// Don't actually open browser in tests
 		},
@@ -305,8 +306,9 @@ func TestBrowserLoginWithContext_Canceled(t *testing.T) {
 	cancel()
 
 	_, err := BrowserLoginWithContext(ctx, Options{
-		APIURL:  "https://api.stackeye.io",
-		Timeout: 5 * time.Minute,
+		APIURL:          "https://api.stackeye.io",
+		Timeout:         5 * time.Minute,
+		SkipBrowserOpen: true,
 		OnBrowserOpen: func(url string) {
 			// Don't actually open browser in tests
 		},
@@ -511,8 +513,9 @@ func TestMaskAPIKey(t *testing.T) {
 // Example shows basic usage of the auth package.
 func Example() {
 	result, err := BrowserLogin(Options{
-		APIURL:  "https://api.stackeye.io",
-		Timeout: 5 * time.Minute,
+		APIURL:          "https://api.stackeye.io",
+		Timeout:         5 * time.Minute,
+		SkipBrowserOpen: true, // Skip browser in tests
 		OnBrowserOpen: func(url string) {
 			fmt.Printf("Please visit: %s\n", url)
 		},
