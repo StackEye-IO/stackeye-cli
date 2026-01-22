@@ -69,9 +69,9 @@ For more information about a specific command:
 	// Register subcommands
 	cmd.AddCommand(NewStatusPageListCmd())
 	cmd.AddCommand(NewStatusPageGetCmd())
-	// cmd.AddCommand(NewStatusPageCreateCmd())
-	// cmd.AddCommand(NewStatusPageUpdateCmd())
-	// cmd.AddCommand(NewStatusPageDeleteCmd())
+	cmd.AddCommand(NewStatusPageCreateCmd())
+	cmd.AddCommand(NewStatusPageUpdateCmd())
+	cmd.AddCommand(NewStatusPageDeleteCmd())
 	// cmd.AddCommand(NewStatusPageAddProbeCmd())
 	// cmd.AddCommand(NewStatusPageRemoveProbeCmd())
 	// cmd.AddCommand(NewStatusPageReorderProbesCmd())
