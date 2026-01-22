@@ -53,7 +53,7 @@ Examples:
   stackeye status-page remove-probe 123 --probe-id <uuid>
 
   # Reorder probes on a status page
-  stackeye status-page reorder-probes 123 --probe-id <uuid1>,<uuid2>,<uuid3>
+  stackeye status-page reorder-probes 123 --probe-ids <uuid1>,<uuid2>,<uuid3>
 
   # Get aggregated status for a status page
   stackeye status-page get-status 123
@@ -74,7 +74,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewStatusPageDeleteCmd())
 	cmd.AddCommand(NewStatusPageAddProbeCmd())
 	cmd.AddCommand(NewStatusPageRemoveProbeCmd())
-	// cmd.AddCommand(NewStatusPageReorderProbesCmd())
+	cmd.AddCommand(NewStatusPageReorderProbesCmd())
 	// cmd.AddCommand(NewStatusPageGetStatusCmd())
 	// cmd.AddCommand(NewStatusPageDomainVerifyCmd())
 
