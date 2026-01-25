@@ -77,6 +77,11 @@ func TestNewAdminM2MKeyGetCmd_Flags(t *testing.T) {
 	if idFlag.DefValue != "" {
 		t.Errorf("expected --id flag to have no default value, got %q", idFlag.DefValue)
 	}
+
+	// Verify the -i shorthand is configured
+	if idFlag.Shorthand != "i" {
+		t.Errorf("expected --id shorthand to be 'i', got %q", idFlag.Shorthand)
+	}
 }
 
 // TestNewAdminM2MKeyGetCmd_RunEIsSet verifies that RunE is properly configured.

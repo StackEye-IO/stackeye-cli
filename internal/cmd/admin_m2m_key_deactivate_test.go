@@ -80,6 +80,11 @@ func TestNewAdminM2MKeyDeactivateCmd_Flags(t *testing.T) {
 	if !strings.Contains(strings.ToLower(idFlag.Usage), "required") {
 		t.Error("expected --id flag usage to indicate it's required")
 	}
+
+	// Verify the -i shorthand is configured
+	if idFlag.Shorthand != "i" {
+		t.Errorf("expected --id shorthand to be 'i', got %q", idFlag.Shorthand)
+	}
 }
 
 // TestNewAdminM2MKeyDeactivateCmd_RunEIsSet verifies that RunE is properly configured.

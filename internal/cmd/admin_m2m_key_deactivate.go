@@ -42,7 +42,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&keyID, "id", "", "M2M key ID to deactivate (required)")
+	cmd.Flags().StringVarP(&keyID, "id", "i", "", "M2M key ID to deactivate (required)")
 	_ = cmd.MarkFlagRequired("id")
 
 	return cmd
