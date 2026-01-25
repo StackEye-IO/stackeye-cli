@@ -135,6 +135,44 @@ func PrintInvitation(invitation *client.Invitation) error {
 	return printer.Print(row)
 }
 
+// InvitationRevokedResponse is returned for JSON/YAML output when revoking an invitation.
+type InvitationRevokedResponse struct {
+	InvitationID string `json:"invitation_id"`
+	Email        string `json:"email"`
+	Revoked      bool   `json:"revoked"`
+}
+
+// PrintInvitationRevoked prints a success message after revoking an invitation.
+// For JSON/YAML formats, it outputs a structured response object.
+// For table format, it prints a human-friendly success message.
+func PrintInvitationRevoked(invitationID, email string) error {
+	printer := getPrinter()
+
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		result := &InvitationRevokedResponse{
+			InvitationID: invitationID,
+			Email:        email,
+			Revoked:      true,
+		}
+		return printer.Print(result)
+	}
+
+	// For table output, print a success message
+	fmt.Println()
+	fmt.Println("Invitation revoked successfully!")
+	fmt.Println()
+	fmt.Printf("  Invitation ID: %s\n", invitationID)
+	if email != "" {
+		fmt.Printf("  Email:         %s\n", email)
+	}
+	fmt.Println()
+	fmt.Println("The invitation can no longer be used to join your organization.")
+	fmt.Println()
+
+	return nil
+}
+
 // PrintInvitationCreated prints a success message after creating an invitation.
 // For JSON/YAML formats, it outputs the full invitation object.
 // For table format, it prints a human-friendly success message.
