@@ -37,6 +37,7 @@ Examples:
 	// Register subcommands
 	cmd.AddCommand(NewBillingInfoCmd())
 	cmd.AddCommand(NewBillingUsageCmd())
+	cmd.AddCommand(NewBillingInvoicesCmd())
 
 	return cmd
 }
