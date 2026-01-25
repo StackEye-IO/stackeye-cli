@@ -2,6 +2,7 @@
 package output
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -134,4 +135,26 @@ func PrintTeamMember(member client.TeamMember) error {
 	row := formatter.FormatTeamMember(member)
 
 	return printer.Print(row)
+}
+
+// PrintRoleUpdated prints a success message after updating a member's role.
+// For JSON/YAML formats, it outputs the full response object.
+// For table format, it prints a human-friendly success message.
+func PrintRoleUpdated(result *client.UpdateMemberRoleResponse) error {
+	printer := getPrinter()
+
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		return printer.Print(result)
+	}
+
+	// For table output, print a success message
+	fmt.Println()
+	fmt.Println("Role updated successfully!")
+	fmt.Println()
+	fmt.Printf("  Member ID: %d\n", result.MemberID)
+	fmt.Printf("  New Role:  %s\n", formatTeamRole(string(result.NewRole)))
+	fmt.Println()
+
+	return nil
 }

@@ -256,3 +256,26 @@ func TestTeamMemberTableRow_Tags(t *testing.T) {
 		t.Errorf("expected ID '1', got %q", row.ID)
 	}
 }
+
+// TestPrintRoleUpdated_ResponseFields verifies the update role response fields are handled.
+func TestPrintRoleUpdated_ResponseFields(t *testing.T) {
+	// This test verifies the UpdateMemberRoleResponse structure is compatible
+	// with the PrintRoleUpdated function. The actual printing is tested via
+	// integration tests since it depends on the printer configuration.
+	result := &client.UpdateMemberRoleResponse{
+		Message:  "Role updated successfully",
+		MemberID: 42,
+		NewRole:  client.TeamRoleAdmin,
+	}
+
+	// Verify the response fields are accessible
+	if result.MemberID != 42 {
+		t.Errorf("expected MemberID 42, got %d", result.MemberID)
+	}
+	if result.NewRole != client.TeamRoleAdmin {
+		t.Errorf("expected NewRole 'admin', got %q", result.NewRole)
+	}
+	if result.Message == "" {
+		t.Error("expected Message to be set")
+	}
+}

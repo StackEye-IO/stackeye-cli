@@ -28,6 +28,7 @@ Use 'stackeye team [command] --help' for information about available subcommands
 	// Register subcommands
 	cmd.AddCommand(NewTeamListCmd())
 	cmd.AddCommand(NewTeamInviteCmd())
+	cmd.AddCommand(NewTeamUpdateRoleCmd())
 
 	return cmd
 }
