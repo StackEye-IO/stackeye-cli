@@ -22,6 +22,7 @@ access to system-wide management features including:
 
 Commands:
   worker-key  Manage worker authentication keys
+  m2m-key     Manage machine-to-machine keys
 
 Examples:
   # List all worker keys
@@ -31,12 +32,16 @@ Examples:
   stackeye admin worker-key create --region nyc3
 
   # Check worker health status
-  stackeye admin worker-key health`,
+  stackeye admin worker-key health
+
+  # List all M2M keys
+  stackeye admin m2m-key list`,
 		Aliases: []string{"adm"},
 	}
 
 	// Register subcommands
 	cmd.AddCommand(NewAdminWorkerKeyCmd())
+	cmd.AddCommand(NewAdminM2MKeyCmd())
 
 	return cmd
 }
