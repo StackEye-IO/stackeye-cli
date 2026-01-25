@@ -19,7 +19,7 @@ Commands:
   create  Create a new worker key for a region
   delete  Delete a worker key permanently
   list    List all worker keys (future)
-  health  Check worker health status (future)
+  health  Check worker health status
 
 Examples:
   # Create a new worker key for NYC region
@@ -33,6 +33,7 @@ Examples:
 	// Register subcommands
 	cmd.AddCommand(NewAdminWorkerKeyCreateCmd())
 	cmd.AddCommand(NewAdminWorkerKeyDeleteCmd())
+	cmd.AddCommand(NewAdminWorkerKeyHealthCmd())
 
 	return cmd
 }
