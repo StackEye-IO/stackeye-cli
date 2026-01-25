@@ -17,8 +17,8 @@ central API server.
 
 Commands:
   create  Create a new worker key for a region
+  delete  Delete a worker key permanently
   list    List all worker keys (future)
-  delete  Delete a worker key (future)
   health  Check worker health status (future)
 
 Examples:
@@ -32,6 +32,7 @@ Examples:
 
 	// Register subcommands
 	cmd.AddCommand(NewAdminWorkerKeyCreateCmd())
+	cmd.AddCommand(NewAdminWorkerKeyDeleteCmd())
 
 	return cmd
 }
