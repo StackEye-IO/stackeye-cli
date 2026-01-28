@@ -24,45 +24,73 @@ The StackEye CLI (`stackeye`) provides command-line access to the StackEye uptim
 
 ## Installation
 
-### Binary Downloads (Recommended)
+### Installer Script (Recommended for macOS/Linux)
 
-Download pre-built binaries from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases/latest):
+The easiest way to install StackEye CLI:
+
+```bash
+curl -fsSL https://get.stackeye.io/cli | bash
+```
+
+This auto-detects your OS and architecture, downloads the appropriate binary, verifies the checksum, and installs it.
+
+**Options:**
+- Install a specific version: `curl -fsSL https://get.stackeye.io/cli | bash -s -- --version v1.0.0`
+- Install to custom directory: `STACKEYE_INSTALL_DIR=~/bin curl -fsSL https://get.stackeye.io/cli | bash`
+
+The script installs to `/usr/local/bin` (with sudo) or `~/.local/bin` (without sudo) by default.
+
+### Manual Download
+
+Download pre-built archives from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases/latest). Archives are named `stackeye_<VERSION>_<OS>_<ARCH>.tar.gz`.
 
 **macOS (Apple Silicon)**:
 ```bash
-curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_darwin_arm64
-chmod +x stackeye
+# Replace VERSION with the actual version (e.g., 1.0.0)
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_darwin_arm64.tar.gz"
+tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
+rm stackeye.tar.gz
 ```
 
 **macOS (Intel)**:
 ```bash
-curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_darwin_amd64
-chmod +x stackeye
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_darwin_amd64.tar.gz"
+tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
+rm stackeye.tar.gz
 ```
 
 **Linux (x86_64)**:
 ```bash
-curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_linux_amd64
-chmod +x stackeye
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_linux_amd64.tar.gz"
+tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
+rm stackeye.tar.gz
 ```
 
 **Linux (ARM64)**:
 ```bash
-curl -Lo stackeye https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_linux_arm64
-chmod +x stackeye
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_linux_arm64.tar.gz"
+tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
+rm stackeye.tar.gz
 ```
 
 **Windows (PowerShell)**:
 ```powershell
-# Download the executable
-Invoke-WebRequest -Uri https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_windows_amd64.exe -OutFile stackeye.exe
+# Get latest version
+$VERSION = (Invoke-RestMethod "https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest").tag_name.TrimStart('v')
 
-# Move to a directory in your PATH (e.g., C:\Windows\System32 or create a custom bin folder)
+# Download and extract
+Invoke-WebRequest -Uri "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_windows_amd64.zip" -OutFile stackeye.zip
+Expand-Archive stackeye.zip -DestinationPath .
 Move-Item stackeye.exe C:\Windows\System32\stackeye.exe
+Remove-Item stackeye.zip
 ```
 
 ### Go Install
@@ -103,7 +131,6 @@ The following installation methods will be available in future releases:
 | APT | Debian/Ubuntu | `.deb` packages |
 | RPM | RHEL/Fedora | `.rpm` packages |
 | Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
-| Installer Script | macOS/Linux | `curl -fsSL https://get.stackeye.io/cli \| sh` |
 
 ## Quick Start
 

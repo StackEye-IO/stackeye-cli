@@ -97,7 +97,7 @@ release:
     brew install stackeye-io/tap/stackeye
 
     # Linux/macOS (curl)
-    curl -fsSL https://get.stackeye.io/cli | sh
+    curl -fsSL https://get.stackeye.io/cli | bash
 
     # Go install
     go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@{{.Tag}}
