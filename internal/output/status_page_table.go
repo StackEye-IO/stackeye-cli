@@ -136,6 +136,8 @@ func formatUptimeDisplay(showUptime bool) string {
 // PrintStatusPages is a convenience function that formats and prints status pages
 // using the CLI's configured output format. It handles status coloring
 // and wide mode automatically based on configuration.
+// For JSON/YAML output, it prints the raw StatusPage objects including all probe details.
+// For table output, it formats the data into human-readable rows.
 func PrintStatusPages(pages []client.StatusPage) error {
 	printer := getPrinter()
 	colorMode := sdkoutput.ColorAuto
@@ -148,6 +150,13 @@ func PrintStatusPages(pages []client.StatusPage) error {
 		}
 	}
 
+	// For JSON/YAML output, print the raw status pages with full probe details
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		return printer.Print(pages)
+	}
+
+	// For table output, format as human-readable rows
 	formatter := NewStatusPageTableFormatter(colorMode, isWide)
 	rows := formatter.FormatStatusPages(pages)
 
@@ -155,6 +164,8 @@ func PrintStatusPages(pages []client.StatusPage) error {
 }
 
 // PrintStatusPage is a convenience function that formats and prints a single status page.
+// For JSON/YAML output, it prints the raw StatusPage object including all probe details.
+// For table output, it formats the data into a human-readable row.
 func PrintStatusPage(page client.StatusPage) error {
 	printer := getPrinter()
 	colorMode := sdkoutput.ColorAuto
@@ -166,6 +177,13 @@ func PrintStatusPage(page client.StatusPage) error {
 		}
 	}
 
+	// For JSON/YAML output, print the raw status page object with full probe details
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		return printer.Print(page)
+	}
+
+	// For table output, format as human-readable row
 	formatter := NewStatusPageTableFormatter(colorMode, isWide)
 	row := formatter.FormatStatusPage(page)
 
