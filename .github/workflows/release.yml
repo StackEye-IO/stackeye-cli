@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: self-hosted-linux
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
+
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+        with:
+          repository: StackEye-IO/stackeye-go-sdk
+          path: .sdk
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Update replace directive for CI
+        run: |
+          # Point to checked-out SDK instead of sibling directory
+          sed -i 's|\.\./stackeye-go-sdk|./.sdk|' go.mod
+          go mod tidy
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
