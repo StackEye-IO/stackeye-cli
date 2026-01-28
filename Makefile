@@ -2,7 +2,8 @@
 # Build, test, and lint targets for the CLI
 
 .PHONY: all build build-all build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64 build-windows-amd64 \
-        build-local install clean test test-verbose test-e2e test-integration coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy help
+        build-local install clean test test-verbose test-e2e test-integration coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy \
+        snapshot release-dry-run help
 
 # Go parameters
 GOCMD=go
@@ -40,6 +41,7 @@ COVERAGE_HTML=coverage.html
 
 # Tools (install if missing)
 GOLINT=$(shell which golangci-lint 2>/dev/null || echo "go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+GORELEASER=$(shell which goreleaser 2>/dev/null || echo "go run github.com/goreleaser/goreleaser/v2@latest")
 
 # Packages
 PACKAGES=./...
@@ -104,7 +106,7 @@ build-windows-amd64:
 build-local:
 	@echo "Building with race detector..."
 	@mkdir -p $(BINARY_DIR)
-	$(GOBUILD) -race -o $(BINARY_DIR)/$(BINARY_NAME) $(CMD_DIR)
+	$(GOBUILD) -race $(LDFLAGS) -o $(BINARY_DIR)/$(BINARY_NAME) $(CMD_DIR)
 
 ## install: Install CLI to GOBIN
 install:
@@ -116,7 +118,7 @@ install:
 clean:
 	@echo "Cleaning..."
 	$(GOCLEAN)
-	rm -rf $(BINARY_DIR)/
+	rm -rf $(BINARY_DIR)/ dist/
 	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)
 	@echo "Clean complete"
 
@@ -206,6 +208,24 @@ validate-quick: fmt-check vet lint
 	@echo "Quick validation complete"
 
 #==============================================================================
+# Release targets (GoReleaser)
+#==============================================================================
+
+## snapshot: Build a snapshot release (no publishing, no git tag required)
+snapshot:
+	@echo "Building snapshot release..."
+	$(GORELEASER) build --snapshot --clean
+	@echo "Snapshot binaries built in dist/"
+	@ls -la dist/ 2>/dev/null || true
+
+## release-dry-run: Test release without publishing (requires git tag or uses snapshot)
+release-dry-run:
+	@echo "Running release dry-run..."
+	$(GORELEASER) release --snapshot --clean --skip=publish
+	@echo "Dry-run complete. Artifacts in dist/"
+	@ls -la dist/ 2>/dev/null || true
+
+#==============================================================================
 # Help
 #==============================================================================
 
@@ -226,6 +246,9 @@ help:
 	@echo ""
 	@echo "Validation targets:"
 	@grep -E '^## validate' $(MAKEFILE_LIST) | sed 's/## /  /'
+	@echo ""
+	@echo "Release targets:"
+	@grep -E '^## (snapshot|release)' $(MAKEFILE_LIST) | sed 's/## /  /'
 	@echo ""
 	@echo "Cross-compilation:"
 	@echo "  make build-all           Build for all platforms"
