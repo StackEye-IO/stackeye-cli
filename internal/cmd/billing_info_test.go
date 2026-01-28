@@ -127,7 +127,7 @@ func TestNewBillingCmd_HasSubcommands(t *testing.T) {
 	}
 
 	// Verify expected subcommands are registered
-	expectedSubcmds := []string{"status", "info", "usage", "invoices"}
+	expectedSubcmds := []string{"status", "info", "usage", "invoices", "portal"}
 	for _, expected := range expectedSubcmds {
 		found := false
 		for _, sub := range subcommands {

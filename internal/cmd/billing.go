@@ -19,6 +19,7 @@ Commands:
   info      Show detailed subscription and billing information
   usage     Show current resource usage against plan limits
   invoices  List billing invoices
+  portal    Open Stripe billing portal
 
 Examples:
   # Quick billing status check
@@ -34,7 +35,10 @@ Examples:
   stackeye billing usage
 
   # List recent invoices
-  stackeye billing invoices`,
+  stackeye billing invoices
+
+  # Open Stripe billing portal
+  stackeye billing portal`,
 		Aliases: []string{"bill", "subscription"},
 	}
 
@@ -43,6 +47,7 @@ Examples:
 	cmd.AddCommand(NewBillingInfoCmd())
 	cmd.AddCommand(NewBillingUsageCmd())
 	cmd.AddCommand(NewBillingInvoicesCmd())
+	cmd.AddCommand(NewBillingPortalCmd())
 
 	return cmd
 }
