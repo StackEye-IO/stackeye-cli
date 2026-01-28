@@ -4,6 +4,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,8 +20,15 @@ import (
 // billingInvoicesTimeout is the maximum time to wait for the API response.
 const billingInvoicesTimeout = 30 * time.Second
 
-// invoicesLimit is the flag value for pagination.
-var invoicesLimit int
+// downloadTimeout is the maximum time to wait for a single PDF download.
+const downloadTimeout = 60 * time.Second
+
+// invoicesFlags holds flag values for the invoices command.
+var invoicesFlags struct {
+	limit     int
+	download  bool
+	outputDir string
+}
 
 // NewBillingInvoicesCmd creates and returns the billing invoices command.
 func NewBillingInvoicesCmd() *cobra.Command {
@@ -27,7 +38,7 @@ func NewBillingInvoicesCmd() *cobra.Command {
 		Long: `List billing invoices for your organization.
 
 Shows a history of invoices including their status, amount, and payment date.
-Use this to review past billing activity and access invoice PDFs.
+Use this to review past billing activity and download invoice PDFs.
 
 Output includes:
   - Invoice number and date
@@ -42,6 +53,12 @@ Examples:
   # List more invoices
   stackeye billing invoices --limit 25
 
+  # Download all invoice PDFs to current directory
+  stackeye billing invoices --download
+
+  # Download invoice PDFs to a specific directory
+  stackeye billing invoices --download --output-dir ~/invoices
+
   # Output as JSON for scripting
   stackeye billing invoices -o json
 
@@ -54,7 +71,9 @@ Examples:
 	}
 
 	// Add flags
-	cmd.Flags().IntVar(&invoicesLimit, "limit", 10, "Maximum number of invoices to retrieve (1-100)")
+	cmd.Flags().IntVar(&invoicesFlags.limit, "limit", 10, "Maximum number of invoices to retrieve (1-100)")
+	cmd.Flags().BoolVar(&invoicesFlags.download, "download", false, "Download invoice PDFs to local directory")
+	cmd.Flags().StringVar(&invoicesFlags.outputDir, "output-dir", ".", "Directory to save downloaded PDFs (default: current directory)")
 
 	return cmd
 }
@@ -68,7 +87,7 @@ func runBillingInvoices(ctx context.Context) error {
 	}
 
 	// Validate and clamp limit
-	limit := max(invoicesLimit, 1)
+	limit := max(invoicesFlags.limit, 1)
 	limit = min(limit, 100)
 
 	// Call SDK to get invoices with timeout
@@ -82,6 +101,11 @@ func runBillingInvoices(ctx context.Context) error {
 	response, err := client.ListInvoices(reqCtx, apiClient, opts)
 	if err != nil {
 		return fmt.Errorf("failed to get invoices: %w", err)
+	}
+
+	// Handle download mode
+	if invoicesFlags.download {
+		return downloadInvoicePDFs(ctx, response.Invoices, invoicesFlags.outputDir)
 	}
 
 	// Check output format - use JSON/YAML if requested, otherwise pretty print
@@ -210,4 +234,141 @@ func truncateInvoiceField(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// downloadInvoicePDFs downloads invoice PDFs to the specified directory.
+func downloadInvoicePDFs(ctx context.Context, invoices []client.Invoice, outputDir string) error {
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Count invoices with PDFs
+	invoicesWithPDF := 0
+	for _, inv := range invoices {
+		if inv.PDFURL != nil && *inv.PDFURL != "" {
+			invoicesWithPDF++
+		}
+	}
+
+	if invoicesWithPDF == 0 {
+		fmt.Println("No invoices with downloadable PDFs found.")
+		return nil
+	}
+
+	fmt.Printf("Downloading %d invoice PDF(s) to %s\n\n", invoicesWithPDF, outputDir)
+
+	downloaded := 0
+	skipped := 0
+	failed := 0
+
+	for _, inv := range invoices {
+		if inv.PDFURL == nil || *inv.PDFURL == "" {
+			continue
+		}
+
+		// Generate filename: invoice-{number}.pdf
+		filename := sanitizeFilename(fmt.Sprintf("invoice-%s.pdf", inv.InvoiceNumber))
+		filePath := filepath.Join(outputDir, filename)
+
+		// Check if file already exists
+		if _, err := os.Stat(filePath); err == nil {
+			fmt.Printf("  ○ %s (already exists, skipping)\n", filename)
+			skipped++
+			continue
+		}
+
+		// Download the PDF
+		fmt.Printf("  ● Downloading %s...", filename)
+		if err := downloadFile(ctx, *inv.PDFURL, filePath); err != nil {
+			fmt.Printf(" FAILED: %v\n", err)
+			failed++
+			continue
+		}
+		fmt.Println(" done")
+		downloaded++
+	}
+
+	fmt.Println()
+	fmt.Printf("Summary: %d downloaded, %d skipped, %d failed\n", downloaded, skipped, failed)
+
+	if failed > 0 {
+		return fmt.Errorf("%d download(s) failed", failed)
+	}
+	return nil
+}
+
+// downloadFile downloads a file from URL to the specified path.
+func downloadFile(ctx context.Context, url, filePath string) error {
+	// Validate URL domain for security - only allow known Stripe invoice domains
+	if !urlValidator(url) {
+		return fmt.Errorf("untrusted PDF URL domain: only Stripe invoice URLs are allowed")
+	}
+
+	// Create request with context and timeout
+	reqCtx, cancel := context.WithTimeout(ctx, downloadTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Execute request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to download: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	// Create output file
+	out, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer out.Close()
+
+	// Copy response body to file
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		// Clean up partial file on error
+		os.Remove(filePath)
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// sanitizeFilename removes or replaces characters that are invalid in filenames.
+func sanitizeFilename(name string) string {
+	// Replace common invalid characters with underscores
+	invalid := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	result := name
+	for _, char := range invalid {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+	return result
+}
+
+// urlValidator is the function used to validate PDF URLs.
+// It can be overridden in tests to allow localhost URLs.
+var urlValidator = isValidStripePDFURL
+
+// isValidStripePDFURL validates that the URL is from a trusted Stripe domain.
+// This prevents potential SSRF attacks if the API were to return malicious URLs.
+func isValidStripePDFURL(url string) bool {
+	trustedPrefixes := []string{
+		"https://invoice.stripe.com/",
+		"https://pay.stripe.com/",
+		"https://files.stripe.com/",
+	}
+	for _, prefix := range trustedPrefixes {
+		if strings.HasPrefix(url, prefix) {
+			return true
+		}
+	}
+	return false
 }

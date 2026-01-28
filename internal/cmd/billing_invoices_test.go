@@ -2,6 +2,11 @@
 package cmd
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -357,5 +362,384 @@ func TestNewBillingCmd_HasInvoicesSubcommand(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected 'invoices' subcommand to be registered")
+	}
+}
+
+// TestNewBillingInvoicesCmd_DownloadFlag verifies that the download flag is registered.
+func TestNewBillingInvoicesCmd_DownloadFlag(t *testing.T) {
+	cmd := NewBillingInvoicesCmd()
+
+	flag := cmd.Flags().Lookup("download")
+	if flag == nil {
+		t.Fatal("expected --download flag to be registered")
+	}
+
+	if flag.DefValue != "false" {
+		t.Errorf("expected download flag default to be 'false', got %q", flag.DefValue)
+	}
+
+	if flag.Usage == "" {
+		t.Error("expected download flag to have a usage description")
+	}
+}
+
+// TestNewBillingInvoicesCmd_OutputDirFlag verifies that the output-dir flag is registered.
+func TestNewBillingInvoicesCmd_OutputDirFlag(t *testing.T) {
+	cmd := NewBillingInvoicesCmd()
+
+	flag := cmd.Flags().Lookup("output-dir")
+	if flag == nil {
+		t.Fatal("expected --output-dir flag to be registered")
+	}
+
+	if flag.DefValue != "." {
+		t.Errorf("expected output-dir flag default to be '.', got %q", flag.DefValue)
+	}
+
+	if flag.Usage == "" {
+		t.Error("expected output-dir flag to have a usage description")
+	}
+}
+
+// TestNewBillingInvoicesCmd_Long_HasDownloadExamples verifies download examples in help.
+func TestNewBillingInvoicesCmd_Long_HasDownloadExamples(t *testing.T) {
+	cmd := NewBillingInvoicesCmd()
+
+	long := cmd.Long
+
+	// Should mention --download flag
+	if !strings.Contains(long, "--download") {
+		t.Error("expected Long description to mention --download flag")
+	}
+
+	// Should mention --output-dir flag
+	if !strings.Contains(long, "--output-dir") {
+		t.Error("expected Long description to mention --output-dir flag")
+	}
+}
+
+// TestDownloadFile verifies HTTP file download functionality.
+func TestDownloadFile(t *testing.T) {
+	// Create a test server that serves PDF content
+	pdfContent := []byte("%PDF-1.4 test content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/success.pdf":
+			w.Header().Set("Content-Type", "application/pdf")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(pdfContent)
+		case "/error.pdf":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Save original validator and restore after test
+	originalValidator := urlValidator
+	defer func() { urlValidator = originalValidator }()
+
+	// Override validator to allow test server URLs
+	urlValidator = func(url string) bool {
+		return strings.HasPrefix(url, server.URL) || isValidStripePDFURL(url)
+	}
+
+	// Create a temp directory for test files
+	tempDir := t.TempDir()
+
+	t.Run("successful download", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "test_success.pdf")
+
+		err := downloadFile(context.Background(), server.URL+"/success.pdf", filePath)
+		if err != nil {
+			t.Fatalf("downloadFile failed: %v", err)
+		}
+
+		// Verify file was created with correct content
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Fatalf("failed to read downloaded file: %v", err)
+		}
+		if string(data) != string(pdfContent) {
+			t.Errorf("content mismatch: got %q, want %q", data, pdfContent)
+		}
+	})
+
+	t.Run("HTTP error response", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "test_error.pdf")
+
+		err := downloadFile(context.Background(), server.URL+"/error.pdf", filePath)
+		if err == nil {
+			t.Fatal("expected error for HTTP 404")
+		}
+		if !strings.Contains(err.Error(), "404") {
+			t.Errorf("expected 404 error, got: %v", err)
+		}
+
+		// Verify file was NOT created
+		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+			t.Error("file should not exist after failed download")
+		}
+	})
+
+	t.Run("non-existent path", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "nonexistent", "dir", "test.pdf")
+
+		err := downloadFile(context.Background(), server.URL+"/success.pdf", filePath)
+		if err == nil {
+			t.Fatal("expected error for non-existent directory")
+		}
+	})
+}
+
+// TestDownloadFile_WithStripeURL tests the full downloadFile function with mocked Stripe URL.
+func TestDownloadFile_WithStripeURL(t *testing.T) {
+	// Test URL validation rejects non-Stripe URLs
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.pdf")
+
+	err := downloadFile(context.Background(), "https://evil.com/malware.pdf", filePath)
+	if err == nil {
+		t.Error("expected error for non-Stripe URL")
+	}
+	if !strings.Contains(err.Error(), "untrusted PDF URL domain") {
+		t.Errorf("expected untrusted domain error, got: %v", err)
+	}
+
+	// Verify file was not created
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Error("file should not exist after rejected download")
+	}
+}
+
+// TestDownloadInvoicePDFs_NoInvoicesWithPDF tests download with no PDF URLs.
+func TestDownloadInvoicePDFs_NoInvoicesWithPDF(t *testing.T) {
+	tempDir := t.TempDir()
+
+	invoices := []client.Invoice{
+		{ID: 1, InvoiceNumber: "INV-001", Status: "paid", Currency: "USD"},
+		{ID: 2, InvoiceNumber: "INV-002", Status: "open", Currency: "USD"},
+	}
+
+	err := downloadInvoicePDFs(context.Background(), invoices, tempDir)
+	if err != nil {
+		t.Errorf("expected no error for invoices without PDFs, got: %v", err)
+	}
+
+	// Verify no files were created
+	entries, _ := os.ReadDir(tempDir)
+	if len(entries) != 0 {
+		t.Errorf("expected no files, got %d", len(entries))
+	}
+}
+
+// TestDownloadInvoicePDFs_SkipsExistingFiles tests that existing files are not overwritten.
+func TestDownloadInvoicePDFs_SkipsExistingFiles(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create an existing file
+	existingFile := filepath.Join(tempDir, "invoice-INV-001.pdf")
+	if err := os.WriteFile(existingFile, []byte("existing content"), 0600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Use an invalid URL so download would fail if attempted
+	badURL := "https://evil.com/bad.pdf"
+	invoices := []client.Invoice{
+		{ID: 1, InvoiceNumber: "INV-001", Status: "paid", Currency: "USD", PDFURL: &badURL},
+	}
+
+	// This should skip the existing file, not attempt download
+	err := downloadInvoicePDFs(context.Background(), invoices, tempDir)
+	// No error expected because file exists and was skipped
+	if err != nil {
+		t.Errorf("expected no error when skipping existing file, got: %v", err)
+	}
+
+	// Verify original content preserved
+	data, _ := os.ReadFile(existingFile)
+	if string(data) != "existing content" {
+		t.Error("existing file was modified")
+	}
+}
+
+// TestDownloadInvoicePDFs_InvalidURL tests handling of invalid URLs.
+func TestDownloadInvoicePDFs_InvalidURL(t *testing.T) {
+	tempDir := t.TempDir()
+
+	badURL := "https://malicious.com/invoice.pdf"
+	invoices := []client.Invoice{
+		{ID: 1, InvoiceNumber: "INV-001", Status: "paid", Currency: "USD", PDFURL: &badURL},
+	}
+
+	err := downloadInvoicePDFs(context.Background(), invoices, tempDir)
+	// Should return error for failed downloads
+	if err == nil {
+		t.Error("expected error for invalid URL download")
+	}
+	if !strings.Contains(err.Error(), "download(s) failed") {
+		t.Errorf("expected download failed error, got: %v", err)
+	}
+}
+
+// TestDownloadInvoicePDFs_SuccessfulDownload tests successful PDF downloads.
+func TestDownloadInvoicePDFs_SuccessfulDownload(t *testing.T) {
+	// Create a test server
+	pdfContent := []byte("%PDF-1.4 test invoice content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(pdfContent)
+	}))
+	defer server.Close()
+
+	// Save original validator and restore after test
+	originalValidator := urlValidator
+	defer func() { urlValidator = originalValidator }()
+
+	// Override validator to allow test server URLs
+	urlValidator = func(url string) bool {
+		return strings.HasPrefix(url, server.URL) || isValidStripePDFURL(url)
+	}
+
+	tempDir := t.TempDir()
+
+	url1 := server.URL + "/invoice-001.pdf"
+	url2 := server.URL + "/invoice-002.pdf"
+	invoices := []client.Invoice{
+		{ID: 1, InvoiceNumber: "INV-001", Status: "paid", Currency: "USD", PDFURL: &url1},
+		{ID: 2, InvoiceNumber: "INV-002", Status: "open", Currency: "USD", PDFURL: &url2},
+	}
+
+	err := downloadInvoicePDFs(context.Background(), invoices, tempDir)
+	if err != nil {
+		t.Fatalf("downloadInvoicePDFs failed: %v", err)
+	}
+
+	// Verify files were created
+	expectedFiles := []string{"invoice-INV-001.pdf", "invoice-INV-002.pdf"}
+	for _, filename := range expectedFiles {
+		filePath := filepath.Join(tempDir, filename)
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Errorf("failed to read %s: %v", filename, err)
+			continue
+		}
+		if string(data) != string(pdfContent) {
+			t.Errorf("%s: content mismatch", filename)
+		}
+	}
+}
+
+// TestDownloadInvoicePDFs_PartialFailure tests handling of partial download failures.
+func TestDownloadInvoicePDFs_PartialFailure(t *testing.T) {
+	// Create a test server that fails on specific requests
+	pdfContent := []byte("%PDF-1.4 test content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "fail") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(pdfContent)
+	}))
+	defer server.Close()
+
+	// Save original validator and restore after test
+	originalValidator := urlValidator
+	defer func() { urlValidator = originalValidator }()
+
+	// Override validator to allow test server URLs
+	urlValidator = func(url string) bool {
+		return strings.HasPrefix(url, server.URL) || isValidStripePDFURL(url)
+	}
+
+	tempDir := t.TempDir()
+
+	successURL := server.URL + "/invoice-success.pdf"
+	failURL := server.URL + "/invoice-fail.pdf"
+	invoices := []client.Invoice{
+		{ID: 1, InvoiceNumber: "INV-001", Status: "paid", Currency: "USD", PDFURL: &successURL},
+		{ID: 2, InvoiceNumber: "INV-002", Status: "open", Currency: "USD", PDFURL: &failURL},
+	}
+
+	err := downloadInvoicePDFs(context.Background(), invoices, tempDir)
+	// Should return error due to partial failure
+	if err == nil {
+		t.Error("expected error for partial failure")
+	}
+
+	// First file should still be downloaded successfully
+	data, err := os.ReadFile(filepath.Join(tempDir, "invoice-INV-001.pdf"))
+	if err != nil {
+		t.Errorf("successful download should still exist: %v", err)
+	} else if string(data) != string(pdfContent) {
+		t.Error("successful download content mismatch")
+	}
+
+	// Second file should NOT exist
+	if _, err := os.Stat(filepath.Join(tempDir, "invoice-INV-002.pdf")); !os.IsNotExist(err) {
+		t.Error("failed download file should not exist")
+	}
+}
+
+// TestIsValidStripePDFURL verifies Stripe URL domain validation.
+func TestIsValidStripePDFURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected bool
+	}{
+		{"invoice.stripe.com", "https://invoice.stripe.com/inv_abc123/pdf", true},
+		{"pay.stripe.com", "https://pay.stripe.com/invoice/acct_xyz/invst_abc/pdf", true},
+		{"files.stripe.com", "https://files.stripe.com/links/abc123/invoice.pdf", true},
+		{"malicious domain", "https://evil.com/invoice.pdf", false},
+		{"http not https", "http://invoice.stripe.com/inv_abc123/pdf", false},
+		{"subdomain attack", "https://invoice.stripe.com.evil.com/pdf", false},
+		{"empty string", "", false},
+		{"local file", "file:///etc/passwd", false},
+		{"data URL", "data:application/pdf;base64,abc123", false},
+		{"stripe without https", "stripe.com/invoice", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidStripePDFURL(tt.url)
+			if result != tt.expected {
+				t.Errorf("isValidStripePDFURL(%q) = %v, want %v", tt.url, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestSanitizeFilename verifies filename sanitization.
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"normal filename", "invoice-001.pdf", "invoice-001.pdf"},
+		{"with slash", "inv/001.pdf", "inv_001.pdf"},
+		{"with backslash", "inv\\001.pdf", "inv_001.pdf"},
+		{"with colon", "inv:001.pdf", "inv_001.pdf"},
+		{"with asterisk", "inv*001.pdf", "inv_001.pdf"},
+		{"with question mark", "inv?001.pdf", "inv_001.pdf"},
+		{"with quotes", "inv\"001\".pdf", "inv_001_.pdf"},
+		{"with angle brackets", "inv<001>.pdf", "inv_001_.pdf"},
+		{"with pipe", "inv|001.pdf", "inv_001.pdf"},
+		{"multiple invalid chars", "inv:/\\*?.pdf", "inv_____.pdf"},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeFilename(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeFilename(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
