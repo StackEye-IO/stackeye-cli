@@ -103,8 +103,8 @@ release:
     go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@{{.Tag}}
     ```
 
-# Homebrew tap configuration (Phase 5 - placeholder)
-# Uncomment and configure when ready to publish to Homebrew
+# Homebrew tap configuration - see task #7137 for implementation
+# Enable when homebrew-tap repository is created
 #
 # brews:
 #   - name: stackeye
@@ -125,8 +125,8 @@ release:
 #       - name: git
 #         type: optional
 
-# Scoop manifest configuration (Phase 5 - placeholder)
-# Uncomment and configure when ready to publish to Scoop
+# Scoop manifest configuration - see task #7138 for implementation
+# Enable when scoop-bucket repository is created
 #
 # scoops:
 #   - repository:
@@ -138,8 +138,7 @@ release:
 #     description: "CLI for StackEye uptime monitoring platform"
 #     license: MIT
 
-# Announce configuration (Phase 5 - placeholder)
-# Uncomment and configure when ready for release announcements
+# Slack announcement configuration - disabled until release process is established
 #
 # announce:
 #   slack:
