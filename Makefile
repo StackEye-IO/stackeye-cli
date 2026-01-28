@@ -22,17 +22,19 @@ CMD_DIR=./cmd/stackeye
 
 # Version information (injected via ldflags)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-GIT_COMMIT ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+GIT_COMMIT ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo "none")
 BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILT_BY ?= makefile
 
 # Package path for ldflags injection
-VERSION_PKG=github.com/StackEye-IO/stackeye-cli/internal/cmd
+VERSION_PKG=github.com/StackEye-IO/stackeye-cli/internal/version
 
 # Build flags
 LDFLAGS=-ldflags "-s -w \
 	-X $(VERSION_PKG).Version=$(VERSION) \
-	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(VERSION_PKG).BuildTime=$(BUILD_TIME)"
+	-X $(VERSION_PKG).Commit=$(GIT_COMMIT) \
+	-X $(VERSION_PKG).Date=$(BUILD_TIME) \
+	-X $(VERSION_PKG).BuiltBy=$(BUILT_BY)"
 BUILD_FLAGS=-trimpath
 
 # Coverage output
