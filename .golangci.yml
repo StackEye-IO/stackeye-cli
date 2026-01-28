@@ -1,0 +1,71 @@
+run:
+  timeout: 10m
+  # Limit concurrency to reduce memory usage on CI runners
+  # Default uses all CPUs which can cause OOM on constrained runners
+  concurrency: 4
+
+linters:
+  enable:
+    # Core linters (consistent with stackeye backend)
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - typecheck
+    # Additional recommended linters
+    - gosec
+    - gocritic
+    - gofmt
+    - goimports
+    - misspell
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os.File).Close
+      - (net.Conn).Close
+
+  staticcheck:
+    checks:
+      - "all"
+      - "-QF1003"  # Disable: convert if/else to switch
+      - "-QF1007"  # Disable: merge conditional assignment
+      - "-QF1011"  # Disable: omit redundant type from variable declaration
+      - "-ST1023"  # Disable: redundant variable declaration
+
+  gocritic:
+    # Only enable diagnostic checks (bugs and correctness issues)
+    # Style checks are disabled to avoid noisy, opinionated warnings
+    enabled-tags:
+      - diagnostic
+    disabled-tags:
+      - style
+      - opinionated
+
+  gosec:
+    excludes:
+      - G104  # Audit errors not checked (handled by errcheck)
+      - G101  # Hardcoded credentials false positive (env var names)
+      - G112  # Slowloris - localhost servers don't need this
+
+issues:
+  exclude-rules:
+    # Relax rules for test files
+    - path: _test\.go
+      linters:
+        - errcheck
+      text: "Error return value of .*.Close.*"
+    - path: _test\.go
+      linters:
+        - staticcheck
+      text: "QF1011|ST1023"
+    - path: _test\.go
+      linters:
+        - gosec
+    # Exclude e2e test utilities
+    - path: test/e2e/
+      linters:
+        - gosec
+        - errcheck
