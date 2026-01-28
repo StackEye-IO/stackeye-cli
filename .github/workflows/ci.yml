@@ -23,8 +23,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Clean workspace
+        run: |
+          # Remove untracked files from previous runs on self-hosted runners
+          git clean -ffdx || true
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: true
 
       - name: Checkout SDK
         uses: actions/checkout@v4
