@@ -15,12 +15,16 @@ View your current subscription plan, usage metrics, and billing details.
 Access invoices and manage payment methods through the Stripe customer portal.
 
 Commands:
-  info      Show current subscription and billing information
+  status    Quick billing status check (fast, no Stripe API calls)
+  info      Show detailed subscription and billing information
   usage     Show current resource usage against plan limits
   invoices  List billing invoices
 
 Examples:
-  # Show current billing info
+  # Quick billing status check
+  stackeye billing status
+
+  # Show detailed billing info
   stackeye billing info
 
   # Show billing info as JSON
@@ -35,6 +39,7 @@ Examples:
 	}
 
 	// Register subcommands
+	cmd.AddCommand(NewBillingStatusCmd())
 	cmd.AddCommand(NewBillingInfoCmd())
 	cmd.AddCommand(NewBillingUsageCmd())
 	cmd.AddCommand(NewBillingInvoicesCmd())

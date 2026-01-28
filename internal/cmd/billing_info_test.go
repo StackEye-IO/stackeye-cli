@@ -27,10 +27,11 @@ func TestNewBillingInfoCmd(t *testing.T) {
 }
 
 // TestNewBillingInfoCmd_Aliases verifies that aliases are set correctly.
+// Note: "status" was removed as an alias since there's now a dedicated status command.
 func TestNewBillingInfoCmd_Aliases(t *testing.T) {
 	cmd := NewBillingInfoCmd()
 
-	expectedAliases := []string{"show", "get", "status"}
+	expectedAliases := []string{"show", "get"}
 	if len(cmd.Aliases) != len(expectedAliases) {
 		t.Errorf("expected %d aliases, got %d", len(expectedAliases), len(cmd.Aliases))
 	}
@@ -39,6 +40,11 @@ func TestNewBillingInfoCmd_Aliases(t *testing.T) {
 		if !slices.Contains(cmd.Aliases, alias) {
 			t.Errorf("expected alias %q not found", alias)
 		}
+	}
+
+	// Verify "status" is NOT an alias (it's now a separate command)
+	if slices.Contains(cmd.Aliases, "status") {
+		t.Error("'status' should not be an alias - it's now a dedicated command")
 	}
 }
 
@@ -120,16 +126,19 @@ func TestNewBillingCmd_HasSubcommands(t *testing.T) {
 		t.Error("expected billing command to have subcommands")
 	}
 
-	// Verify info subcommand is registered
-	found := false
-	for _, sub := range subcommands {
-		if sub.Use == "info" {
-			found = true
-			break
+	// Verify expected subcommands are registered
+	expectedSubcmds := []string{"status", "info", "usage", "invoices"}
+	for _, expected := range expectedSubcmds {
+		found := false
+		for _, sub := range subcommands {
+			if sub.Use == expected {
+				found = true
+				break
+			}
 		}
-	}
-	if !found {
-		t.Error("expected 'info' subcommand to be registered")
+		if !found {
+			t.Errorf("expected '%s' subcommand to be registered", expected)
+		}
 	}
 }
 

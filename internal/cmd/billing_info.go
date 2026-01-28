@@ -44,7 +44,7 @@ Examples:
 
   # Output as YAML
   stackeye billing info -o yaml`,
-		Aliases: []string{"show", "get", "status"},
+		Aliases: []string{"show", "get"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBillingInfo(cmd.Context())
 		},
