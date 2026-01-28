@@ -19,6 +19,7 @@ Probe Operations:
   list          List all probes with status summary
   get           Get detailed probe information
   create        Create a new monitoring probe
+  wizard        Interactive wizard for creating a probe
   update        Update probe configuration
   delete        Delete a probe
   pause         Temporarily pause monitoring
@@ -62,6 +63,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeListCmd())
 	cmd.AddCommand(NewProbeGetCmd())
 	cmd.AddCommand(NewProbeCreateCmd())
+	cmd.AddCommand(NewProbeWizardCmd())
 	cmd.AddCommand(NewProbeUpdateCmd())
 	cmd.AddCommand(NewProbeDeleteCmd())
 	cmd.AddCommand(NewProbePauseCmd())
