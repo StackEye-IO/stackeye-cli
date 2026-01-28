@@ -158,3 +158,38 @@ func PrintRoleUpdated(result *client.UpdateMemberRoleResponse) error {
 
 	return nil
 }
+
+// MemberRemovedResponse represents the response for member removal.
+// Used for JSON/YAML output formats.
+type MemberRemovedResponse struct {
+	MemberID uint   `json:"member_id" yaml:"member_id"`
+	Email    string `json:"email" yaml:"email"`
+	Removed  bool   `json:"removed" yaml:"removed"`
+}
+
+// PrintMemberRemoved prints a success message after removing a team member.
+// For JSON/YAML formats, it outputs a structured response object.
+// For table format, it prints a human-friendly success message.
+func PrintMemberRemoved(memberID uint, email string) error {
+	printer := getPrinter()
+
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		result := &MemberRemovedResponse{
+			MemberID: memberID,
+			Email:    email,
+			Removed:  true,
+		}
+		return printer.Print(result)
+	}
+
+	// For table output, print a success message
+	fmt.Println()
+	fmt.Println("Team member removed successfully!")
+	fmt.Println()
+	fmt.Printf("  Member ID: %d\n", memberID)
+	fmt.Printf("  Email:     %s\n", email)
+	fmt.Println()
+
+	return nil
+}

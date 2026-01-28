@@ -6,6 +6,7 @@ import (
 
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -273,4 +274,206 @@ func TestFormatStatusPageCount(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// Tests for aggregated status functionality
+
+func TestAggregatedStatusTableFormatter_FormatProbeStatuses(t *testing.T) {
+	probeID1 := uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
+	probeID2 := uuid.MustParse("550e8400-e29b-41d4-a716-446655440002")
+
+	probes := []client.ProbeStatusSummary{
+		{
+			ProbeID:          probeID1,
+			DisplayName:      "API Server",
+			Status:           "up",
+			UptimePercent:    99.95,
+			ResponseTimeMs:   150,
+			ShowResponseTime: true,
+		},
+		{
+			ProbeID:          probeID2,
+			DisplayName:      "Database",
+			Status:           "down",
+			UptimePercent:    85.50,
+			ResponseTimeMs:   0,
+			ShowResponseTime: false,
+		},
+	}
+
+	formatter := NewAggregatedStatusTableFormatter(sdkoutput.ColorNever, false)
+	rows := formatter.FormatProbeStatuses(probes)
+
+	assert.Len(t, rows, 2)
+
+	// First probe - up with response time shown
+	assert.Equal(t, "API Server", rows[0].Name)
+	assert.Equal(t, "Up", rows[0].Status)
+	assert.Equal(t, "99.95%", rows[0].Uptime)
+	assert.Equal(t, "150ms", rows[0].ResponseTime)
+	assert.Equal(t, probeID1.String(), rows[0].ProbeID)
+
+	// Second probe - down, no response time shown
+	assert.Equal(t, "Database", rows[1].Name)
+	assert.Equal(t, "Down", rows[1].Status)
+	assert.Equal(t, "85.50%", rows[1].Uptime)
+	assert.Equal(t, "-", rows[1].ResponseTime)
+	assert.Equal(t, probeID2.String(), rows[1].ProbeID)
+}
+
+func TestAggregatedStatusTableFormatter_FormatProbeStatusValue(t *testing.T) {
+	formatter := NewAggregatedStatusTableFormatter(sdkoutput.ColorNever, false)
+
+	tests := []struct {
+		status   string
+		expected string
+	}{
+		{"up", "Up"},
+		{"down", "Down"},
+		{"degraded", "Degraded"},
+		{"pending", "Pending"},
+		{"unknown", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			result := formatter.formatProbeStatusValue(tt.status)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestAggregatedStatusTableFormatter_FormatOverallStatus(t *testing.T) {
+	formatter := NewAggregatedStatusTableFormatter(sdkoutput.ColorNever, false)
+
+	tests := []struct {
+		status   string
+		expected string
+	}{
+		{"operational", "Operational"},
+		{"degraded", "Degraded"},
+		{"outage", "Outage"},
+		{"unknown", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			result := formatter.formatOverallStatus(tt.status)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFormatUptimePercent(t *testing.T) {
+	tests := []struct {
+		name     string
+		percent  float64
+		expected string
+	}{
+		{"zero", 0, "-"},
+		{"100 percent", 100.0, "100.00%"},
+		{"99.99 percent", 99.99, "99.99%"},
+		{"50.5 percent", 50.5, "50.50%"},
+		{"low percent", 0.01, "0.01%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatUptimePercent(tt.percent)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFormatStatusResponseTime(t *testing.T) {
+	tests := []struct {
+		name             string
+		ms               int
+		showResponseTime bool
+		expected         string
+	}{
+		{"show disabled", 100, false, "-"},
+		{"zero ms", 0, true, "-"},
+		{"normal ms", 150, true, "150ms"},
+		{"high ms", 5000, true, "5000ms"},
+		{"both zero and disabled", 0, false, "-"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatStatusResponseTime(tt.ms, tt.showResponseTime)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestAggregatedStatusTableFormatter_WithColors(t *testing.T) {
+	formatter := NewAggregatedStatusTableFormatter(sdkoutput.ColorAlways, false)
+
+	probeID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440001")
+	probe := client.ProbeStatusSummary{
+		ProbeID:          probeID,
+		DisplayName:      "Test Probe",
+		Status:           "up",
+		UptimePercent:    99.0,
+		ResponseTimeMs:   100,
+		ShowResponseTime: true,
+	}
+
+	rows := formatter.FormatProbeStatuses([]client.ProbeStatusSummary{probe})
+
+	assert.Len(t, rows, 1)
+	// When colors are enabled, status should contain ANSI escape codes
+	assert.Contains(t, rows[0].Status, "Up")
+	assert.Contains(t, rows[0].Status, "\x1b[") // ANSI escape code
+}
+
+func TestNewAggregatedStatusTableFormatter(t *testing.T) {
+	formatter := NewAggregatedStatusTableFormatter(sdkoutput.ColorAuto, true)
+
+	assert.NotNil(t, formatter)
+	assert.NotNil(t, formatter.colorMgr)
+	assert.True(t, formatter.isWide)
+
+	formatterNoWide := NewAggregatedStatusTableFormatter(sdkoutput.ColorNever, false)
+	assert.False(t, formatterNoWide.isWide)
+}
+
+// Tests for domain verification functionality
+
+func TestDomainVerificationTableRow_Fields(t *testing.T) {
+	// Test that the struct has expected fields and table tags
+	row := DomainVerificationTableRow{
+		Host:  "_stackeye-verify.status.example.com",
+		Value: "stackeye-verify=abc123def456",
+	}
+
+	assert.Equal(t, "_stackeye-verify.status.example.com", row.Host)
+	assert.Equal(t, "stackeye-verify=abc123def456", row.Value)
+}
+
+func TestDomainVerificationTableRow_EmptyValues(t *testing.T) {
+	// Test with empty values - should work without panic
+	row := DomainVerificationTableRow{
+		Host:  "",
+		Value: "",
+	}
+
+	assert.Empty(t, row.Host)
+	assert.Empty(t, row.Value)
+}
+
+func TestDomainVerificationTableRow_LongValues(t *testing.T) {
+	// Test with long domain verification values
+	longHost := "_stackeye-verify.very-long-subdomain.status.example.com"
+	longValue := "stackeye-verify=550e8400-e29b-41d4-a716-446655440000-longer-value"
+
+	row := DomainVerificationTableRow{
+		Host:  longHost,
+		Value: longValue,
+	}
+
+	// Values should not be truncated for verification records - users need the full values
+	assert.Equal(t, longHost, row.Host)
+	assert.Equal(t, longValue, row.Value)
 }

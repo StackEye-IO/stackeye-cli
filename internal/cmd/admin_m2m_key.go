@@ -16,19 +16,39 @@ systems and integrations to authenticate with the StackEye API without
 user credentials.
 
 Commands:
-  list    List all M2M keys
+  list        List all M2M keys
+  create      Create a new M2M key (regional or global)
+  get         Get details of a specific M2M key
+  rotate      Rotate an M2M key with grace period
+  deactivate  Deactivate an M2M key immediately
 
 Examples:
   # List all M2M keys
   stackeye admin m2m-key list
 
-  # List M2M keys in JSON format
-  stackeye admin m2m-key list -o json`,
+  # Create a global M2M key
+  stackeye admin m2m-key create --global
+
+  # Create a regional M2M key
+  stackeye admin m2m-key create --region nyc3
+
+  # Get M2M key details
+  stackeye admin m2m-key get --id abc12345
+
+  # Rotate an M2M key
+  stackeye admin m2m-key rotate --id abc12345
+
+  # Deactivate an M2M key
+  stackeye admin m2m-key deactivate --id abc12345`,
 		Aliases: []string{"m2m", "m2mkey"},
 	}
 
 	// Register subcommands
 	cmd.AddCommand(NewAdminM2MKeyListCmd())
+	cmd.AddCommand(NewAdminM2MKeyCreateCmd())
+	cmd.AddCommand(NewAdminM2MKeyGetCmd())
+	cmd.AddCommand(NewAdminM2MKeyRotateCmd())
+	cmd.AddCommand(NewAdminM2MKeyDeactivateCmd())
 
 	return cmd
 }

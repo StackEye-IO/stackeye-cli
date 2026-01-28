@@ -184,3 +184,175 @@ func FormatStatusPageCount(total int64, page, limit int) string {
 	}
 	return fmt.Sprintf("Showing %d-%d of %d status pages", start, end, total)
 }
+
+// ProbeStatusTableRow represents a row in the aggregated status table output.
+// The struct tags control column headers and wide mode display.
+type ProbeStatusTableRow struct {
+	Name         string `table:"NAME"`
+	Status       string `table:"STATUS"`
+	Uptime       string `table:"UPTIME"`
+	ResponseTime string `table:"RESPONSE"`
+	// Wide mode columns
+	ProbeID string `table:"PROBE ID,wide"`
+}
+
+// AggregatedStatusTableFormatter converts SDK AggregatedStatusResponse to table rows
+// with status coloring support.
+type AggregatedStatusTableFormatter struct {
+	colorMgr *sdkoutput.ColorManager
+	isWide   bool
+}
+
+// NewAggregatedStatusTableFormatter creates a new formatter for aggregated status output.
+func NewAggregatedStatusTableFormatter(colorMode sdkoutput.ColorMode, isWide bool) *AggregatedStatusTableFormatter {
+	return &AggregatedStatusTableFormatter{
+		colorMgr: sdkoutput.NewColorManager(colorMode),
+		isWide:   isWide,
+	}
+}
+
+// FormatProbeStatuses converts a slice of SDK ProbeStatusSummary into table rows.
+func (f *AggregatedStatusTableFormatter) FormatProbeStatuses(probes []client.ProbeStatusSummary) []ProbeStatusTableRow {
+	rows := make([]ProbeStatusTableRow, 0, len(probes))
+	for _, p := range probes {
+		rows = append(rows, f.formatProbeStatus(p))
+	}
+	return rows
+}
+
+// formatProbeStatus converts a single probe status into a table row.
+func (f *AggregatedStatusTableFormatter) formatProbeStatus(p client.ProbeStatusSummary) ProbeStatusTableRow {
+	return ProbeStatusTableRow{
+		Name:         truncateName(p.DisplayName, 30),
+		Status:       f.formatProbeStatusValue(p.Status),
+		Uptime:       formatUptimePercent(p.UptimePercent),
+		ResponseTime: formatStatusResponseTime(p.ResponseTimeMs, p.ShowResponseTime),
+		ProbeID:      p.ProbeID.String(),
+	}
+}
+
+// formatProbeStatusValue applies color based on probe status.
+func (f *AggregatedStatusTableFormatter) formatProbeStatusValue(status string) string {
+	switch status {
+	case "up":
+		return f.colorMgr.StatusUp("Up")
+	case "down":
+		return f.colorMgr.StatusDown("Down")
+	case "degraded":
+		return f.colorMgr.Warning("Degraded")
+	case "pending":
+		return f.colorMgr.Dim("Pending")
+	default:
+		return f.colorMgr.Dim(status)
+	}
+}
+
+// formatOverallStatus applies color based on overall page status.
+func (f *AggregatedStatusTableFormatter) formatOverallStatus(status string) string {
+	switch status {
+	case "operational":
+		return f.colorMgr.StatusUp("Operational")
+	case "degraded":
+		return f.colorMgr.Warning("Degraded")
+	case "outage":
+		return f.colorMgr.StatusDown("Outage")
+	default:
+		return f.colorMgr.Dim(status)
+	}
+}
+
+// formatUptimePercent formats uptime percentage for display.
+func formatUptimePercent(percent float64) string {
+	if percent == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%.2f%%", percent)
+}
+
+// formatStatusResponseTime formats response time for status page display.
+func formatStatusResponseTime(ms int, showResponseTime bool) string {
+	if !showResponseTime || ms == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%dms", ms)
+}
+
+// PrintAggregatedStatus prints the aggregated status of a status page.
+// It displays the overall status header and a table of probe statuses.
+func PrintAggregatedStatus(status client.AggregatedStatusResponse) error {
+	printer := getPrinter()
+	colorMode := sdkoutput.ColorAuto
+	isWide := printer.Format() == sdkoutput.FormatWide
+
+	if configGetter != nil {
+		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+			colorMode = sdkoutput.ColorMode(cfg.Preferences.Color)
+		}
+	}
+
+	// For JSON/YAML output, print the raw response
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		return printer.Print(status)
+	}
+
+	formatter := NewAggregatedStatusTableFormatter(colorMode, isWide)
+
+	// Print overall status header
+	fmt.Printf("Overall Status: %s\n", formatter.formatOverallStatus(status.OverallStatus))
+	fmt.Printf("Last Updated:   %s\n\n", status.LastUpdated.Format("2006-01-02 15:04:05 MST"))
+
+	// Print probe statuses table
+	if len(status.Probes) == 0 {
+		fmt.Println("No probes configured on this status page.")
+		return nil
+	}
+
+	rows := formatter.FormatProbeStatuses(status.Probes)
+	return printer.Print(rows)
+}
+
+// DomainVerificationTableRow represents a row in the domain verification table output.
+// The struct tags control column headers.
+type DomainVerificationTableRow struct {
+	Host  string `table:"HOST"`
+	Value string `table:"VALUE"`
+}
+
+// PrintDomainVerification prints the DNS verification record for a custom domain.
+// It displays the host (TXT record name) and value to configure in DNS.
+func PrintDomainVerification(verification client.DomainVerificationResponse) error {
+	printer := getPrinter()
+
+	// For JSON/YAML output, print the raw response
+	format := printer.Format()
+	if format == sdkoutput.FormatJSON || format == sdkoutput.FormatYAML {
+		return printer.Print(verification)
+	}
+
+	// Print instructional header for table output
+	fmt.Println("DNS Verification Record")
+	fmt.Println("=======================")
+	fmt.Println()
+	fmt.Println("Add the following TXT record to your DNS configuration:")
+	fmt.Println()
+
+	row := DomainVerificationTableRow{
+		Host:  verification.Host,
+		Value: verification.Value,
+	}
+
+	if err := printer.Print(row); err != nil {
+		return err
+	}
+
+	// Print additional instructions
+	fmt.Println()
+	fmt.Println("Instructions:")
+	fmt.Println("1. Log in to your DNS provider's management console")
+	fmt.Println("2. Create a new TXT record with the HOST and VALUE shown above")
+	fmt.Println("3. Wait for DNS propagation (typically 5-60 minutes)")
+	fmt.Println("4. StackEye will automatically verify the record once it propagates")
+
+	return nil
+}

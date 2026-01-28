@@ -75,8 +75,8 @@ For more information about a specific command:
 	cmd.AddCommand(NewStatusPageAddProbeCmd())
 	cmd.AddCommand(NewStatusPageRemoveProbeCmd())
 	cmd.AddCommand(NewStatusPageReorderProbesCmd())
-	// cmd.AddCommand(NewStatusPageGetStatusCmd())
-	// cmd.AddCommand(NewStatusPageDomainVerifyCmd())
+	cmd.AddCommand(NewStatusPageGetStatusCmd())
+	cmd.AddCommand(NewStatusPageDomainVerifyCmd())
 
 	return cmd
 }
