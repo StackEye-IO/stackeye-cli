@@ -71,6 +71,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeTestCmd())
 	cmd.AddCommand(NewProbeHistoryCmd())
 	cmd.AddCommand(NewProbeStatsCmd())
+	cmd.AddCommand(NewProbeLinkChannelCmd())
 
 	return cmd
 }
