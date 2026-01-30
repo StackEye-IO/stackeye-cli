@@ -65,6 +65,9 @@ jobs:
       - name: Run linter
         run: make lint
 
+      - name: Build binary
+        run: make build
+
       - name: Run tests with coverage
         run: make coverage-html
 
@@ -76,9 +79,6 @@ jobs:
             coverage.out
             coverage.html
           retention-days: 7
-
-      - name: Build binary
-        run: make build
 
       - name: Build cross-platform binaries
         run: make build-all
