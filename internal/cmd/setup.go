@@ -127,10 +127,8 @@ func runSetup(ctx context.Context, flags *setupFlags) error {
 // runSetupNonInteractive handles setup in non-interactive mode.
 // In non-interactive mode, we verify the current configuration and report status.
 func runSetupNonInteractive(ctx context.Context, flags *setupFlags) error {
-	apiURL := flags.apiURL
-	if apiURL == "" {
-		apiURL = auth.DefaultAPIURL
-	}
+	// Note: flags.apiURL is available but we use the stored context's APIURL
+	// since non-interactive mode checks existing configuration status
 
 	// Check if already authenticated
 	cfg, err := config.Load()
