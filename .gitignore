@@ -37,3 +37,6 @@ vendor/
 
 # Go debug binaries
 __debug_bin*
+
+# CI - checked-out SDK for builds
+.sdk/

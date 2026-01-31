@@ -4,6 +4,13 @@ version: 2
 
 project_name: stackeye
 
+# Git configuration
+# Allow "dirty" state because CI modifies go.mod to point to checked-out SDK
+# The .sdk/ directory is in .gitignore so it shows as untracked
+git:
+  ignore_tags:
+    - nightly
+
 # Build configuration
 builds:
   - id: stackeye
@@ -11,8 +18,10 @@ builds:
     main: ./cmd/stackeye
     env:
       - CGO_ENABLED=0
+    mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - -trimpath
+      - -mod=vendor
     ldflags:
       - -s -w
       - -X github.com/StackEye-IO/stackeye-cli/internal/version.Version={{.Version}}
