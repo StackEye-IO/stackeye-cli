@@ -112,3 +112,21 @@ func TestNewProbeDepsCmd_CommonPatterns(t *testing.T) {
 		}
 	}
 }
+
+func TestNewProbeDepsCmd_Subcommands(t *testing.T) {
+	cmd := NewProbeDepsCmd()
+
+	// Should have the list subcommand registered
+	listCmd, _, err := cmd.Find([]string{"list"})
+	if err != nil {
+		t.Errorf("expected 'list' subcommand to be registered, got error: %v", err)
+	}
+
+	if listCmd == nil {
+		t.Error("expected 'list' subcommand to be registered")
+	}
+
+	if listCmd != nil && listCmd.Use != "list <probe-id>" {
+		t.Errorf("expected list Use='list <probe-id>', got %q", listCmd.Use)
+	}
+}

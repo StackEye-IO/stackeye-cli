@@ -62,9 +62,10 @@ For more information about a specific command:
 		Aliases: []string{"dependencies", "dependency", "dep"},
 	}
 
-	// Subcommands will be registered by their respective New*Cmd functions
-	// as they are implemented in subsequent tasks:
-	// - Task #8023: NewProbeDepsListCmd()
+	// Register implemented subcommands
+	cmd.AddCommand(NewProbeDepsListCmd())
+
+	// Subcommands to be registered as they are implemented:
 	// - Task #8024: NewProbeDepsAddCmd()
 	// - Task #8025: NewProbeDepsRemoveCmd()
 	// - Task #8026: NewProbeDepsClearCmd()
