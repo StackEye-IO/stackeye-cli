@@ -43,7 +43,10 @@ jobs:
       - name: Configure git for private modules
         env:
           GITOPS_TOKEN: ${{ secrets.GITOPS_PAT }}
-        run: git config --global url."https://x-access-token:${GITOPS_TOKEN}@github.com/".insteadOf "https://github.com/"
+        run: |
+          # Strip any trailing whitespace/newlines from the token
+          CLEAN_TOKEN=$(echo -n "$GITOPS_TOKEN" | tr -d '\n\r')
+          git config --global url."https://x-access-token:${CLEAN_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Remove local replace directive
         run: |
