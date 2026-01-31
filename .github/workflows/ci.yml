@@ -41,8 +41,9 @@ jobs:
           cache: true
 
       - name: Configure git for private modules
-        run: |
-          git config --global url."https://x-access-token:${{ secrets.GITOPS_PAT }}@github.com/".insteadOf "https://github.com/"
+        env:
+          GITOPS_TOKEN: ${{ secrets.GITOPS_PAT }}
+        run: git config --global url."https://x-access-token:${GITOPS_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Remove local replace directive
         run: |
