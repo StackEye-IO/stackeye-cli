@@ -64,9 +64,9 @@ For more information about a specific command:
 
 	// Register implemented subcommands
 	cmd.AddCommand(NewProbeDepsListCmd())
+	cmd.AddCommand(NewProbeDepsAddCmd())
 
 	// Subcommands to be registered as they are implemented:
-	// - Task #8024: NewProbeDepsAddCmd()
 	// - Task #8025: NewProbeDepsRemoveCmd()
 	// - Task #8026: NewProbeDepsClearCmd()
 	// - Task #8027: NewProbeDepsTreeCmd()
