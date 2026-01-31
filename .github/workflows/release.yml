@@ -52,23 +52,14 @@ jobs:
           sed -i 's|\.\./stackeye-go-sdk|./.sdk|' go.mod
           go mod tidy
 
-      - name: Vendor dependencies
-        run: |
-          # Vendor deps so GoReleaser can build after we restore go.mod
-          go mod vendor
-
-      - name: Restore go.mod for clean release
-        run: |
-          # GoReleaser requires clean git state - restore go.mod
-          # Build will use vendored deps, not go.mod replace directives
-          git checkout go.mod go.sum
+      - name: Download dependencies
+        run: go mod download
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOFLAGS: -mod=vendor

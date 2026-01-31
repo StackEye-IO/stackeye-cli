@@ -21,7 +21,6 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - -trimpath
-      - -mod=vendor
     ldflags:
       - -s -w
       - -X github.com/StackEye-IO/stackeye-cli/internal/version.Version={{.Version}}
