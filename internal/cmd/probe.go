@@ -32,6 +32,9 @@ Channel Management:
   link-channel     Link a notification channel to a probe
   unlink-channel   Unlink a notification channel from a probe
 
+Dependency Management:
+  deps             Manage probe dependencies for hierarchical alerting
+
 Examples:
   # List all probes
   stackeye probe list
@@ -72,6 +75,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeHistoryCmd())
 	cmd.AddCommand(NewProbeStatsCmd())
 	cmd.AddCommand(NewProbeLinkChannelCmd())
+	cmd.AddCommand(NewProbeDepsCmd())
 
 	return cmd
 }
