@@ -120,14 +120,31 @@ make build
 sudo mv bin/stackeye /usr/local/bin/
 ```
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install stackeye-io/tap/stackeye
+```
+
+### Scoop (Windows)
+
+```powershell
+# Add the StackEye bucket
+scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket
+
+# Install
+scoop install stackeye
+
+# Update
+scoop update stackeye
+```
+
 ### Coming Soon
 
 The following installation methods will be available in future releases:
 
 | Method | Platform | Status |
 |--------|----------|--------|
-| Homebrew | macOS/Linux | `brew install stackeye-io/tap/stackeye` |
-| Scoop | Windows | `scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket && scoop install stackeye` |
 | APT | Debian/Ubuntu | `.deb` packages |
 | RPM | RHEL/Fedora | `.rpm` packages |
 | Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |

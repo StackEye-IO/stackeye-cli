@@ -107,6 +107,10 @@ release:
     # macOS (Homebrew)
     brew install stackeye-io/tap/stackeye
 
+    # Windows (Scoop)
+    scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket
+    scoop install stackeye
+
     # Linux/macOS (curl)
     curl -fsSL https://releases.stackeye.io/install.sh | bash
 
@@ -138,18 +142,18 @@ brews:
       - name: git
         type: optional
 
-# Scoop manifest configuration - see task #7138 for implementation
-# Enable when scoop-bucket repository is created
-#
-# scoops:
-#   - repository:
-#       owner: StackEye-IO
-#       name: scoop-bucket
-#       branch: main
-#       token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
-#     homepage: https://stackeye.io
-#     description: "CLI for StackEye uptime monitoring platform"
-#     license: MIT
+# Scoop manifest configuration for Windows
+scoops:
+  - repository:
+      owner: StackEye-IO
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+    # Use CDN URL for faster downloads (CloudFlare fronts Wasabi S3)
+    url_template: "https://releases.stackeye.io/cli/v{{ .Version }}/{{ .ArtifactName }}"
+    homepage: https://stackeye.io
+    description: "CLI for StackEye uptime monitoring platform"
+    license: MIT
 
 # Slack announcement configuration - disabled until release process is established
 #

@@ -61,6 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
+          SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
 
       - name: Upload to Wasabi S3
         if: always() && hashFiles('dist/checksums.txt') != ''
