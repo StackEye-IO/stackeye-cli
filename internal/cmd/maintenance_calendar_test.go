@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -473,6 +474,15 @@ func TestRunMaintenanceCalendar_InvalidDateFormat(t *testing.T) {
 }
 
 func TestRunMaintenanceCalendar_ValidDateFormat(t *testing.T) {
+	// Use a temp directory for config to ensure test isolation from user's real config
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Reset global config to ensure isolation from previous tests
+	loadedConfig = nil
+
 	// Test that valid date formats pass validation (will fail later on API client)
 	tests := []struct {
 		name     string
@@ -515,6 +525,15 @@ func TestRunMaintenanceCalendar_ValidDateFormat(t *testing.T) {
 }
 
 func TestRunMaintenanceCalendar_DefaultValues(t *testing.T) {
+	// Use a temp directory for config to ensure test isolation from user's real config
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Reset global config to ensure isolation from previous tests
+	loadedConfig = nil
+
 	// Test with all default flags (empty from, no month view, no expired)
 	flags := &maintenanceCalendarFlags{
 		viewMonth:      false,
@@ -537,6 +556,15 @@ func TestRunMaintenanceCalendar_DefaultValues(t *testing.T) {
 }
 
 func TestRunMaintenanceCalendar_MonthViewFlag(t *testing.T) {
+	// Use a temp directory for config to ensure test isolation from user's real config
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Reset global config to ensure isolation from previous tests
+	loadedConfig = nil
+
 	// Test month view flag is properly handled
 	flags := &maintenanceCalendarFlags{
 		viewMonth: true,
