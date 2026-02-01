@@ -128,6 +128,13 @@ func GetManager() *Manager {
 	return manager
 }
 
+// ResetManager resets the singleton manager for testing purposes.
+// This should only be used in tests to ensure test isolation.
+func ResetManager() {
+	managerOnce = sync.Once{}
+	manager = nil
+}
+
 // Load loads the configuration, applying environment variable overrides.
 // If STACKEYE_CONFIG is set, loads from that path; otherwise uses default location.
 func (m *Manager) Load() (*Config, error) {
@@ -175,6 +182,7 @@ func (m *Manager) Reload() (*Config, error) {
 }
 
 // Save persists the current configuration to disk.
+// Uses ConfigPath() to respect the STACKEYE_CONFIG environment variable.
 func (m *Manager) Save() error {
 	m.mu.RLock()
 	cfg := m.config
@@ -184,7 +192,9 @@ func (m *Manager) Save() error {
 		return errors.New("no configuration loaded")
 	}
 
-	return cfg.Save()
+	// Use CLI's ConfigPath() which respects STACKEYE_CONFIG env var,
+	// instead of the SDK's Save() which uses the SDK's ConfigPath().
+	return cfg.SaveTo(ConfigPath())
 }
 
 // loadConfig loads configuration from file and applies environment overrides.

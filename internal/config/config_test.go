@@ -367,3 +367,467 @@ func configWithAPIURL(apiURL string) *Config {
 	cfg.CurrentContext = "default"
 	return cfg
 }
+
+// setupTestConfig creates a temp config file and sets up environment for testing.
+// Returns cleanup function that must be called with defer.
+func setupTestConfig(t *testing.T, content string) (configPath string, cleanup func()) {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	configPath = filepath.Join(tmpDir, "config.yaml")
+
+	if content != "" {
+		if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+			t.Fatalf("failed to write test config: %v", err)
+		}
+	}
+
+	// Save original env vars
+	origConfig := os.Getenv(EnvConfig)
+	origContext := os.Getenv(EnvContext)
+	origAPIKey := os.Getenv(EnvAPIKey)
+	origAPIURL := os.Getenv(EnvAPIURL)
+
+	// Set config path to our temp file
+	os.Setenv(EnvConfig, configPath)
+
+	cleanup = func() {
+		os.Setenv(EnvConfig, origConfig)
+		os.Setenv(EnvContext, origContext)
+		os.Setenv(EnvAPIKey, origAPIKey)
+		os.Setenv(EnvAPIURL, origAPIURL)
+		ResetManager()
+	}
+
+	// Reset manager to ensure fresh state
+	ResetManager()
+
+	return configPath, cleanup
+}
+
+func TestManagerLoad(t *testing.T) {
+	validConfig := `
+version: 1
+current_context: test
+contexts:
+  test:
+    api_key: se_testkey123
+    api_url: https://api.test.io
+`
+
+	t.Run("loads valid config file", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		m := GetManager()
+		cfg, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg == nil {
+			t.Fatal("Load() returned nil config")
+		}
+		if cfg.CurrentContext != "test" {
+			t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "test")
+		}
+	})
+
+	t.Run("returns cached config on second call", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		m := GetManager()
+		cfg1, err := m.Load()
+		if err != nil {
+			t.Fatalf("first Load() error = %v", err)
+		}
+
+		cfg2, err := m.Load()
+		if err != nil {
+			t.Fatalf("second Load() error = %v", err)
+		}
+
+		if cfg1 != cfg2 {
+			t.Error("Load() should return cached config on second call")
+		}
+	})
+
+	t.Run("returns empty config when file does not exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		nonExistentPath := filepath.Join(tmpDir, "nonexistent", "config.yaml")
+
+		origConfig := os.Getenv(EnvConfig)
+		os.Setenv(EnvConfig, nonExistentPath)
+		defer os.Setenv(EnvConfig, origConfig)
+		ResetManager()
+		defer ResetManager()
+
+		m := GetManager()
+		cfg, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg == nil {
+			t.Fatal("Load() returned nil config")
+		}
+		// Empty config should have no current context
+		if cfg.CurrentContext != "" {
+			t.Errorf("CurrentContext = %q, want empty", cfg.CurrentContext)
+		}
+	})
+
+	t.Run("applies STACKEYE_CONTEXT override", func(t *testing.T) {
+		multiContextConfig := `
+version: 1
+current_context: default
+contexts:
+  default:
+    api_key: se_defaultkey
+  production:
+    api_key: se_prodkey
+`
+		_, cleanup := setupTestConfig(t, multiContextConfig)
+		defer cleanup()
+
+		os.Setenv(EnvContext, "production")
+
+		m := GetManager()
+		cfg, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.CurrentContext != "production" {
+			t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "production")
+		}
+	})
+
+	t.Run("returns error for invalid context override", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		os.Setenv(EnvContext, "nonexistent")
+
+		m := GetManager()
+		_, err := m.Load()
+		if err == nil {
+			t.Error("Load() should return error for invalid context")
+		}
+	})
+}
+
+func TestManagerGet(t *testing.T) {
+	validConfig := `
+version: 1
+current_context: test
+contexts:
+  test:
+    api_key: se_testkey123
+`
+
+	t.Run("returns nil before Load", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		m := GetManager()
+		cfg := m.Get()
+		if cfg != nil {
+			t.Error("Get() should return nil before Load()")
+		}
+	})
+
+	t.Run("returns config after Load", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		m := GetManager()
+		_, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		cfg := m.Get()
+		if cfg == nil {
+			t.Fatal("Get() should return config after Load()")
+		}
+		if cfg.CurrentContext != "test" {
+			t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "test")
+		}
+	})
+}
+
+func TestManagerReload(t *testing.T) {
+	initialConfig := `
+version: 1
+current_context: initial
+contexts:
+  initial:
+    api_key: se_initialkey
+`
+
+	updatedConfig := `
+version: 1
+current_context: updated
+contexts:
+  updated:
+    api_key: se_updatedkey
+`
+
+	t.Run("reloads config from disk", func(t *testing.T) {
+		configPath, cleanup := setupTestConfig(t, initialConfig)
+		defer cleanup()
+
+		m := GetManager()
+		cfg1, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg1.CurrentContext != "initial" {
+			t.Errorf("initial CurrentContext = %q, want %q", cfg1.CurrentContext, "initial")
+		}
+
+		// Update the config file
+		if err := os.WriteFile(configPath, []byte(updatedConfig), 0600); err != nil {
+			t.Fatalf("failed to update config: %v", err)
+		}
+
+		// Reload should pick up the changes
+		cfg2, err := m.Reload()
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+		if cfg2.CurrentContext != "updated" {
+			t.Errorf("reloaded CurrentContext = %q, want %q", cfg2.CurrentContext, "updated")
+		}
+
+		// Get should return the new config
+		cfg3 := m.Get()
+		if cfg3.CurrentContext != "updated" {
+			t.Errorf("Get() after Reload CurrentContext = %q, want %q", cfg3.CurrentContext, "updated")
+		}
+	})
+
+	t.Run("returns new config when file is deleted", func(t *testing.T) {
+		configPath, cleanup := setupTestConfig(t, initialConfig)
+		defer cleanup()
+
+		m := GetManager()
+		_, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		// Delete the config file
+		os.Remove(configPath)
+
+		// Reload should return empty config (file not found is not an error)
+		cfg, err := m.Reload()
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+		if cfg.CurrentContext != "" {
+			t.Errorf("CurrentContext = %q, want empty", cfg.CurrentContext)
+		}
+	})
+}
+
+func TestManagerSave(t *testing.T) {
+	initialConfig := `
+version: 1
+current_context: test
+contexts:
+  test:
+    api_key: se_testkey123
+`
+
+	t.Run("saves modified config to disk", func(t *testing.T) {
+		configPath, cleanup := setupTestConfig(t, initialConfig)
+		defer cleanup()
+
+		m := GetManager()
+		cfg, err := m.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		// Modify the config via the Contexts map directly (pointer-based)
+		if cfg.Contexts == nil {
+			t.Fatal("Contexts map is nil")
+		}
+		ctx := cfg.Contexts["test"]
+		if ctx == nil {
+			t.Fatal("test context is nil")
+		}
+		ctx.APIKey = "se_newkey456"
+
+		// Save
+		if err := m.Save(); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		// Verify file was saved with correct content
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+		if !filepath.IsAbs(configPath) {
+			t.Error("config path should be absolute")
+		}
+		if len(data) == 0 {
+			t.Error("saved config file should not be empty")
+		}
+		// Check the new key is in the file
+		if !contains(string(data), "se_newkey456") {
+			t.Errorf("saved file does not contain new key, content:\n%s", string(data))
+		}
+
+		// Reload and verify
+		cfg2, err := m.Reload()
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+		ctx2, _ := cfg2.GetCurrentContext()
+		if ctx2.APIKey != "se_newkey456" {
+			t.Errorf("APIKey = %q, want %q", ctx2.APIKey, "se_newkey456")
+		}
+	})
+
+	t.Run("returns error when no config loaded", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, "")
+		defer cleanup()
+
+		m := GetManager()
+		// Don't call Load()
+
+		err := m.Save()
+		if err == nil {
+			t.Error("Save() should return error when no config loaded")
+		}
+	})
+}
+
+func TestPackageLevelLoadAndSave(t *testing.T) {
+	validConfig := `
+version: 1
+current_context: test
+contexts:
+  test:
+    api_key: se_testkey123
+`
+
+	t.Run("Load uses default manager", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg == nil {
+			t.Fatal("Load() returned nil")
+		}
+		if cfg.CurrentContext != "test" {
+			t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "test")
+		}
+	})
+
+	t.Run("Save uses default manager", func(t *testing.T) {
+		_, cleanup := setupTestConfig(t, validConfig)
+		defer cleanup()
+
+		_, err := Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		err = Save()
+		if err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	})
+}
+
+func TestConfigDir(t *testing.T) {
+	t.Run("returns non-empty directory path", func(t *testing.T) {
+		dir := ConfigDir()
+		if dir == "" {
+			t.Error("ConfigDir() returned empty string")
+		}
+	})
+
+	t.Run("is parent of ConfigPath", func(t *testing.T) {
+		// Clear env override to test default behavior
+		origEnv := os.Getenv(EnvConfig)
+		os.Setenv(EnvConfig, "")
+		defer os.Setenv(EnvConfig, origEnv)
+
+		dir := ConfigDir()
+		path := ConfigPath()
+
+		if filepath.Dir(path) != dir {
+			t.Errorf("ConfigDir() = %q, but ConfigPath() parent = %q", dir, filepath.Dir(path))
+		}
+	})
+}
+
+func TestResetManager(t *testing.T) {
+	validConfig := `
+version: 1
+current_context: test
+contexts:
+  test:
+    api_key: se_testkey123
+`
+	_, cleanup := setupTestConfig(t, validConfig)
+	defer cleanup()
+
+	// Load config
+	m1 := GetManager()
+	_, err := m1.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Verify config is loaded
+	if m1.Get() == nil {
+		t.Fatal("config should be loaded")
+	}
+
+	// Reset
+	ResetManager()
+
+	// Get manager again - should be a new instance
+	m2 := GetManager()
+	if m2.Get() != nil {
+		t.Error("new manager should have nil config")
+	}
+}
+
+// contains checks if s contains substr
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestLoadConfigWithInvalidYAML(t *testing.T) {
+	invalidConfig := `
+this is not: valid: yaml: content
+  broken indentation
+`
+	_, cleanup := setupTestConfig(t, invalidConfig)
+	defer cleanup()
+
+	m := GetManager()
+	_, err := m.Load()
+	if err == nil {
+		t.Error("Load() should return error for invalid YAML")
+	}
+}
