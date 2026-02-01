@@ -51,6 +51,8 @@ jobs:
         run: go mod download
 
       - name: Run GoReleaser
+        id: goreleaser
+        continue-on-error: true  # Continue even if Homebrew tap push fails
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -61,7 +63,7 @@ jobs:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
 
       - name: Upload to Wasabi S3
-        if: success()
+        if: always() && hashFiles('dist/checksums.txt') != ''
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
@@ -83,7 +85,7 @@ jobs:
           echo "Uploaded release artifacts to s3://releases.stackeye.io/cli/${VERSION}/"
 
       - name: Purge CloudFlare cache
-        if: success()
+        if: always() && hashFiles('dist/checksums.txt') != ''
         run: |
           # Purge CDN cache for new release binaries
           curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
