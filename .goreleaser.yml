@@ -111,27 +111,27 @@ release:
     go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@{{.Tag}}
     ```
 
-# Homebrew tap configuration - see task #7137 for implementation
-# Enable when homebrew-tap repository is created
-#
-# brews:
-#   - name: stackeye
-#     repository:
-#       owner: StackEye-IO
-#       name: homebrew-tap
-#       branch: main
-#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-#     folder: Formula
-#     homepage: https://stackeye.io
-#     description: "CLI for StackEye uptime monitoring platform"
-#     license: MIT
-#     install: |
-#       bin.install "stackeye"
-#     test: |
-#       system "#{bin}/stackeye", "version"
-#     dependencies:
-#       - name: git
-#         type: optional
+# Homebrew tap configuration
+# Note: brews section deprecated in v2.10, but still works for CLI tools
+# Homebrew Casks are for macOS .app bundles, not CLIs
+brews:
+  - name: stackeye
+    repository:
+      owner: StackEye-IO
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://stackeye.io
+    description: "CLI for StackEye uptime monitoring platform"
+    license: MIT
+    install: |
+      bin.install "stackeye"
+    test: |
+      system "#{bin}/stackeye", "version"
+    dependencies:
+      - name: git
+        type: optional
 
 # Scoop manifest configuration - see task #7138 for implementation
 # Enable when scoop-bucket repository is created
