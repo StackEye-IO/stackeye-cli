@@ -686,3 +686,267 @@ func TestRunContextUse_NoOrgName(t *testing.T) {
 		}
 	}
 }
+
+func TestNewContextDeleteCmd(t *testing.T) {
+	cmd := NewContextCmd()
+
+	// Verify delete subcommand is registered
+	deleteCmd, _, err := cmd.Find([]string{"delete"})
+	if err != nil {
+		t.Errorf("delete subcommand not found: %v", err)
+	}
+	if deleteCmd.Use != "delete <name>" {
+		t.Errorf("expected Use='delete <name>', got %q", deleteCmd.Use)
+	}
+}
+
+func TestNewContextDeleteCmd_Aliases(t *testing.T) {
+	cmd := NewContextCmd()
+
+	// Test rm alias
+	rmCmd, _, err := cmd.Find([]string{"rm"})
+	if err != nil {
+		t.Errorf("rm alias not found: %v", err)
+	}
+	if rmCmd.Use != "delete <name>" {
+		t.Errorf("expected rm alias to resolve to delete, got %q", rmCmd.Use)
+	}
+
+	// Test remove alias
+	removeCmd, _, err := cmd.Find([]string{"remove"})
+	if err != nil {
+		t.Errorf("remove alias not found: %v", err)
+	}
+	if removeCmd.Use != "delete <name>" {
+		t.Errorf("expected remove alias to resolve to delete, got %q", removeCmd.Use)
+	}
+}
+
+func TestRunContextDelete_Success(t *testing.T) {
+	// Use a temp directory for config to avoid writing to user's real config file.
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Create config with multiple contexts
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "prod"
+	cfg.SetContext("prod", &config.Context{
+		APIURL:           "https://api.stackeye.io",
+		OrganizationName: "Acme Corp",
+		APIKey:           "se_test12300000000000000000000000000000000000000000000000000000",
+	})
+	cfg.SetContext("dev", &config.Context{
+		APIURL:           "https://api.dev.stackeye.io",
+		OrganizationName: "Acme Dev",
+		APIKey:           "se_dev45600000000000000000000000000000000000000000000000000000",
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextDelete("dev")
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Check context was deleted
+	if cfg.HasContext("dev") {
+		t.Error("expected dev context to be deleted")
+	}
+
+	// Check prod context still exists
+	if !cfg.HasContext("prod") {
+		t.Error("expected prod context to still exist")
+	}
+
+	// Check current context unchanged
+	if cfg.CurrentContext != "prod" {
+		t.Errorf("expected CurrentContext to remain 'prod', got %q", cfg.CurrentContext)
+	}
+
+	// Check output message
+	if !strings.Contains(output, "Deleted context") {
+		t.Errorf("expected output to contain 'Deleted context', got %q", output)
+	}
+	if !strings.Contains(output, "dev") {
+		t.Errorf("expected output to contain 'dev', got %q", output)
+	}
+}
+
+func TestRunContextDelete_DeletesCurrentContext(t *testing.T) {
+	// Use a temp directory for config to avoid writing to user's real config file.
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Create config with current context as target
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "dev"
+	cfg.SetContext("prod", &config.Context{
+		APIURL:           "https://api.stackeye.io",
+		OrganizationName: "Acme Corp",
+		APIKey:           "se_test12300000000000000000000000000000000000000000000000000000",
+	})
+	cfg.SetContext("dev", &config.Context{
+		APIURL:           "https://api.dev.stackeye.io",
+		OrganizationName: "Acme Dev",
+		APIKey:           "se_dev45600000000000000000000000000000000000000000000000000000",
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextDelete("dev")
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Check context was deleted
+	if cfg.HasContext("dev") {
+		t.Error("expected dev context to be deleted")
+	}
+
+	// Check current context was cleared
+	if cfg.CurrentContext != "" {
+		t.Errorf("expected CurrentContext to be cleared, got %q", cfg.CurrentContext)
+	}
+
+	// Check note about current context
+	if !strings.Contains(output, "The deleted context was your current context") {
+		t.Errorf("expected output to contain note about current context, got %q", output)
+	}
+
+	// Check suggestion to use another context
+	if !strings.Contains(output, "stackeye context use") {
+		t.Errorf("expected output to contain suggestion to use another context, got %q", output)
+	}
+}
+
+func TestRunContextDelete_DeletesOnlyContext(t *testing.T) {
+	// Use a temp directory for config to avoid writing to user's real config file.
+	tmpDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalXDG)
+
+	// Create config with only one context
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "only"
+	cfg.SetContext("only", &config.Context{
+		APIURL:           "https://api.stackeye.io",
+		OrganizationName: "Only Org",
+		APIKey:           "se_only12300000000000000000000000000000000000000000000000000000",
+	})
+	loadedConfig = cfg
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runContextDelete("only")
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Check context was deleted
+	if cfg.HasContext("only") {
+		t.Error("expected only context to be deleted")
+	}
+
+	// Check no contexts remaining message
+	if !strings.Contains(output, "No contexts remaining") {
+		t.Errorf("expected output to contain 'No contexts remaining', got %q", output)
+	}
+	if !strings.Contains(output, "stackeye login") {
+		t.Errorf("expected output to contain login hint, got %q", output)
+	}
+}
+
+func TestRunContextDelete_NotFound(t *testing.T) {
+	// Create config without target context
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "prod"
+	cfg.SetContext("prod", &config.Context{
+		APIURL: "https://api.stackeye.io",
+		APIKey: "se_test123",
+	})
+	loadedConfig = cfg
+
+	err := runContextDelete("nonexistent")
+
+	if err == nil {
+		t.Error("expected error for nonexistent context, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected error to contain 'not found', got %q", err.Error())
+	}
+}
+
+func TestRunContextDelete_NilConfig(t *testing.T) {
+	loadedConfig = nil
+
+	err := runContextDelete("somecontext")
+
+	if err == nil {
+		t.Error("expected error for nil config, got nil")
+	}
+	if !strings.Contains(err.Error(), "configuration not loaded") {
+		t.Errorf("expected error to contain 'configuration not loaded', got %q", err.Error())
+	}
+}
+
+func TestRunContextDelete_NilContext(t *testing.T) {
+	// Create config with a nil context value
+	cfg := config.NewConfig()
+	cfg.CurrentContext = "valid"
+	cfg.SetContext("valid", &config.Context{
+		APIURL: "https://api.stackeye.io",
+		APIKey: "se_valid123",
+	})
+	// Simulate nil context value
+	cfg.Contexts["nilctx"] = nil
+	loadedConfig = cfg
+
+	err := runContextDelete("nilctx")
+
+	if err == nil {
+		t.Error("expected error for nil context, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("expected error to contain 'invalid', got %q", err.Error())
+	}
+}

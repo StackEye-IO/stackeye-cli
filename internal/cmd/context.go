@@ -37,6 +37,7 @@ Examples:
 	cmd.AddCommand(newContextListCmd())
 	cmd.AddCommand(newContextUseCmd())
 	cmd.AddCommand(newContextCurrentCmd())
+	cmd.AddCommand(newContextDeleteCmd())
 
 	return cmd
 }
@@ -238,6 +239,80 @@ func runContextCurrent() error {
 	fmt.Printf("Organization:    %s\n", orgName)
 
 	fmt.Printf("API URL:         %s\n", ctx.EffectiveAPIURL())
+
+	return nil
+}
+
+// newContextDeleteCmd creates the delete subcommand to remove a context.
+func newContextDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <name>",
+		Short: "Delete a context",
+		Long: `Delete a context from your configuration.
+
+This removes the specified context entirely, including its API key and
+organization information. If the deleted context is the current context,
+you will need to switch to another context before running commands.
+
+Examples:
+  # Delete the staging context
+  stackeye context delete acme-staging
+
+  # Delete a context by name
+  stackeye context delete old-org`,
+		Aliases: []string{"rm", "remove"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runContextDelete(args[0])
+		},
+	}
+
+	return cmd
+}
+
+// runContextDelete executes the context delete command.
+func runContextDelete(name string) error {
+	cfg := GetConfig()
+	if cfg == nil {
+		return fmt.Errorf("configuration not loaded")
+	}
+
+	// Check if the context exists before attempting to delete
+	_, err := cfg.GetContext(name)
+	if err != nil {
+		if errors.Is(err, config.ErrNilContext) {
+			return fmt.Errorf("context %q is invalid", name)
+		}
+		return fmt.Errorf("context %q not found", name)
+	}
+
+	// Track if we're deleting the current context
+	wasCurrentContext := cfg.CurrentContext == name
+
+	// Remove the context using SDK method with validation
+	if err := cfg.RemoveContext(name); err != nil {
+		return fmt.Errorf("failed to delete context: %w", err)
+	}
+
+	// Save the configuration
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	// Print success message
+	fmt.Printf("Deleted context %q\n", name)
+
+	if wasCurrentContext {
+		fmt.Println("")
+		fmt.Println("Note: The deleted context was your current context.")
+		names := cfg.ContextNames()
+		if len(names) > 0 {
+			fmt.Printf("Use 'stackeye context use <name>' to switch to another context.\n")
+			fmt.Printf("Available contexts: %v\n", names)
+		} else {
+			fmt.Println("No contexts remaining. Run 'stackeye login' to create a new context.")
+		}
+	}
 
 	return nil
 }
