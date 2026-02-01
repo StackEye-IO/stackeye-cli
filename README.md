@@ -187,6 +187,58 @@ stackeye config get
 # Config File:        ~/.config/stackeye/config.yaml
 ```
 
+## CI/CD and Automation
+
+For non-interactive environments (CI/CD pipelines, scripts, Docker containers), the CLI supports direct API key authentication.
+
+### Environment Variable (Recommended)
+
+```bash
+# Set API key via environment variable
+export STACKEYE_API_KEY=se_your_api_key_here
+
+# Setup and verify configuration
+stackeye setup --no-input
+
+# Create probes using stored credentials
+stackeye probe create --name "Production API" --url https://api.example.com
+```
+
+### Command Flags (Single-Command Setup)
+
+```bash
+# Full setup with API key and probe creation
+stackeye setup --no-input \
+  --api-key se_your_api_key_here \
+  --probe-name "Production API" \
+  --probe-url https://api.example.com
+
+# API key only (no probe creation)
+stackeye setup --no-input --api-key se_your_api_key_here
+```
+
+### GitHub Actions Example
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup StackEye monitoring
+        env:
+          STACKEYE_API_KEY: ${{ secrets.STACKEYE_API_KEY }}
+        run: |
+          curl -fsSL https://get.stackeye.io/cli | bash
+          stackeye setup --no-input
+          stackeye probe create --name "${{ github.repository }}" --url "https://api.example.com"
+```
+
+### Configuration Precedence
+
+1. `--api-key` command flag (highest)
+2. `STACKEYE_API_KEY` environment variable
+3. Config file (`~/.config/stackeye/config.yaml`)
+
 ## Commands
 
 ### Authentication & Configuration
@@ -195,6 +247,7 @@ stackeye config get
 |---------|-------------|
 | `stackeye login` | Authenticate with StackEye via browser |
 | `stackeye logout` | Clear stored credentials for current context |
+| `stackeye setup` | Interactive setup wizard for first-time users |
 | `stackeye whoami` | Display current authenticated user |
 | `stackeye config get` | Display current configuration |
 | `stackeye config set-key` | Set API key for authentication |

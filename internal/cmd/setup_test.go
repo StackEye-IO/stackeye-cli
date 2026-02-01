@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
@@ -367,5 +368,201 @@ func TestSetupFlags(t *testing.T) {
 
 	if !flags.skipProbe {
 		t.Error("expected skipProbe to be true")
+	}
+}
+
+func TestSetupFlags_APIKey(t *testing.T) {
+	flags := &setupFlags{
+		apiURL:        "https://api.stackeye.io",
+		apiKey:        "se_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+		probeName:     "Test Probe",
+		probeURL:      "https://example.com",
+		probeInterval: 30,
+	}
+
+	if flags.apiKey == "" {
+		t.Error("expected apiKey to be set")
+	}
+
+	if flags.probeName != "Test Probe" {
+		t.Errorf("expected probeName to be 'Test Probe', got %v", flags.probeName)
+	}
+
+	if flags.probeURL != "https://example.com" {
+		t.Errorf("expected probeURL to be 'https://example.com', got %v", flags.probeURL)
+	}
+
+	if flags.probeInterval != 30 {
+		t.Errorf("expected probeInterval to be 30, got %v", flags.probeInterval)
+	}
+}
+
+func TestGetAPIKeyFromSources_FlagPrecedence(t *testing.T) {
+	// Test that --api-key flag takes precedence over env var
+	flagKey := "se_flag1234567890123456789012345678901234567890123456789012345678"
+	envKey := "se_env01234567890123456789012345678901234567890123456789012345678"
+
+	// Set env var
+	t.Setenv("STACKEYE_API_KEY", envKey)
+
+	flags := &setupFlags{
+		apiKey: flagKey,
+	}
+
+	result := getAPIKeyFromSources(flags)
+	if result != flagKey {
+		t.Errorf("expected flag API key to take precedence, got %v", result)
+	}
+}
+
+func TestGetAPIKeyFromSources_EnvVar(t *testing.T) {
+	// Test that env var is used when flag is empty
+	envKey := "se_env01234567890123456789012345678901234567890123456789012345678"
+
+	// Set env var
+	t.Setenv("STACKEYE_API_KEY", envKey)
+
+	flags := &setupFlags{
+		apiKey: "", // Empty flag
+	}
+
+	result := getAPIKeyFromSources(flags)
+	if result != envKey {
+		t.Errorf("expected env var API key, got %v", result)
+	}
+}
+
+func TestGetAPIKeyFromSources_NoKey(t *testing.T) {
+	// Clear env var
+	t.Setenv("STACKEYE_API_KEY", "")
+
+	flags := &setupFlags{
+		apiKey: "",
+	}
+
+	result := getAPIKeyFromSources(flags)
+	if result != "" {
+		t.Errorf("expected empty string, got %v", result)
+	}
+}
+
+func TestNewSetupCmd_APIKeyFlags(t *testing.T) {
+	cmd := NewSetupCmd()
+
+	// Check that --api-key flag exists
+	apiKeyFlag := cmd.Flags().Lookup("api-key")
+	if apiKeyFlag == nil {
+		t.Error("expected --api-key flag to exist")
+	} else if apiKeyFlag.DefValue != "" {
+		t.Errorf("expected default for --api-key to be empty, got %v", apiKeyFlag.DefValue)
+	}
+
+	// Check that --probe-name flag exists
+	probeNameFlag := cmd.Flags().Lookup("probe-name")
+	if probeNameFlag == nil {
+		t.Error("expected --probe-name flag to exist")
+	}
+
+	// Check that --probe-url flag exists
+	probeURLFlag := cmd.Flags().Lookup("probe-url")
+	if probeURLFlag == nil {
+		t.Error("expected --probe-url flag to exist")
+	}
+
+	// Check that --probe-interval flag exists with default value
+	probeIntervalFlag := cmd.Flags().Lookup("probe-interval")
+	if probeIntervalFlag == nil {
+		t.Error("expected --probe-interval flag to exist")
+	} else if probeIntervalFlag.DefValue != "60" {
+		t.Errorf("expected default for --probe-interval to be 60, got %v", probeIntervalFlag.DefValue)
+	}
+}
+
+func TestRunNonInteractiveAuth_InvalidAPIKeyFormat(t *testing.T) {
+	resetGlobalState()
+	noInput = true
+
+	// Create temp directory for config
+	tempDir := t.TempDir()
+	configFile = filepath.Join(tempDir, "config.yaml")
+
+	flags := &setupFlags{
+		apiURL: auth.DefaultAPIURL,
+		apiKey: "invalid-key", // Invalid format
+	}
+
+	err := runNonInteractiveAuth(t.Context(), flags, flags.apiKey)
+	if err == nil {
+		t.Fatal("expected error for invalid API key format")
+	}
+
+	if !strings.Contains(err.Error(), "invalid API key format") {
+		t.Errorf("expected 'invalid API key format' error, got: %v", err)
+	}
+}
+
+func TestCreateNonInteractiveProbe_MissingProbeName(t *testing.T) {
+	resetGlobalState()
+
+	// Valid API key format
+	apiKey := "se_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	flags := &setupFlags{
+		apiURL:    auth.DefaultAPIURL,
+		probeName: "", // Missing
+		probeURL:  "https://example.com",
+	}
+
+	err := createNonInteractiveProbe(t.Context(), flags, apiKey)
+	if err == nil {
+		t.Fatal("expected error for missing probe name")
+	}
+
+	if !strings.Contains(err.Error(), "--probe-name is required") {
+		t.Errorf("expected '--probe-name is required' error, got: %v", err)
+	}
+}
+
+func TestCreateNonInteractiveProbe_MissingProbeURL(t *testing.T) {
+	resetGlobalState()
+
+	// Valid API key format
+	apiKey := "se_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	flags := &setupFlags{
+		apiURL:    auth.DefaultAPIURL,
+		probeName: "Test Probe",
+		probeURL:  "", // Missing
+	}
+
+	err := createNonInteractiveProbe(t.Context(), flags, apiKey)
+	if err == nil {
+		t.Fatal("expected error for missing probe URL")
+	}
+
+	if !strings.Contains(err.Error(), "--probe-url is required") {
+		t.Errorf("expected '--probe-url is required' error, got: %v", err)
+	}
+}
+
+func TestCreateNonInteractiveProbe_InvalidProbeURL(t *testing.T) {
+	resetGlobalState()
+
+	// Valid API key format
+	apiKey := "se_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	flags := &setupFlags{
+		apiURL:    auth.DefaultAPIURL,
+		probeName: "Test Probe",
+		probeURL:  "not-a-valid-url", // Invalid URL
+	}
+
+	err := createNonInteractiveProbe(t.Context(), flags, apiKey)
+	if err == nil {
+		t.Fatal("expected error for invalid probe URL")
+	}
+
+	if !strings.Contains(err.Error(), "invalid probe URL") {
+		t.Errorf("expected 'invalid probe URL' error, got: %v", err)
 	}
 }

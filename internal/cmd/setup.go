@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
+	sdkauth "github.com/StackEye-IO/stackeye-go-sdk/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
@@ -16,8 +18,12 @@ import (
 
 // setupFlags holds the command flags for the setup command.
 type setupFlags struct {
-	apiURL    string
-	skipProbe bool
+	apiURL        string
+	skipProbe     bool
+	apiKey        string // API key for non-interactive authentication
+	probeName     string // Probe name for non-interactive creation
+	probeURL      string // Probe URL for non-interactive creation
+	probeInterval int    // Probe interval in seconds for non-interactive creation
 }
 
 // NewSetupCmd creates and returns the setup command.
@@ -40,6 +46,19 @@ For scripted or non-interactive environments, use the individual commands:
   stackeye org switch <name>  Switch to a different organization
   stackeye probe create       Create a monitoring probe
 
+CI/CD and Automation:
+  For non-interactive environments, you can provide an API key directly:
+
+  # Via environment variable (recommended for CI/CD)
+  export STACKEYE_API_KEY=se_xxx
+  stackeye setup --no-input
+
+  # Via flag (single-command setup)
+  stackeye setup --no-input --api-key se_xxx
+
+  # Full setup with probe creation
+  stackeye setup --no-input --api-key se_xxx --probe-name "API" --probe-url https://api.example.com
+
 Examples:
   # Run the interactive setup wizard
   stackeye setup
@@ -48,7 +67,13 @@ Examples:
   stackeye setup --api-url https://api.dev.stackeye.io
 
   # Skip the probe creation step
-  stackeye setup --skip-probe`,
+  stackeye setup --skip-probe
+
+  # Non-interactive setup with API key from environment
+  STACKEYE_API_KEY=se_xxx stackeye setup --no-input
+
+  # Non-interactive setup with API key and probe creation
+  stackeye setup --no-input --api-key se_xxx --probe-name "My API" --probe-url https://example.com`,
 		// Override PersistentPreRunE to skip config loading.
 		// The setup command should work without a valid configuration.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -61,6 +86,12 @@ Examples:
 
 	cmd.Flags().StringVar(&flags.apiURL, "api-url", auth.DefaultAPIURL, "StackEye API URL")
 	cmd.Flags().BoolVar(&flags.skipProbe, "skip-probe", false, "Skip the optional probe creation step")
+
+	// CI/CD and automation flags
+	cmd.Flags().StringVar(&flags.apiKey, "api-key", "", "API key for non-interactive authentication (or use STACKEYE_API_KEY env var)")
+	cmd.Flags().StringVar(&flags.probeName, "probe-name", "", "Probe name for non-interactive probe creation (requires --probe-url)")
+	cmd.Flags().StringVar(&flags.probeURL, "probe-url", "", "Probe URL for non-interactive probe creation (requires --probe-name)")
+	cmd.Flags().IntVar(&flags.probeInterval, "probe-interval", 60, "Probe check interval in seconds (default: 60)")
 
 	return cmd
 }
@@ -125,19 +156,215 @@ func runSetup(ctx context.Context, flags *setupFlags) error {
 }
 
 // runSetupNonInteractive handles setup in non-interactive mode.
-// In non-interactive mode, we verify the current configuration and report status.
+// Supports API key authentication via --api-key flag or STACKEYE_API_KEY env var.
 func runSetupNonInteractive(ctx context.Context, flags *setupFlags) error {
-	// Note: flags.apiURL is available but we use the stored context's APIURL
-	// since non-interactive mode checks existing configuration status
+	// Check for API key from flag or environment variable
+	apiKey := getAPIKeyFromSources(flags)
 
+	// If API key provided, perform non-interactive authentication setup
+	if apiKey != "" {
+		return runNonInteractiveAuth(ctx, flags, apiKey)
+	}
+
+	// No API key provided - fall back to status checking behavior
+	return runNonInteractiveStatus(ctx, flags)
+}
+
+// getAPIKeyFromSources returns the API key from flag or environment variable.
+// Precedence: --api-key flag > STACKEYE_API_KEY env var
+func getAPIKeyFromSources(flags *setupFlags) string {
+	// Check flag first (highest priority)
+	if flags.apiKey != "" {
+		return flags.apiKey
+	}
+
+	// Check environment variable
+	return os.Getenv(sdkauth.APIKeyEnvVar)
+}
+
+// runNonInteractiveAuth performs non-interactive setup with the provided API key.
+func runNonInteractiveAuth(ctx context.Context, flags *setupFlags, apiKey string) error {
+	// Validate API key format
+	if !sdkauth.ValidateAPIKey(apiKey) {
+		return fmt.Errorf("invalid API key format: must be 67 characters starting with 'se_'")
+	}
+
+	// Verify credentials with API
+	fmt.Print("Verifying API key...")
+	c := client.New(apiKey, flags.apiURL)
+	verifyCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	verifyResp, err := client.VerifyCLICredentials(verifyCtx, c)
+	if err != nil {
+		fmt.Println(" failed")
+		return fmt.Errorf("API key verification failed: %w", err)
+	}
+	fmt.Println(" done")
+
+	// Get organization info
+	orgName := verifyResp.OrganizationName
+	orgID := verifyResp.OrganizationID
+	if orgName == "" {
+		orgName = "default"
+	}
+
+	// Generate context name
+	contextName := generateContextName(orgName, flags.apiURL)
+
+	// Load or create config
+	cfg, err := config.Load()
+	if err != nil {
+		// Create new config if none exists
+		cfg = config.NewConfig()
+	}
+
+	// Create new context
+	newCtx := &config.Context{
+		APIURL:           flags.apiURL,
+		OrganizationID:   orgID,
+		OrganizationName: orgName,
+		APIKey:           apiKey,
+	}
+
+	// Handle naming conflicts
+	existingContextName := contextName
+	suffix := 1
+	for {
+		if _, err := cfg.GetContext(contextName); err != nil {
+			break
+		}
+		// Check if existing context has same API URL - update it instead
+		existingCtx, _ := cfg.GetContext(contextName)
+		if existingCtx != nil && existingCtx.APIURL == flags.apiURL {
+			// Update existing context with new credentials
+			existingCtx.APIKey = apiKey
+			existingCtx.OrganizationID = orgID
+			existingCtx.OrganizationName = orgName
+			cfg.CurrentContext = contextName
+			if err := cfg.Save(); err != nil {
+				return fmt.Errorf("failed to save config: %w", err)
+			}
+			fmt.Println()
+			fmt.Printf("Context:      %s (updated)\n", contextName)
+			fmt.Printf("Organization: %s\n", orgName)
+			fmt.Printf("API URL:      %s\n", flags.apiURL)
+
+			// Create probe if requested
+			if flags.probeName != "" && flags.probeURL != "" {
+				return createNonInteractiveProbe(ctx, flags, apiKey)
+			}
+			return nil
+		}
+		suffix++
+		contextName = fmt.Sprintf("%s-%d", existingContextName, suffix)
+	}
+
+	// Save new context
+	cfg.SetContext(contextName, newCtx)
+	cfg.CurrentContext = contextName
+
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("Context:      %s\n", contextName)
+	fmt.Printf("Organization: %s\n", orgName)
+	fmt.Printf("API URL:      %s\n", flags.apiURL)
+
+	// Create probe if requested
+	if flags.probeName != "" && flags.probeURL != "" {
+		return createNonInteractiveProbe(ctx, flags, apiKey)
+	}
+
+	// Print next steps if no probe created
+	if !flags.skipProbe && flags.probeName == "" {
+		fmt.Println()
+		fmt.Println("To create a probe:")
+		fmt.Println("  stackeye probe create --name <name> --url <url>")
+	}
+
+	return nil
+}
+
+// createNonInteractiveProbe creates a probe without interactive prompts.
+func createNonInteractiveProbe(ctx context.Context, flags *setupFlags, apiKey string) error {
+	// Validate required flags
+	if flags.probeName == "" {
+		return fmt.Errorf("--probe-name is required for non-interactive probe creation")
+	}
+	if flags.probeURL == "" {
+		return fmt.Errorf("--probe-url is required for non-interactive probe creation")
+	}
+
+	// Validate probe URL
+	if err := validateProbeURL(flags.probeURL); err != nil {
+		return fmt.Errorf("invalid probe URL: %w", err)
+	}
+
+	// Validate interval
+	intervalSeconds := flags.probeInterval
+	if intervalSeconds < 15 {
+		fmt.Printf("Note: Interval adjusted from %d to minimum 15 seconds\n", flags.probeInterval)
+		intervalSeconds = 15
+	}
+	if intervalSeconds > 3600 {
+		fmt.Printf("Note: Interval adjusted from %d to maximum 3600 seconds\n", flags.probeInterval)
+		intervalSeconds = 3600
+	}
+
+	fmt.Print("\nCreating probe...")
+
+	c := client.New(apiKey, flags.apiURL)
+	createCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	req := &client.CreateProbeRequest{
+		Name:                   flags.probeName,
+		URL:                    flags.probeURL,
+		CheckType:              client.CheckTypeHTTP,
+		Method:                 "GET",
+		IntervalSeconds:        intervalSeconds,
+		TimeoutMs:              10000, // 10 seconds
+		ExpectedStatusCodes:    []int{200},
+		SSLCheckEnabled:        true,
+		SSLExpiryThresholdDays: 14,
+	}
+
+	probe, err := client.CreateProbe(createCtx, c, req)
+	if err != nil {
+		fmt.Println(" failed")
+		return fmt.Errorf("failed to create probe: %w", err)
+	}
+
+	fmt.Println(" done")
+	fmt.Printf("Probe created: %s\n", probe.Name)
+	fmt.Printf("  ID:       %s\n", probe.ID)
+	fmt.Printf("  URL:      %s\n", flags.probeURL)
+	fmt.Printf("  Interval: %d seconds\n", intervalSeconds)
+
+	return nil
+}
+
+// runNonInteractiveStatus checks and reports the current configuration status.
+// This is the original behavior when no API key is provided.
+func runNonInteractiveStatus(ctx context.Context, flags *setupFlags) error {
 	// Check if already authenticated
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Println("Status: Not configured")
 		fmt.Println()
-		fmt.Println("To set up in non-interactive mode, run these commands:")
-		fmt.Println("  stackeye login                    # Authenticate via browser")
-		fmt.Println("  stackeye probe create --name <name> --url <url>  # Create a probe")
+		fmt.Println("To set up in non-interactive mode:")
+		fmt.Println("  # Option 1: Use environment variable (recommended for CI/CD)")
+		fmt.Println("  export STACKEYE_API_KEY=se_xxx")
+		fmt.Println("  stackeye setup --no-input")
+		fmt.Println()
+		fmt.Println("  # Option 2: Use command flag")
+		fmt.Println("  stackeye setup --no-input --api-key se_xxx")
+		fmt.Println()
+		fmt.Println("  # Option 3: Interactive browser login")
+		fmt.Println("  stackeye login")
 		return nil
 	}
 
@@ -146,9 +373,16 @@ func runSetupNonInteractive(ctx context.Context, flags *setupFlags) error {
 	if err != nil || currentCtx.APIKey == "" {
 		fmt.Println("Status: Not authenticated")
 		fmt.Println()
-		fmt.Println("To set up in non-interactive mode, run these commands:")
-		fmt.Println("  stackeye login                    # Authenticate via browser")
-		fmt.Println("  stackeye probe create --name <name> --url <url>  # Create a probe")
+		fmt.Println("To set up in non-interactive mode:")
+		fmt.Println("  # Option 1: Use environment variable (recommended for CI/CD)")
+		fmt.Println("  export STACKEYE_API_KEY=se_xxx")
+		fmt.Println("  stackeye setup --no-input")
+		fmt.Println()
+		fmt.Println("  # Option 2: Use command flag")
+		fmt.Println("  stackeye setup --no-input --api-key se_xxx")
+		fmt.Println()
+		fmt.Println("  # Option 3: Interactive browser login")
+		fmt.Println("  stackeye login")
 		return nil
 	}
 
@@ -162,6 +396,7 @@ func runSetupNonInteractive(ctx context.Context, flags *setupFlags) error {
 		fmt.Println("Status: Authentication invalid or expired")
 		fmt.Println()
 		fmt.Println("Re-authenticate with: stackeye login")
+		fmt.Println("Or provide a new API key: stackeye setup --no-input --api-key se_xxx")
 		return nil
 	}
 
