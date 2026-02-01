@@ -55,16 +55,8 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
-# Wasabi S3 blob upload (primary distribution channel)
-# CloudFlare CDN fronts this at releases.stackeye.io
-blobs:
-  - provider: s3
-    endpoint: https://s3.us-central-1.wasabisys.com
-    region: us-central-1
-    bucket: releases.stackeye.io
-    directory: "cli/v{{ .Version }}"
-    ids:
-      - default
+# Wasabi S3 upload handled by AWS CLI in workflow (more reliable credential handling)
+# CloudFlare CDN fronts releases.stackeye.io
 
 # Snapshot configuration (for testing without tags)
 snapshot:

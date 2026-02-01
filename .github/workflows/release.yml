@@ -59,9 +59,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
-          # Wasabi S3 credentials for blob upload
+
+      - name: Upload to Wasabi S3
+        if: success()
+        env:
           AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-central-1
+        run: |
+          # Get version from tag
+          VERSION="${GITHUB_REF_NAME}"
+
+          # Upload archives and checksums to Wasabi S3
+          aws s3 cp dist/ "s3://releases.stackeye.io/cli/${VERSION}/" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com \
+            --recursive \
+            --exclude "*" \
+            --include "*.tar.gz" \
+            --include "*.zip" \
+            --include "checksums.txt" \
+            --acl public-read
+
+          echo "Uploaded release artifacts to s3://releases.stackeye.io/cli/${VERSION}/"
 
       - name: Purge CloudFlare cache
         if: success()
