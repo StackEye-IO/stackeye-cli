@@ -40,3 +40,9 @@ __debug_bin*
 
 # CI - checked-out SDK for builds
 .sdk/
+
+# Claude Code state files
+.claude/
+
+# Extended coverage files
+coverage_full.out
