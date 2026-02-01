@@ -16,8 +16,17 @@ import (
 // billingUsageTimeout is the maximum time to wait for the API response.
 const billingUsageTimeout = 30 * time.Second
 
+// billingUsageFlags holds the flag values for the billing usage command.
+// Task #7945: Added for historical usage support.
+type billingUsageFlags struct {
+	period      string
+	listPeriods bool
+}
+
 // NewBillingUsageCmd creates and returns the billing usage command.
 func NewBillingUsageCmd() *cobra.Command {
+	flags := &billingUsageFlags{}
+
 	cmd := &cobra.Command{
 		Use:   "usage",
 		Short: "Show current resource usage against plan limits",
@@ -34,8 +43,14 @@ Output includes:
   - Current billing period dates
 
 Examples:
-  # Show usage statistics
+  # Show current usage statistics
   stackeye billing usage
+
+  # Show usage for a specific historical period
+  stackeye billing usage --period 2025-01
+
+  # List available historical periods
+  stackeye billing usage --list-periods
 
   # Output as JSON for scripting
   stackeye billing usage -o json
@@ -44,28 +59,47 @@ Examples:
   stackeye billing usage -o yaml`,
 		Aliases: []string{"metrics", "stats"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBillingUsage(cmd.Context())
+			return runBillingUsage(cmd.Context(), flags)
 		},
 	}
+
+	// Task #7945: Add historical usage flags
+	cmd.Flags().StringVar(&flags.period, "period", "", "Historical period in YYYY-MM format (e.g., 2025-01)")
+	cmd.Flags().BoolVar(&flags.listPeriods, "list-periods", false, "List available historical usage periods")
 
 	return cmd
 }
 
 // runBillingUsage executes the billing usage command logic.
-func runBillingUsage(ctx context.Context) error {
+// Task #7945: Extended to support --period and --list-periods flags.
+func runBillingUsage(ctx context.Context, flags *billingUsageFlags) error {
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
-	// Call SDK to get usage info with timeout
+	// Call SDK with timeout
 	reqCtx, cancel := context.WithTimeout(ctx, billingUsageTimeout)
 	defer cancel()
 
-	usage, err := client.GetUsage(reqCtx, apiClient)
-	if err != nil {
-		return fmt.Errorf("failed to get usage info: %w", err)
+	// Task #7945: Handle --list-periods flag
+	if flags.listPeriods {
+		return runBillingUsageHistory(reqCtx, apiClient)
+	}
+
+	// Task #7945: Handle --period flag for historical data
+	var usage *client.UsageInfo
+	if flags.period != "" {
+		usage, err = client.GetUsageForPeriod(reqCtx, apiClient, flags.period)
+		if err != nil {
+			return fmt.Errorf("failed to get usage for period %s: %w", flags.period, err)
+		}
+	} else {
+		usage, err = client.GetUsage(reqCtx, apiClient)
+		if err != nil {
+			return fmt.Errorf("failed to get usage info: %w", err)
+		}
 	}
 
 	// Check output format - use JSON/YAML if requested, otherwise pretty print
@@ -80,6 +114,86 @@ func runBillingUsage(ctx context.Context) error {
 	// Pretty print for table format (default)
 	printUsageInfo(usage)
 	return nil
+}
+
+// runBillingUsageHistory lists available historical usage periods.
+// Task #7945: Implements the --list-periods functionality.
+func runBillingUsageHistory(ctx context.Context, apiClient *client.Client) error {
+	history, err := client.GetUsageHistory(ctx, apiClient)
+	if err != nil {
+		return fmt.Errorf("failed to get usage history: %w", err)
+	}
+
+	// Check output format - use JSON/YAML if requested, otherwise pretty print
+	cfg := GetConfig()
+	if cfg != nil && cfg.Preferences != nil {
+		switch cfg.Preferences.OutputFormat {
+		case "json", "yaml":
+			return output.Print(history)
+		}
+	}
+
+	// Pretty print for table format (default)
+	printUsageHistory(history)
+	return nil
+}
+
+// printUsageHistory formats and prints the usage history in a human-friendly format.
+// Task #7945: Displays available historical periods for the --list-periods flag.
+func printUsageHistory(history *client.UsageHistoryResponse) {
+	fmt.Println()
+	fmt.Println("╔════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                HISTORICAL USAGE PERIODS                    ║")
+	fmt.Println("╚════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	if len(history.Periods) == 0 {
+		fmt.Println("  No historical usage data available yet.")
+		fmt.Println()
+		fmt.Println("  Usage data is recorded at the end of each billing period.")
+		fmt.Println()
+		return
+	}
+
+	fmt.Println("  ┌──────────┬─────────────────────────┬──────────┬───────┬────────────┐")
+	fmt.Println("  │ Period   │ Date Range              │ Monitors │ Team  │ Checks     │")
+	fmt.Println("  ├──────────┼─────────────────────────┼──────────┼───────┼────────────┤")
+
+	for _, period := range history.Periods {
+		startDate := parseAndFormatDateShort(period.PeriodStart)
+		endDate := parseAndFormatDateShort(period.PeriodEnd)
+		dateRange := fmt.Sprintf("%s - %s", startDate, endDate)
+		checksStr := formatLargeNumber(period.ChecksCount)
+
+		fmt.Printf("  │ %-8s │ %-23s │ %8d │ %5d │ %10s │\n",
+			period.Period,
+			dateRange,
+			period.MonitorsCount,
+			period.TeamMembersCount,
+			checksStr,
+		)
+	}
+
+	fmt.Println("  └──────────┴─────────────────────────┴──────────┴───────┴────────────┘")
+	fmt.Println()
+	fmt.Printf("  Total periods: %d\n", history.Total)
+	fmt.Println()
+	fmt.Println("  To view details for a specific period:")
+	fmt.Println("    stackeye billing usage --period 2025-01")
+	fmt.Println()
+}
+
+// parseAndFormatDateShort parses an ISO date string and formats it as MMM DD.
+func parseAndFormatDateShort(dateStr string) string {
+	t, err := time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		// Try without timezone
+		t, err = time.Parse("2006-01-02T15:04:05", dateStr)
+		if err != nil {
+			return dateStr[:10] // Return first 10 chars as fallback
+		}
+	}
+	return t.Format("Jan 02")
 }
 
 // printUsageInfo formats and prints the usage info in a human-friendly format.
