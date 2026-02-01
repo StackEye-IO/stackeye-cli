@@ -55,6 +55,17 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+# Wasabi S3 blob upload (primary distribution channel)
+# CloudFlare CDN fronts this at releases.stackeye.io
+blobs:
+  - provider: s3
+    endpoint: https://s3.us-central-1.wasabisys.com
+    region: us-central-1
+    bucket: releases.stackeye.io
+    directory: "cli/v{{ .Version }}"
+    ids:
+      - default
+
 # Snapshot configuration (for testing without tags)
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
@@ -105,9 +116,9 @@ release:
     brew install stackeye-io/tap/stackeye
 
     # Linux/macOS (curl)
-    curl -fsSL https://get.stackeye.io/cli | bash
+    curl -fsSL https://releases.stackeye.io/install.sh | bash
 
-    # Go install
+    # Go install (requires public repo)
     go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@{{.Tag}}
     ```
 
@@ -122,6 +133,8 @@ brews:
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
+    # Use CDN URL for faster downloads (CloudFlare fronts Wasabi S3)
+    url_template: "https://releases.stackeye.io/cli/v{{ .Version }}/{{ .ArtifactName }}"
     homepage: https://stackeye.io
     description: "CLI for StackEye uptime monitoring platform"
     license: MIT

@@ -64,3 +64,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
+          # Wasabi S3 credentials for blob upload
+          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
+
+      - name: Purge CloudFlare cache
+        if: success()
+        run: |
+          # Purge CDN cache for new release binaries
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"prefixes":["https://releases.stackeye.io/cli/"]}'

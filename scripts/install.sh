@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# install.sh - Install StackEye CLI from GitHub Releases
+# install.sh - Install StackEye CLI
 #
 # This script downloads and installs the StackEye CLI binary for your platform.
 # It auto-detects OS and architecture, verifies checksums, and installs the binary.
+# Downloads from CloudFlare CDN (releases.stackeye.io) with GitHub fallback.
 #
 # Usage:
-#   curl -fsSL https://get.stackeye.io/cli | bash
-#   curl -fsSL https://get.stackeye.io/cli | bash -s -- --version v1.0.0
-#   curl -fsSL https://get.stackeye.io/cli | STACKEYE_INSTALL_DIR=/custom/path bash
+#   curl -fsSL https://releases.stackeye.io/install.sh | bash
+#   curl -fsSL https://releases.stackeye.io/install.sh | bash -s -- --version v1.0.0
+#   curl -fsSL https://releases.stackeye.io/install.sh | STACKEYE_INSTALL_DIR=/custom/path bash
 #
 # Environment variables:
 #   STACKEYE_VERSION      - Install specific version (default: latest)
@@ -23,6 +24,10 @@ set -euo pipefail
 # Configuration
 GITHUB_REPO="StackEye-IO/stackeye-cli"
 BINARY_NAME="stackeye"
+
+# Distribution URLs (CDN primary, GitHub fallback)
+CDN_BASE_URL="https://releases.stackeye.io/cli"
+GITHUB_BASE_URL="https://github.com/${GITHUB_REPO}/releases/download"
 
 # Colors for output (disabled if not a terminal)
 if [[ -t 1 ]]; then
@@ -127,7 +132,21 @@ get_latest_version() {
     echo "$version"
 }
 
-# Download file
+# Download file (silent, returns non-zero on failure)
+download_file_silent() {
+    local url="$1"
+    local output="$2"
+
+    if has_command curl; then
+        curl -fsSL "$url" -o "$output" 2>/dev/null
+    elif has_command wget; then
+        wget -q "$url" -O "$output" 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+# Download file with logging
 download_file() {
     local url="$1"
     local output="$2"
@@ -142,6 +161,26 @@ download_file() {
         error "Neither curl nor wget found. Please install one of them."
         exit 1
     fi
+}
+
+# Download file with CDN fallback to GitHub
+download_with_fallback() {
+    local cdn_url="$1"
+    local github_url="$2"
+    local output="$3"
+
+    info "Downloading from CDN..."
+    if download_file_silent "$cdn_url" "$output"; then
+        return 0
+    fi
+
+    warn "CDN download failed, trying GitHub..."
+    if download_file "$github_url" "$output"; then
+        return 0
+    fi
+
+    error "Failed to download from both CDN and GitHub"
+    return 1
 }
 
 # Verify checksum
@@ -290,13 +329,13 @@ Environment Variables:
 
 Examples:
     # Install latest version
-    curl -fsSL https://get.stackeye.io/cli | bash
+    curl -fsSL https://releases.stackeye.io/install.sh | bash
 
     # Install specific version
-    curl -fsSL https://get.stackeye.io/cli | bash -s -- --version v1.0.0
+    curl -fsSL https://releases.stackeye.io/install.sh | bash -s -- --version v1.0.0
 
     # Install to custom directory
-    curl -fsSL https://get.stackeye.io/cli | STACKEYE_INSTALL_DIR=~/bin bash
+    curl -fsSL https://releases.stackeye.io/install.sh | STACKEYE_INSTALL_DIR=~/bin bash
 
 EOF
     exit 0
@@ -366,10 +405,14 @@ main() {
     local archive_name="${BINARY_NAME}_${version_no_v}_${os}_${arch}.tar.gz"
     local checksums_name="checksums.txt"
 
-    # Construct download URLs
-    local base_url="https://github.com/${GITHUB_REPO}/releases/download/${version}"
-    local archive_url="${base_url}/${archive_name}"
-    local checksums_url="${base_url}/${checksums_name}"
+    # Construct download URLs (CDN primary, GitHub fallback)
+    local cdn_url="${CDN_BASE_URL}/${version}"
+    local github_url="${GITHUB_BASE_URL}/${version}"
+
+    local archive_url_cdn="${cdn_url}/${archive_name}"
+    local archive_url_github="${github_url}/${archive_name}"
+    local checksums_url_cdn="${cdn_url}/${checksums_name}"
+    local checksums_url_github="${github_url}/${checksums_name}"
 
     # Create temporary directory
     _INSTALL_TMPDIR=$(mktemp -d)
@@ -378,11 +421,11 @@ main() {
     local archive_path="${_INSTALL_TMPDIR}/${archive_name}"
     local checksums_path="${_INSTALL_TMPDIR}/${checksums_name}"
 
-    # Download checksums
-    download_file "$checksums_url" "$checksums_path"
+    # Download checksums (try CDN first, then GitHub)
+    download_with_fallback "$checksums_url_cdn" "$checksums_url_github" "$checksums_path" || exit 1
 
-    # Download archive
-    download_file "$archive_url" "$archive_path"
+    # Download archive (try CDN first, then GitHub)
+    download_with_fallback "$archive_url_cdn" "$archive_url_github" "$archive_path" || exit 1
 
     # Verify checksum (unless disabled)
     if [[ -z "${STACKEYE_NO_VERIFY:-}" ]]; then
