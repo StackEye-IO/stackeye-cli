@@ -2,8 +2,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/spf13/cobra"
 )
 
@@ -147,10 +149,10 @@ func runContextUse(name string) error {
 	// Validate the context exists
 	ctx, err := cfg.GetContext(name)
 	if err != nil {
+		if errors.Is(err, config.ErrNilContext) {
+			return fmt.Errorf("context %q is invalid", name)
+		}
 		return fmt.Errorf("context %q not found", name)
-	}
-	if ctx == nil {
-		return fmt.Errorf("context %q is invalid", name)
 	}
 
 	// Check if already using this context
@@ -220,10 +222,10 @@ func runContextCurrent() error {
 	// Get the current context details
 	ctx, err := cfg.GetCurrentContext()
 	if err != nil {
+		if errors.Is(err, config.ErrNilContext) {
+			return fmt.Errorf("current context %q is invalid", cfg.CurrentContext)
+		}
 		return fmt.Errorf("current context %q not found in configuration", cfg.CurrentContext)
-	}
-	if ctx == nil {
-		return fmt.Errorf("current context %q is invalid", cfg.CurrentContext)
 	}
 
 	// Display context information
