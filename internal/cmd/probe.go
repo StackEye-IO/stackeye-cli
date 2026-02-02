@@ -79,6 +79,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeHistoryCmd())
 	cmd.AddCommand(NewProbeStatsCmd())
 	cmd.AddCommand(NewProbeLinkChannelCmd())
+	cmd.AddCommand(NewProbeUnlinkChannelCmd()) // Task #7074
 	cmd.AddCommand(NewProbeDepsCmd())
 	cmd.AddCommand(NewProbeLabelCmd())   // Task #8068
 	cmd.AddCommand(NewProbeUnlabelCmd()) // Task #8069
