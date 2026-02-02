@@ -79,10 +79,10 @@ func TestInfrastructurePatterns(t *testing.T) {
 		{"haproxy-main", true},
 		{"nginx-proxy", true},
 		{"traefik-ingress", true},
-		{"api-server", false},       // Contains "server" but not infra keywords
-		{"web-frontend", false},     // No infrastructure keywords
-		{"my-random-probe", false},  // No keywords at all
-		{"endpoint-check", false},   // No infrastructure keywords
+		{"api-server", false},      // Contains "server" but not infra keywords
+		{"web-frontend", false},    // No infrastructure keywords
+		{"my-random-probe", false}, // No keywords at all
+		{"endpoint-check", false},  // No infrastructure keywords
 	}
 
 	for _, tc := range cases {
@@ -113,10 +113,10 @@ func TestApplicationPatterns(t *testing.T) {
 		{"backend-api", true},
 		{"frontend-web", true},
 		{"endpoint-api", true},
-		{"router-probe", false},     // Infrastructure, no app keywords
-		{"firewall-01", false},      // Infrastructure, no app keywords
-		{"gateway-west", false},     // Infrastructure, no app keywords
-		{"my-random-probe", false},  // No keywords at all
+		{"router-probe", false},    // Infrastructure, no app keywords
+		{"firewall-01", false},     // Infrastructure, no app keywords
+		{"gateway-west", false},    // Infrastructure, no app keywords
+		{"my-random-probe", false}, // No keywords at all
 	}
 
 	for _, tc := range cases {
