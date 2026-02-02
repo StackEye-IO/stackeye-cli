@@ -153,9 +153,9 @@ func TestParseLabelArgs_EmptyValue(t *testing.T) {
 
 func TestParseSingleLabel_InvalidKey(t *testing.T) {
 	tests := []struct {
-		name     string
-		arg      string
-		wantErr  string
+		name    string
+		arg     string
+		wantErr string
 	}{
 		{
 			name:    "uppercase key",
