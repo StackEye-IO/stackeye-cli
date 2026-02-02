@@ -62,15 +62,13 @@ For more information about a specific command:
 		Aliases: []string{"dependencies", "dependency", "dep"},
 	}
 
-	// Register implemented subcommands
+	// Register all subcommands
 	cmd.AddCommand(NewProbeDepsListCmd())
 	cmd.AddCommand(NewProbeDepsAddCmd())
-
-	// Subcommands to be registered as they are implemented:
-	// - Task #8025: NewProbeDepsRemoveCmd()
-	// - Task #8026: NewProbeDepsClearCmd()
-	// - Task #8027: NewProbeDepsTreeCmd()
-	// - Task #8028: NewProbeDepsWizardCmd()
+	cmd.AddCommand(NewProbeDepsRemoveCmd()) // Task #8025
+	cmd.AddCommand(NewProbeDepsClearCmd())  // Task #8026
+	cmd.AddCommand(NewProbeDepsTreeCmd())   // Task #8027
+	cmd.AddCommand(NewProbeDepsWizardCmd()) // Task #8028
 
 	return cmd
 }
