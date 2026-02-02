@@ -80,7 +80,8 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeStatsCmd())
 	cmd.AddCommand(NewProbeLinkChannelCmd())
 	cmd.AddCommand(NewProbeDepsCmd())
-	cmd.AddCommand(NewProbeLabelCmd()) // Task #8068
+	cmd.AddCommand(NewProbeLabelCmd())   // Task #8068
+	cmd.AddCommand(NewProbeUnlabelCmd()) // Task #8069
 
 	return cmd
 }
