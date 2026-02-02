@@ -216,7 +216,7 @@ func TestRunLabelCreate_Success(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	_, cleanup := setupMockAPIServer(t, handler)
@@ -239,7 +239,7 @@ func TestRunLabelCreate_DuplicateKey(t *testing.T) {
 		// Return 409 Conflict for duplicate key
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "error",
 			"error": map[string]interface{}{
 				"code":    "key_exists",
@@ -348,8 +348,8 @@ func TestRunLabelCreate_AllFieldsPassedToAPI(t *testing.T) {
 
 		// Capture the request for verification
 		var buf bytes.Buffer
-		buf.ReadFrom(r.Body)
-		json.Unmarshal(buf.Bytes(), &receivedReq)
+		_, _ = buf.ReadFrom(r.Body)
+		_ = json.Unmarshal(buf.Bytes(), &receivedReq)
 
 		// Return successful response
 		resp := map[string]interface{}{
@@ -368,7 +368,7 @@ func TestRunLabelCreate_AllFieldsPassedToAPI(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	_, cleanup := setupMockAPIServer(t, handler)
