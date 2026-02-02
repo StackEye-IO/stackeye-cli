@@ -19,7 +19,8 @@ const labelDeleteTimeout = 30 * time.Second
 
 // labelDeleteFlags holds the flag values for the label delete command.
 type labelDeleteFlags struct {
-	yes bool // Skip confirmation prompt
+	yes   bool // Skip confirmation prompt
+	force bool // Force deletion without any prompt
 }
 
 // NewLabelDeleteCmd creates and returns the label delete subcommand.
@@ -48,7 +49,10 @@ Examples:
   stackeye label delete env --yes
 
   # Short form
-  stackeye label delete env -y`,
+  stackeye label delete env -y
+
+  # Force deletion (alias for --yes)
+  stackeye label delete env --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLabelDelete(cmd.Context(), args[0], flags)
@@ -56,6 +60,7 @@ Examples:
 	}
 
 	cmd.Flags().BoolVarP(&flags.yes, "yes", "y", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&flags.force, "force", false, "force deletion without confirmation (alias for --yes)")
 
 	return cmd
 }
@@ -89,8 +94,8 @@ func runLabelDelete(ctx context.Context, key string, flags *labelDeleteFlags) er
 		fmt.Println("The label will be removed from all affected probes after deletion.")
 	}
 
-	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
-	if !flags.yes && !GetNoInput() {
+	// Prompt for confirmation unless --yes or --force flag is set or --no-input is enabled
+	if !flags.yes && !flags.force && !GetNoInput() {
 		displayName := key
 		if labelKey.DisplayName != nil && *labelKey.DisplayName != "" {
 			displayName = fmt.Sprintf("%s (%s)", *labelKey.DisplayName, key)
