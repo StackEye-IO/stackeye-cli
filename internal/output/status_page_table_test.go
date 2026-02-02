@@ -101,6 +101,11 @@ func TestTruncateName(t *testing.T) {
 		{"exact length", "12345", 5, "12345"},
 		{"needs truncation", "This is a very long status page name", 20, "This is a very lo..."},
 		{"empty string", "", 10, ""},
+		{"unicode name", "日本語のステータスページ", 10, "日本語のステー..."},
+		{"unicode short", "日本語", 10, "日本語"},
+		{"emoji name", "🚀 Status Page", 10, "🚀 Statu..."},
+		{"small maxLen normalizes to 4", "Long name here", 2, "L..."},
+		{"exact min maxLen", "Long name here", 4, "L..."},
 	}
 
 	for _, tt := range tests {
@@ -266,6 +271,11 @@ func TestFormatStatusPageCount(t *testing.T) {
 		{"second page", 45, 2, 20, "Showing 21-40 of 45 status pages"},
 		{"last page partial", 45, 3, 20, "Showing 41-45 of 45 status pages"},
 		{"single page", 5, 1, 20, "Showing 1-5 of 5 status pages"},
+		{"zero page", 100, 0, 20, "Showing 1-20 of 100 status pages"},
+		{"negative page", 100, -1, 20, "Showing 1-20 of 100 status pages"},
+		{"zero limit", 100, 1, 0, "Showing 1-20 of 100 status pages"},
+		{"negative limit", 100, 1, -5, "Showing 1-20 of 100 status pages"},
+		{"page beyond total", 10, 100, 20, ""},
 	}
 
 	for _, tt := range tests {

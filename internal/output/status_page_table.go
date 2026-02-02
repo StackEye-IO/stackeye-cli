@@ -88,10 +88,15 @@ func (f *StatusPageTableFormatter) formatEnabled(enabled bool) string {
 	return f.colorMgr.Warning("No")
 }
 
-// truncateName truncates a name for display.
+// truncateName truncates a name for display, handling Unicode correctly.
 func truncateName(name string, maxLen int) string {
-	if len(name) > maxLen {
-		return name[:maxLen-3] + "..."
+	// Minimum length required to show at least one character plus "..."
+	if maxLen < 4 {
+		maxLen = 4
+	}
+	runes := []rune(name)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen-3]) + "..."
 	}
 	return name
 }
@@ -113,14 +118,15 @@ func formatTheme(theme string) string {
 	}
 }
 
-// formatCustomDomain formats the custom domain for display.
+// formatCustomDomain formats the custom domain for display, handling Unicode correctly.
 func formatCustomDomain(domain *string) string {
 	if domain == nil || *domain == "" {
 		return "-"
 	}
 	d := *domain
-	if len(d) > 25 {
-		return d[:22] + "..."
+	runes := []rune(d)
+	if len(runes) > 25 {
+		return string(runes[:22]) + "..."
 	}
 	return d
 }
@@ -195,7 +201,18 @@ func FormatStatusPageCount(total int64, page, limit int) string {
 	if total == 0 {
 		return ""
 	}
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20 // Default limit
+	}
 	start := (page-1)*limit + 1
+	// Handle case where start is beyond total
+	if int64(start) > total {
+		return ""
+	}
 	end := start + limit - 1
 	if int64(end) > total {
 		end = int(total)

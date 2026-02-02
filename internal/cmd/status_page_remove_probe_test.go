@@ -199,3 +199,45 @@ func TestStatusPageRemoveProbeCmd_EmptyProbeID(t *testing.T) {
 		t.Log("Note: Empty probe-id may pass flag parsing but should fail in execution")
 	}
 }
+
+func TestStatusPageRemoveProbeCmd_YesFlag(t *testing.T) {
+	cmd := NewStatusPageRemoveProbeCmd()
+
+	flag := cmd.Flags().Lookup("yes")
+	if flag == nil {
+		t.Error("Expected --yes flag to exist")
+		return
+	}
+
+	if flag.Shorthand != "y" {
+		t.Errorf("--yes shorthand = %q, want %q", flag.Shorthand, "y")
+	}
+
+	if flag.DefValue != "false" {
+		t.Errorf("--yes default = %q, want %q", flag.DefValue, "false")
+	}
+}
+
+func TestStatusPageRemoveProbeCmd_WithYesFlag(t *testing.T) {
+	cmd := NewStatusPageRemoveProbeCmd()
+	cmd.SetArgs([]string{"123", "--probe-id", testRemoveProbeUUID, "--yes"})
+
+	err := cmd.Execute()
+	// Will fail at API call stage (no API client configured in tests),
+	// but that's expected. We're testing that --yes flag is accepted.
+	if err != nil && strings.Contains(err.Error(), "unknown flag") {
+		t.Errorf("--yes flag should be recognized: %v", err)
+	}
+}
+
+func TestStatusPageRemoveProbeCmd_WithShortYesFlag(t *testing.T) {
+	cmd := NewStatusPageRemoveProbeCmd()
+	cmd.SetArgs([]string{"123", "--probe-id", testRemoveProbeUUID, "-y"})
+
+	err := cmd.Execute()
+	// Will fail at API call stage (no API client configured in tests),
+	// but that's expected. We're testing that -y shorthand is accepted.
+	if err != nil && strings.Contains(err.Error(), "unknown shorthand") {
+		t.Errorf("-y shorthand should be recognized: %v", err)
+	}
+}

@@ -21,6 +21,25 @@ Roles:
   member   Create and manage probes, alerts, and channels
   viewer   Read-only access to all resources
 
+Examples:
+  # List all team members
+  stackeye team list
+
+  # Invite a new member
+  stackeye team invite --email <email> --role member
+
+  # Update a member's role
+  stackeye team update-role --member-id <id> --role admin
+
+  # Remove a team member
+  stackeye team remove --member-id <id>
+
+  # View pending invitations
+  stackeye team invitations
+
+  # Revoke a pending invitation
+  stackeye team revoke-invitation <invitation-id>
+
 Use 'stackeye team [command] --help' for information about available subcommands.`,
 		Aliases: []string{"teams", "members"},
 	}

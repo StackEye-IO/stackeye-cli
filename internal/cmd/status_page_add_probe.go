@@ -82,7 +82,8 @@ func runStatusPageAddProbe(ctx context.Context, idArg string, flags *statusPageA
 		return fmt.Errorf("--probe-id is required")
 	}
 
-	if _, err := uuid.Parse(flags.probeID); err != nil {
+	parsedUUID, err := uuid.Parse(flags.probeID)
+	if err != nil {
 		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", flags.probeID)
 	}
 
@@ -92,9 +93,9 @@ func runStatusPageAddProbe(ctx context.Context, idArg string, flags *statusPageA
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
-	// Build the request
+	// Build the request with normalized UUID
 	req := &client.AddProbeToStatusPageRequest{
-		ProbeID:          flags.probeID,
+		ProbeID:          parsedUUID.String(),
 		ShowResponseTime: flags.showResponseTime,
 	}
 
