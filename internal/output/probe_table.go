@@ -16,6 +16,7 @@ type ProbeTableRow struct {
 	Status    string `table:"STATUS"`
 	Name      string `table:"NAME"`
 	URL       string `table:"URL"`
+	Deps      string `table:"DEPS"`
 	Interval  string `table:"INTERVAL"`
 	LastCheck string `table:"LAST CHECK"`
 	// Wide mode columns
@@ -64,10 +65,17 @@ func (f *ProbeTableFormatter) FormatProbe(probe client.Probe) ProbeTableRow {
 
 // formatProbe is the internal conversion function.
 func (f *ProbeTableFormatter) formatProbe(p client.Probe) ProbeTableRow {
+	// Use "unreachable" status if probe is marked as unreachable due to parent dependency
+	status := p.Status
+	if p.IsUnreachable {
+		status = "unreachable"
+	}
+
 	return ProbeTableRow{
-		Status:    f.formatStatus(p.Status),
+		Status:    f.formatStatus(status),
 		Name:      p.Name,
 		URL:       truncateURL(p.URL, 50),
+		Deps:      formatDeps(p.ParentCount, p.ChildCount),
 		Interval:  formatInterval(p.IntervalSeconds),
 		LastCheck: formatLastCheck(p.LastCheckedAt),
 		// Wide mode fields
@@ -158,6 +166,15 @@ func formatRegions(regions []string) string {
 		return fmt.Sprintf("%s +%d", strings.Join(regions[:3], ","), len(regions)-3)
 	}
 	return strings.Join(regions, ",")
+}
+
+// formatDeps formats the dependency counts as "parents/children".
+// Returns "-" when probe has no dependencies (both counts are 0).
+func formatDeps(parentCount, childCount int) string {
+	if parentCount == 0 && childCount == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d", parentCount, childCount)
 }
 
 // PrintProbes is a convenience function that formats and prints probes

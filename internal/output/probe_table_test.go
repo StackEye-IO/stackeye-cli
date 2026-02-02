@@ -27,6 +27,8 @@ func TestProbeTableFormatter_FormatProbes(t *testing.T) {
 			Regions:           []string{"us-east", "eu-west"},
 			Uptime:            99.95,
 			AvgResponseTimeMs: 245.5,
+			ParentCount:       1,
+			ChildCount:        3,
 		},
 		{
 			ID:              uuid.MustParse("22222222-2222-2222-2222-222222222222"),
@@ -38,6 +40,8 @@ func TestProbeTableFormatter_FormatProbes(t *testing.T) {
 			LastCheckedAt:   &twoHoursAgo,
 			Regions:         []string{"us-east"},
 			Uptime:          85.50,
+			ParentCount:     1,
+			ChildCount:      0,
 		},
 		{
 			ID:              uuid.MustParse("33333333-3333-3333-3333-333333333333"),
@@ -48,6 +52,8 @@ func TestProbeTableFormatter_FormatProbes(t *testing.T) {
 			CheckType:       client.CheckTypeHTTP,
 			LastCheckedAt:   nil,
 			Regions:         []string{},
+			ParentCount:     0,
+			ChildCount:      0,
 		},
 	}
 
@@ -57,10 +63,11 @@ func TestProbeTableFormatter_FormatProbes(t *testing.T) {
 
 	assert.Len(t, rows, 3)
 
-	// First probe - UP status
+	// First probe - UP status with dependencies
 	assert.Equal(t, "UP", rows[0].Status)
 	assert.Equal(t, "API Health", rows[0].Name)
 	assert.Equal(t, "https://api.example.com/health", rows[0].URL)
+	assert.Equal(t, "1/3", rows[0].Deps)
 	assert.Equal(t, "1m", rows[0].Interval)
 	assert.Equal(t, "5m ago", rows[0].LastCheck)
 	assert.Equal(t, "http", rows[0].Type)
@@ -68,15 +75,17 @@ func TestProbeTableFormatter_FormatProbes(t *testing.T) {
 	assert.Equal(t, "246ms", rows[0].AvgResp)
 	assert.Equal(t, "us-east,eu-west", rows[0].Regions)
 
-	// Second probe - DOWN status
+	// Second probe - DOWN status with parent dependency only
 	assert.Equal(t, "DOWN", rows[1].Status)
 	assert.Equal(t, "Website", rows[1].Name)
+	assert.Equal(t, "1/0", rows[1].Deps)
 	assert.Equal(t, "5m", rows[1].Interval)
 	assert.Equal(t, "2h ago", rows[1].LastCheck)
 	assert.Equal(t, "85.50%", rows[1].Uptime)
 
-	// Third probe - PENDING, never checked
+	// Third probe - PENDING, never checked, no dependencies
 	assert.Equal(t, "PENDING", rows[2].Status)
+	assert.Equal(t, "-", rows[2].Deps)
 	assert.Equal(t, "30s", rows[2].Interval)
 	assert.Equal(t, "never", rows[2].LastCheck)
 	assert.Equal(t, "-", rows[2].Regions)
@@ -243,6 +252,49 @@ func TestProbeTableFormatter_NoColor(t *testing.T) {
 	// When colors are disabled, status should be plain text
 	assert.Equal(t, "DOWN", row.Status)
 	assert.NotContains(t, row.Status, "\x1b[")
+}
+
+func TestProbeTableFormatter_UnreachableStatus(t *testing.T) {
+	formatter := NewProbeTableFormatter(sdkoutput.ColorNever, false)
+
+	probe := client.Probe{
+		ID:              uuid.New(),
+		Name:            "Child API",
+		URL:             "https://api.example.com",
+		Status:          "up", // Note: status says "up" but IsUnreachable overrides
+		IsUnreachable:   true,
+		IntervalSeconds: 60,
+		ParentCount:     1,
+		ChildCount:      0,
+	}
+
+	row := formatter.FormatProbe(probe)
+
+	// IsUnreachable should override the status display
+	assert.Equal(t, "UNREACHABLE", row.Status)
+	assert.Equal(t, "1/0", row.Deps)
+}
+
+func TestFormatDeps(t *testing.T) {
+	tests := []struct {
+		name        string
+		parentCount int
+		childCount  int
+		expected    string
+	}{
+		{"no dependencies", 0, 0, "-"},
+		{"parents only", 2, 0, "2/0"},
+		{"children only", 0, 3, "0/3"},
+		{"both", 1, 5, "1/5"},
+		{"large counts", 10, 25, "10/25"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatDeps(tt.parentCount, tt.childCount)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 // ptr is a helper to create pointers to values
