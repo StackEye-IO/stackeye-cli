@@ -23,12 +23,20 @@ func NewProbeLinkChannelCmd() *cobra.Command {
 		Short: "Link a notification channel to a probe",
 		Long: `Link a notification channel to a probe for alert notifications.
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead. The channel must still
+be specified by UUID.
+
 When a probe detects an issue, alerts will be sent to all linked channels.
 A probe can have multiple channels linked, and a channel can be linked
 to multiple probes.
 
 Examples:
-  # Link a channel to a probe
+  # Link a channel to a probe by name
+  stackeye probe link-channel "Production API" \
+    660e8400-e29b-41d4-a716-446655440001
+
+  # Link a channel to a probe by UUID
   stackeye probe link-channel 550e8400-e29b-41d4-a716-446655440000 \
     660e8400-e29b-41d4-a716-446655440001
 
@@ -45,13 +53,7 @@ Use 'stackeye channel list' to see available notification channels.`,
 
 // runProbeLinkChannel executes the probe link-channel command logic.
 func runProbeLinkChannel(cmd *cobra.Command, probeIDArg, channelIDArg string) error {
-	// Parse and validate probe UUID
-	probeID, err := uuid.Parse(probeIDArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", probeIDArg)
-	}
-
-	// Parse and validate channel UUID
+	// Parse and validate channel UUID (channels are always referenced by UUID)
 	channelID, err := uuid.Parse(channelIDArg)
 	if err != nil {
 		return fmt.Errorf("invalid channel ID %q: must be a valid UUID", channelIDArg)
@@ -61,6 +63,12 @@ func runProbeLinkChannel(cmd *cobra.Command, probeIDArg, channelIDArg string) er
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(cmd.Context(), apiClient, probeIDArg)
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), probeLinkChannelTimeout)

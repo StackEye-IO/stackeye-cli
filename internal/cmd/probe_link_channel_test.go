@@ -53,16 +53,19 @@ func TestProbeLinkChannelCmd_OneArg(t *testing.T) {
 	}
 }
 
-func TestProbeLinkChannelCmd_InvalidProbeUUID(t *testing.T) {
+func TestProbeLinkChannelCmd_ProbeNameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
 	cmd := NewProbeLinkChannelCmd()
-	cmd.SetArgs([]string{"not-a-uuid", "550e8400-e29b-41d4-a716-446655440000"})
+	cmd.SetArgs([]string{"my-probe-name", "550e8400-e29b-41d4-a716-446655440000"})
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Error("Expected error for invalid probe UUID, got nil")
+		t.Error("Expected error when API client not configured, got nil")
 	}
 
-	expectedMsg := "invalid probe ID"
+	expectedMsg := "failed to initialize API client"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}

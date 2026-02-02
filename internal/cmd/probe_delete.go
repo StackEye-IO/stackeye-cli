@@ -10,7 +10,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +28,10 @@ func NewProbeDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id> [id...]",
 		Short: "Delete one or more monitoring probes",
-		Long: `Delete one or more monitoring probes by their IDs.
+		Long: `Delete one or more monitoring probes.
+
+Probes can be specified by UUID or by name. If a name matches multiple probes,
+you'll be prompted to use the UUID instead.
 
 This permanently removes the probe(s) and all associated data including check history
 and alert records. This action cannot be undone.
@@ -38,17 +40,20 @@ By default, the command will prompt for confirmation before deleting. Use --yes
 to skip the confirmation prompt for scripting or automation.
 
 Examples:
-  # Delete a single probe (with confirmation)
+  # Delete a single probe by name
+  stackeye probe delete "Production API"
+
+  # Delete a single probe by UUID (with confirmation)
   stackeye probe delete 550e8400-e29b-41d4-a716-446655440000
 
   # Delete a probe without confirmation
-  stackeye probe delete 550e8400-e29b-41d4-a716-446655440000 --yes
+  stackeye probe delete "Production API" --yes
 
-  # Delete multiple probes at once
-  stackeye probe delete 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+  # Delete multiple probes at once (mix of names and UUIDs)
+  stackeye probe delete "Production API" "Staging DB" 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
   # Delete multiple probes without confirmation (for scripting)
-  stackeye probe delete --yes 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8`,
+  stackeye probe delete --yes "Production API" "Staging DB"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeDelete(cmd.Context(), args, flags)
@@ -62,14 +67,16 @@ Examples:
 
 // runProbeDelete executes the probe delete command logic.
 func runProbeDelete(ctx context.Context, idArgs []string, flags *probeDeleteFlags) error {
-	// Parse and validate all UUIDs first before making any API calls
-	probeIDs := make([]uuid.UUID, 0, len(idArgs))
-	for _, idArg := range idArgs {
-		probeID, err := uuid.Parse(idArg)
-		if err != nil {
-			return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-		}
-		probeIDs = append(probeIDs, probeID)
+	// Get authenticated API client first (needed for name resolution)
+	apiClient, err := api.GetClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve all probe identifiers (UUIDs or names) before prompting for confirmation
+	probeIDs, err := ResolveProbeIDs(ctx, apiClient, idArgs)
+	if err != nil {
+		return err
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
@@ -94,12 +101,6 @@ func runProbeDelete(ctx context.Context, idArgs []string, flags *probeDeleteFlag
 			fmt.Println("Delete cancelled.")
 			return nil
 		}
-	}
-
-	// Get authenticated API client
-	apiClient, err := api.GetClient()
-	if err != nil {
-		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
 	// Delete each probe

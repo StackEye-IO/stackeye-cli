@@ -10,7 +10,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -59,29 +58,35 @@ func NewProbeUpdateCmd() *cobra.Command {
 Only the specified flags will be updated; all other fields remain unchanged.
 This allows for partial updates without needing to specify the entire configuration.
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 Examples:
-  # Update probe name
+  # Update probe by name
+  stackeye probe update "Production API" --name "New Name"
+
+  # Update probe by UUID
   stackeye probe update 550e8400-e29b-41d4-a716-446655440000 --name "New Name"
 
   # Update check interval and timeout
-  stackeye probe update 550e8400-e29b-41d4-a716-446655440000 \
+  stackeye probe update "Production API" \
     --interval 120 --timeout 15
 
   # Update monitoring regions
-  stackeye probe update 550e8400-e29b-41d4-a716-446655440000 \
+  stackeye probe update "Production API" \
     --regions us-east-1,eu-west-1
 
   # Update URL and add keyword check
-  stackeye probe update 550e8400-e29b-41d4-a716-446655440000 \
+  stackeye probe update "Production API" \
     --url https://api.example.com/v2/health \
     --keyword-check "healthy" --keyword-check-type contains
 
   # Disable SSL monitoring
-  stackeye probe update 550e8400-e29b-41d4-a716-446655440000 \
+  stackeye probe update "Production API" \
     --ssl-check-enabled=false
 
   # Clear keyword check (set to empty)
-  stackeye probe update 550e8400-e29b-41d4-a716-446655440000 \
+  stackeye probe update "Production API" \
     --keyword-check ""`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -142,12 +147,6 @@ func boolPtrVar(p **bool) *bool {
 
 // runProbeUpdate executes the probe update command logic.
 func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(idArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-	}
-
 	// Build request with only the changed fields
 	req := &client.UpdateProbeRequest{}
 	hasUpdates := false
@@ -280,6 +279,12 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(cmd.Context(), apiClient, idArg)
+	if err != nil {
+		return err
 	}
 
 	// Call SDK to update probe with timeout

@@ -29,16 +29,19 @@ func TestNewProbeUpdateCmd(t *testing.T) {
 	}
 }
 
-func TestProbeUpdateCmd_InvalidUUID(t *testing.T) {
+func TestProbeUpdateCmd_NameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
 	cmd := NewProbeUpdateCmd()
-	cmd.SetArgs([]string{"not-a-uuid", "--name", "Test"})
+	cmd.SetArgs([]string{"my-probe-name", "--name", "Test"})
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Error("Expected error for invalid UUID, got nil")
+		t.Error("Expected error when API client not configured, got nil")
 	}
 
-	expectedMsg := "invalid probe ID"
+	expectedMsg := "failed to initialize API client"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}

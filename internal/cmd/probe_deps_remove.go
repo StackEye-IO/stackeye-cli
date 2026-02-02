@@ -10,7 +10,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -29,15 +28,21 @@ func NewProbeDepsRemoveCmd() *cobra.Command {
 		Long: `Remove a parent dependency so that the child probe will no longer be
 marked as UNREACHABLE when the parent is DOWN.
 
+Probes can be specified by UUID or by name. If a name matches multiple probes,
+you'll be prompted to use the UUID instead.
+
 After removal, the child probe will be monitored independently and will
 generate its own alerts regardless of the parent probe's status.
 
 Examples:
-  # Remove a dependency: web-server no longer depends on database
+  # Remove a dependency by name: web-server no longer depends on database
+  stackeye probe deps remove "web-server" --parent "database"
+
+  # Remove a dependency by UUID
   stackeye probe deps remove 550e8400-e29b-41d4-a716-446655440000 --parent 660e8400-e29b-41d4-a716-446655440001
 
   # Skip confirmation prompt
-  stackeye probe deps remove <probe-id> --parent <parent-id> --yes
+  stackeye probe deps remove "web-server" --parent "database" --yes
 
 Note: If the probe has a suppressed alert due to this parent being DOWN,
 the alert will become active after the dependency is removed.`,
@@ -58,22 +63,22 @@ the alert will become active after the dependency is removed.`,
 
 // runProbeDepsRemoveCmd executes the probe deps remove command logic.
 func runProbeDepsRemoveCmd(ctx context.Context, probeIDArg, parentIDArg string, skipConfirm bool) error {
-	// Parse and validate child probe UUID
-	probeID, err := uuid.Parse(probeIDArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", probeIDArg)
-	}
-
-	// Parse and validate parent probe UUID
-	parentID, err := uuid.Parse(parentIDArg)
-	if err != nil {
-		return fmt.Errorf("invalid parent probe ID %q: must be a valid UUID", parentIDArg)
-	}
-
-	// Get authenticated API client
+	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve child probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, probeIDArg)
+	if err != nil {
+		return fmt.Errorf("failed to resolve probe: %w", err)
+	}
+
+	// Resolve parent probe ID (accepts UUID or name)
+	parentID, err := ResolveProbeID(ctx, apiClient, parentIDArg)
+	if err != nil {
+		return fmt.Errorf("failed to resolve parent probe: %w", err)
 	}
 
 	reqCtx, cancel := context.WithTimeout(ctx, probeDepsRemoveTimeout)

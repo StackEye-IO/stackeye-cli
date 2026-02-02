@@ -9,12 +9,13 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
 // probeGetTimeout is the maximum time to wait for the API response.
 const probeGetTimeout = 30 * time.Second
+
+// Note: Probe ID resolution (UUID or name) is handled by ResolveProbeID in resolve.go
 
 // probeGetFlags holds the flag values for the probe get command.
 type probeGetFlags struct {
@@ -35,18 +36,24 @@ regions, expected status codes, SSL settings, and current status.
 
 Use the --period flag to include uptime statistics for the specified time range.
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 Examples:
   # Get probe details by ID
   stackeye probe get 550e8400-e29b-41d4-a716-446655440000
 
+  # Get probe details by name
+  stackeye probe get "Production API"
+
   # Get probe with 7-day uptime statistics
-  stackeye probe get 550e8400-e29b-41d4-a716-446655440000 --period 7d
+  stackeye probe get "Production API" --period 7d
 
   # Output as JSON for scripting
   stackeye probe get 550e8400-e29b-41d4-a716-446655440000 -o json
 
   # Get probe with 30-day statistics in YAML format
-  stackeye probe get 550e8400-e29b-41d4-a716-446655440000 --period 30d -o yaml`,
+  stackeye probe get "Production API" --period 30d -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeGet(cmd.Context(), args[0], flags)
@@ -61,12 +68,6 @@ Examples:
 
 // runProbeGet executes the probe get command logic.
 func runProbeGet(ctx context.Context, idArg string, flags *probeGetFlags) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(idArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-	}
-
 	// Validate period flag if provided
 	if flags.period != "" {
 		switch flags.period {
@@ -77,10 +78,16 @@ func runProbeGet(ctx context.Context, idArg string, flags *probeGetFlags) error 
 		}
 	}
 
-	// Get authenticated API client (after validation passes)
+	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, idArg)
+	if err != nil {
+		return err
 	}
 
 	// Call SDK to get probe with timeout

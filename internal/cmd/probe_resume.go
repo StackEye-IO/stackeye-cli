@@ -10,7 +10,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +28,10 @@ func NewProbeResumeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resume <id> [id...]",
 		Short: "Resume monitoring for one or more paused probes",
-		Long: `Resume monitoring for one or more paused probes by their IDs.
+		Long: `Resume monitoring for one or more paused probes.
+
+Probes can be specified by UUID or by name. If a name matches multiple probes,
+you'll be prompted to use the UUID instead.
 
 Resuming a probe restarts all monitoring checks that were previously paused.
 The probe will immediately begin executing scheduled checks again and can
@@ -45,17 +47,20 @@ By default, the command will prompt for confirmation before resuming. Use --yes
 to skip the confirmation prompt for scripting or automation.
 
 Examples:
-  # Resume a single probe (with confirmation)
+  # Resume a single probe by name
+  stackeye probe resume "Production API"
+
+  # Resume a single probe by UUID (with confirmation)
   stackeye probe resume 550e8400-e29b-41d4-a716-446655440000
 
   # Resume a probe without confirmation
-  stackeye probe resume 550e8400-e29b-41d4-a716-446655440000 --yes
+  stackeye probe resume "Production API" --yes
 
-  # Resume multiple probes at once
-  stackeye probe resume 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+  # Resume multiple probes at once (mix of names and UUIDs)
+  stackeye probe resume "Production API" "Staging DB" 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
   # Resume multiple probes without confirmation (for scripting)
-  stackeye probe resume --yes 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8`,
+  stackeye probe resume --yes "Production API" "Staging DB"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeResume(cmd.Context(), args, flags)
@@ -69,14 +74,16 @@ Examples:
 
 // runProbeResume executes the probe resume command logic.
 func runProbeResume(ctx context.Context, idArgs []string, flags *probeResumeFlags) error {
-	// Parse and validate all UUIDs first before making any API calls
-	probeIDs := make([]uuid.UUID, 0, len(idArgs))
-	for _, idArg := range idArgs {
-		probeID, err := uuid.Parse(idArg)
-		if err != nil {
-			return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-		}
-		probeIDs = append(probeIDs, probeID)
+	// Get authenticated API client first (needed for name resolution)
+	apiClient, err := api.GetClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve all probe identifiers (UUIDs or names) before prompting for confirmation
+	probeIDs, err := ResolveProbeIDs(ctx, apiClient, idArgs)
+	if err != nil {
+		return err
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
@@ -101,12 +108,6 @@ func runProbeResume(ctx context.Context, idArgs []string, flags *probeResumeFlag
 			fmt.Println("Resume cancelled.")
 			return nil
 		}
-	}
-
-	// Get authenticated API client
-	apiClient, err := api.GetClient()
-	if err != nil {
-		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
 	// Resume each probe

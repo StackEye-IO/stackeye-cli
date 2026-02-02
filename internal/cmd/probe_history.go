@@ -69,21 +69,27 @@ Status Filtering:
     success - Only show successful checks
     failure - Only show failed checks
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 Examples:
-  # View last 20 check results (default)
+  # View last 20 check results by name (default)
+  stackeye probe history "Production API"
+
+  # View last 20 check results by UUID
   stackeye probe history 550e8400-e29b-41d4-a716-446655440000
 
   # View last 50 results
-  stackeye probe history 550e8400-e29b-41d4-a716-446655440000 --limit 50
+  stackeye probe history "Production API" --limit 50
 
   # View results from the last 24 hours
-  stackeye probe history 550e8400-e29b-41d4-a716-446655440000 --since 24h
+  stackeye probe history "Production API" --since 24h
 
   # View only failures from the last 7 days
-  stackeye probe history 550e8400-e29b-41d4-a716-446655440000 --since 7d --status failure
+  stackeye probe history "Production API" --since 7d --status failure
 
   # Filter by region
-  stackeye probe history 550e8400-e29b-41d4-a716-446655440000 --region us-east-1
+  stackeye probe history "Production API" --region us-east-1
 
   # Output as JSON for scripting
   stackeye probe history 550e8400-e29b-41d4-a716-446655440000 -o json`,
@@ -105,12 +111,6 @@ Examples:
 
 // runProbeHistory executes the probe history command logic.
 func runProbeHistory(ctx context.Context, idArg string, flags *probeHistoryFlags) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(idArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-	}
-
 	// Validate limit
 	if flags.limit < 1 {
 		return fmt.Errorf("invalid limit %d: must be at least 1", flags.limit)
@@ -143,10 +143,16 @@ func runProbeHistory(ctx context.Context, idArg string, flags *probeHistoryFlags
 		}
 	}
 
-	// Get authenticated API client (after validation passes)
+	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, idArg)
+	if err != nil {
+		return err
 	}
 
 	// Build options for the API call

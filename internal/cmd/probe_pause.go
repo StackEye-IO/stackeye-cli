@@ -10,7 +10,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -29,11 +28,14 @@ func NewProbePauseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pause <id> [id...]",
 		Short: "Pause monitoring for one or more probes",
-		Long: `Pause monitoring for one or more probes by their IDs.
+		Long: `Pause monitoring for one or more probes.
 
 Pausing a probe temporarily stops all monitoring checks without deleting the probe
 configuration. This is useful during maintenance windows or when you need to
 temporarily disable alerts.
+
+Probes can be specified by UUID or by name. If a name matches multiple probes,
+you'll be prompted to use the UUID instead.
 
 Paused probes:
   - Stop executing scheduled checks
@@ -45,17 +47,20 @@ By default, the command will prompt for confirmation before pausing. Use --yes
 to skip the confirmation prompt for scripting or automation.
 
 Examples:
-  # Pause a single probe (with confirmation)
+  # Pause a single probe by name
+  stackeye probe pause "Production API"
+
+  # Pause a single probe by UUID (with confirmation)
   stackeye probe pause 550e8400-e29b-41d4-a716-446655440000
 
   # Pause a probe without confirmation
-  stackeye probe pause 550e8400-e29b-41d4-a716-446655440000 --yes
+  stackeye probe pause "Production API" --yes
 
-  # Pause multiple probes at once
-  stackeye probe pause 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+  # Pause multiple probes at once (mix of names and UUIDs)
+  stackeye probe pause "Production API" "Staging DB" 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
   # Pause multiple probes without confirmation (for scripting)
-  stackeye probe pause --yes 550e8400-e29b-41d4-a716-446655440000 6ba7b810-9dad-11d1-80b4-00c04fd430c8`,
+  stackeye probe pause --yes "Production API" "Staging DB"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbePause(cmd.Context(), args, flags)
@@ -69,14 +74,16 @@ Examples:
 
 // runProbePause executes the probe pause command logic.
 func runProbePause(ctx context.Context, idArgs []string, flags *probePauseFlags) error {
-	// Parse and validate all UUIDs first before making any API calls
-	probeIDs := make([]uuid.UUID, 0, len(idArgs))
-	for _, idArg := range idArgs {
-		probeID, err := uuid.Parse(idArg)
-		if err != nil {
-			return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-		}
-		probeIDs = append(probeIDs, probeID)
+	// Get authenticated API client first (needed for name resolution)
+	apiClient, err := api.GetClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve all probe identifiers (UUIDs or names) before prompting for confirmation
+	probeIDs, err := ResolveProbeIDs(ctx, apiClient, idArgs)
+	if err != nil {
+		return err
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
@@ -101,12 +108,6 @@ func runProbePause(ctx context.Context, idArgs []string, flags *probePauseFlags)
 			fmt.Println("Pause cancelled.")
 			return nil
 		}
-	}
-
-	// Get authenticated API client
-	apiClient, err := api.GetClient()
-	if err != nil {
-		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
 	// Pause each probe

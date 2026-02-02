@@ -9,7 +9,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +26,9 @@ func NewProbeDepsClearCmd() *cobra.Command {
 		Short: "Remove all dependencies from a probe",
 		Long: `Remove all dependencies from a probe in the specified direction(s).
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 This command is useful for quickly resetting a probe's dependency configuration
 or removing a probe from the dependency tree entirely.
 
@@ -36,17 +38,20 @@ Directions:
   both     - Remove both parent and child dependencies (default)
 
 Examples:
-  # Remove all dependencies (parents and children)
+  # Remove all dependencies by name (parents and children)
+  stackeye probe deps clear "web-server"
+
+  # Remove all dependencies by UUID
   stackeye probe deps clear 550e8400-e29b-41d4-a716-446655440000
 
   # Remove only parent dependencies
-  stackeye probe deps clear <probe-id> --direction parents
+  stackeye probe deps clear "web-server" --direction parents
 
   # Remove only child dependencies (make this probe a leaf node)
-  stackeye probe deps clear <probe-id> --direction children
+  stackeye probe deps clear "web-server" --direction children
 
   # Skip confirmation prompt
-  stackeye probe deps clear <probe-id> --yes
+  stackeye probe deps clear "web-server" --yes
 
 Note: Removing dependencies may cause alerts that were suppressed to become active.`,
 		Args: cobra.ExactArgs(1),
@@ -68,16 +73,16 @@ func runProbeDepsClearCmd(ctx context.Context, probeIDArg, direction string, ski
 		return fmt.Errorf("invalid direction %q: must be 'parents', 'children', or 'both'", direction)
 	}
 
-	// Parse and validate probe UUID
-	probeID, err := uuid.Parse(probeIDArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", probeIDArg)
-	}
-
-	// Get authenticated API client
+	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, probeIDArg)
+	if err != nil {
+		return err
 	}
 
 	reqCtx, cancel := context.WithTimeout(ctx, probeDepsClearTimeout)

@@ -10,7 +10,6 @@ import (
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -28,16 +27,22 @@ func NewProbeDepsAddCmd() *cobra.Command {
 		Long: `Add a parent dependency so that when the parent probe is DOWN, the child probe
 is marked as UNREACHABLE and its alerts are suppressed.
 
+Probes can be specified by UUID or by name. If a name matches multiple probes,
+you'll be prompted to use the UUID instead.
+
 This is useful for reducing alert noise when a dependent service is down.
 For example, if your database goes down, you don't want separate alerts
 for every web server that depends on it.
 
 Examples:
-  # Add a dependency: web-server depends on database
+  # Add a dependency by name: web-server depends on database
+  stackeye probe deps add "web-server" --parent "database"
+
+  # Add a dependency by UUID
   stackeye probe deps add 550e8400-e29b-41d4-a716-446655440000 --parent 660e8400-e29b-41d4-a716-446655440001
 
   # Force add even if parent is currently DOWN
-  stackeye probe deps add <probe-id> --parent <parent-id> --force
+  stackeye probe deps add "web-server" --parent "database" --force
 
 Common dependency patterns:
   Database -> Application Servers
@@ -60,27 +65,27 @@ Common dependency patterns:
 
 // runProbeDepsAddCmd executes the probe deps add command logic.
 func runProbeDepsAddCmd(ctx context.Context, probeIDArg, parentIDArg string, force bool) error {
-	// Parse and validate child probe UUID
-	probeID, err := uuid.Parse(probeIDArg)
+	// Get authenticated API client first (needed for name resolution)
+	apiClient, err := api.GetClient()
 	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", probeIDArg)
+		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
-	// Parse and validate parent probe UUID
-	parentID, err := uuid.Parse(parentIDArg)
+	// Resolve child probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, probeIDArg)
 	if err != nil {
-		return fmt.Errorf("invalid parent probe ID %q: must be a valid UUID", parentIDArg)
+		return fmt.Errorf("failed to resolve probe: %w", err)
+	}
+
+	// Resolve parent probe ID (accepts UUID or name)
+	parentID, err := ResolveProbeID(ctx, apiClient, parentIDArg)
+	if err != nil {
+		return fmt.Errorf("failed to resolve parent probe: %w", err)
 	}
 
 	// Cannot depend on itself
 	if probeID == parentID {
 		return fmt.Errorf("a probe cannot depend on itself")
-	}
-
-	// Get authenticated API client
-	apiClient, err := api.GetClient()
-	if err != nil {
-		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
 	reqCtx, cancel := context.WithTimeout(ctx, probeDepsAddTimeout)

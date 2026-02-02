@@ -48,17 +48,23 @@ The test check:
   - Does NOT trigger alerts
   - Runs immediately regardless of the probe's check interval
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 This is useful for:
   - Verifying a probe's configuration is correct
   - Troubleshooting connectivity issues
   - Testing changes before enabling monitoring
 
 Examples:
-  # Run a test check for a probe
+  # Run a test check by probe name
+  stackeye probe test "Production API"
+
+  # Run a test check by probe UUID
   stackeye probe test 550e8400-e29b-41d4-a716-446655440000
 
   # Output as JSON for scripting
-  stackeye probe test 550e8400-e29b-41d4-a716-446655440000 -o json`,
+  stackeye probe test "Production API" -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeTest(cmd.Context(), args[0])
@@ -70,16 +76,16 @@ Examples:
 
 // runProbeTest executes the probe test command logic.
 func runProbeTest(ctx context.Context, idArg string) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(idArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-	}
-
-	// Get authenticated API client (after validation passes)
+	// Get authenticated API client (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, idArg)
+	if err != nil {
+		return err
 	}
 
 	// Create context with timeout for the entire operation

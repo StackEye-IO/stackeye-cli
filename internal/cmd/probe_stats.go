@@ -65,21 +65,27 @@ Statistics Displayed:
   P99 Latency   - 99th percentile response time (estimated from buckets)
   Min/Max       - Minimum and maximum response times observed
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 Examples:
-  # View 24-hour statistics (default)
+  # View 24-hour statistics by name (default)
+  stackeye probe stats "Production API"
+
+  # View 24-hour statistics by UUID
   stackeye probe stats 550e8400-e29b-41d4-a716-446655440000
 
   # View 7-day statistics
-  stackeye probe stats 550e8400-e29b-41d4-a716-446655440000 --period 7d
+  stackeye probe stats "Production API" --period 7d
 
   # View 30-day statistics
-  stackeye probe stats 550e8400-e29b-41d4-a716-446655440000 --period 30d
+  stackeye probe stats "Production API" --period 30d
 
   # Output as JSON for scripting
   stackeye probe stats 550e8400-e29b-41d4-a716-446655440000 -o json
 
   # Output as YAML
-  stackeye probe stats 550e8400-e29b-41d4-a716-446655440000 --period 7d -o yaml`,
+  stackeye probe stats "Production API" --period 7d -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeStats(cmd.Context(), args[0], flags)
@@ -94,22 +100,22 @@ Examples:
 
 // runProbeStats executes the probe stats command logic.
 func runProbeStats(ctx context.Context, idArg string, flags *probeStatsFlags) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(idArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", idArg)
-	}
-
-	// Validate period flag
+	// Validate period flag first
 	aggregate, from, to, err := parsePeriodToAggregateParams(flags.period)
 	if err != nil {
 		return err
 	}
 
-	// Get authenticated API client (after validation passes)
+	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, idArg)
+	if err != nil {
+		return err
 	}
 
 	// Call SDK to get aggregated probe results with timeout

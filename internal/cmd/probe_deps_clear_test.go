@@ -92,15 +92,18 @@ func TestProbeDepsClearCmd_Args(t *testing.T) {
 	}
 }
 
-func TestProbeDepsClearCmd_InvalidProbeID(t *testing.T) {
+func TestProbeDepsClearCmd_NameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
 	cmd := NewProbeDepsClearCmd()
 
 	// Create a parent command to hold the flag
 	root := &cobra.Command{}
 	root.AddCommand(cmd)
 
-	// Set an invalid probe ID
-	root.SetArgs([]string{"clear", "not-a-valid-uuid", "--yes"})
+	// Set a probe name instead of UUID
+	root.SetArgs([]string{"clear", "my-probe-name", "--yes"})
 
 	// Capture output
 	var buf bytes.Buffer
@@ -109,11 +112,11 @@ func TestProbeDepsClearCmd_InvalidProbeID(t *testing.T) {
 
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid probe ID")
+		t.Error("expected error when API client not configured")
 	}
 
-	if !strings.Contains(err.Error(), "invalid probe ID") {
-		t.Errorf("expected 'invalid probe ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "failed to initialize API client") {
+		t.Errorf("expected 'failed to initialize API client' error, got: %v", err)
 	}
 }
 

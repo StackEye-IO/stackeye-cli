@@ -56,37 +56,41 @@ func TestProbeResumeCmd_NoArgs(t *testing.T) {
 	}
 }
 
-func TestProbeResumeCmd_InvalidUUID(t *testing.T) {
+func TestProbeResumeCmd_NameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
 	cmd := NewProbeResumeCmd()
 	// Use --yes to skip confirmation prompt
-	cmd.SetArgs([]string{"not-a-uuid", "--yes"})
+	cmd.SetArgs([]string{"my-probe-name", "--yes"})
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Error("Expected error for invalid UUID, got nil")
+		t.Error("Expected error when API client not configured, got nil")
 	}
 
-	expectedMsg := "invalid probe ID"
+	expectedMsg := "failed to initialize API client"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}
 }
 
-func TestProbeResumeCmd_InvalidUUIDInBatch(t *testing.T) {
+func TestProbeResumeCmd_MixedUUIDsAndNames(t *testing.T) {
+	// With name resolution, a mix of UUIDs and names is valid input.
+	// All names will be resolved via API. Without API client, this fails.
 	cmd := NewProbeResumeCmd()
-	// First UUID is valid, second is invalid - should fail on validation before any resumes
 	cmd.SetArgs([]string{
 		"550e8400-e29b-41d4-a716-446655440000",
-		"invalid-uuid",
+		"my-probe-name",
 		"--yes",
 	})
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Error("Expected error for invalid UUID in batch, got nil")
+		t.Error("Expected error when API client not configured, got nil")
 	}
 
-	expectedMsg := "invalid probe ID"
+	expectedMsg := "failed to initialize API client"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}

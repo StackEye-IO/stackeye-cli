@@ -36,31 +36,25 @@ func TestNewProbeGetCmd(t *testing.T) {
 	}
 }
 
-func TestRunProbeGet_InvalidUUID(t *testing.T) {
+func TestRunProbeGet_NameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
+	// This is expected behavior - names are valid inputs that require API access.
 	tests := []struct {
 		name    string
 		idArg   string
 		wantErr string
 	}{
 		{
-			name:    "empty string",
-			idArg:   "",
-			wantErr: "invalid probe ID",
-		},
-		{
-			name:    "not a UUID",
-			idArg:   "not-a-uuid",
-			wantErr: "invalid probe ID",
-		},
-		{
-			name:    "partial UUID",
-			idArg:   "550e8400-e29b-41d4",
-			wantErr: "invalid probe ID",
-		},
-		{
-			name:    "probe name instead of UUID",
+			name:    "probe name requires API client",
 			idArg:   "api-health",
-			wantErr: "invalid probe ID",
+			wantErr: "failed to initialize API client",
+		},
+		{
+			name:    "partial UUID treated as name",
+			idArg:   "550e8400-e29b-41d4",
+			wantErr: "failed to initialize API client",
 		},
 	}
 
@@ -70,7 +64,7 @@ func TestRunProbeGet_InvalidUUID(t *testing.T) {
 			err := runProbeGet(t.Context(), tt.idArg, flags)
 
 			if err == nil {
-				t.Error("expected error for invalid UUID, got nil")
+				t.Error("expected error when API client not configured, got nil")
 				return
 			}
 

@@ -117,15 +117,18 @@ func TestProbeDepsRemoveCmd_MissingParentFlag(t *testing.T) {
 	}
 }
 
-func TestProbeDepsRemoveCmd_InvalidProbeID(t *testing.T) {
+func TestProbeDepsRemoveCmd_NameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs are now treated as
+	// potential probe names that need API resolution. Without a configured API
+	// client, these will fail with an API client initialization error.
 	cmd := NewProbeDepsRemoveCmd()
 
 	// Create a parent command to hold the flag
 	root := &cobra.Command{}
 	root.AddCommand(cmd)
 
-	// Set an invalid probe ID
-	root.SetArgs([]string{"remove", "not-a-valid-uuid", "--parent", "550e8400-e29b-41d4-a716-446655440000", "--yes"})
+	// Set a probe name instead of UUID
+	root.SetArgs([]string{"remove", "my-probe-name", "--parent", "550e8400-e29b-41d4-a716-446655440000", "--yes"})
 
 	// Capture output
 	var buf bytes.Buffer
@@ -134,23 +137,25 @@ func TestProbeDepsRemoveCmd_InvalidProbeID(t *testing.T) {
 
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid probe ID")
+		t.Error("expected error when API client not configured")
 	}
 
-	if !strings.Contains(err.Error(), "invalid probe ID") {
-		t.Errorf("expected 'invalid probe ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "failed to initialize API client") {
+		t.Errorf("expected 'failed to initialize API client' error, got: %v", err)
 	}
 }
 
-func TestProbeDepsRemoveCmd_InvalidParentID(t *testing.T) {
+func TestProbeDepsRemoveCmd_ParentNameResolution(t *testing.T) {
+	// Since probe name resolution was added, non-UUID inputs for parent are also
+	// treated as potential probe names that need API resolution.
 	cmd := NewProbeDepsRemoveCmd()
 
 	// Create a parent command to hold the flag
 	root := &cobra.Command{}
 	root.AddCommand(cmd)
 
-	// Set an invalid parent probe ID
-	root.SetArgs([]string{"remove", "550e8400-e29b-41d4-a716-446655440000", "--parent", "not-a-valid-uuid", "--yes"})
+	// Set a parent probe name instead of UUID
+	root.SetArgs([]string{"remove", "550e8400-e29b-41d4-a716-446655440000", "--parent", "my-parent-probe", "--yes"})
 
 	// Capture output
 	var buf bytes.Buffer
@@ -159,11 +164,11 @@ func TestProbeDepsRemoveCmd_InvalidParentID(t *testing.T) {
 
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid parent probe ID")
+		t.Error("expected error when API client not configured")
 	}
 
-	if !strings.Contains(err.Error(), "invalid parent probe ID") {
-		t.Errorf("expected 'invalid parent probe ID' error, got: %v", err)
+	if !strings.Contains(err.Error(), "failed to initialize API client") {
+		t.Errorf("expected 'failed to initialize API client' error, got: %v", err)
 	}
 }
 

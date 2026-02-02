@@ -11,7 +11,6 @@ import (
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +24,9 @@ func NewProbeDepsListCmd() *cobra.Command {
 		Short: "List dependencies for a probe",
 		Long: `List parent and child dependencies for a specific probe.
 
+The probe can be specified by UUID or by name. If the name matches multiple
+probes, you'll be prompted to use the UUID instead.
+
 Parents are probes that this probe depends on. When a parent is DOWN,
 this probe will be marked as UNREACHABLE and its alerts are suppressed.
 
@@ -32,11 +34,14 @@ Children are probes that depend on this probe. When this probe is DOWN,
 its children will be marked as UNREACHABLE.
 
 Examples:
-  # List dependencies for a probe
+  # List dependencies by name
+  stackeye probe deps list "web-server"
+
+  # List dependencies by UUID
   stackeye probe deps list 550e8400-e29b-41d4-a716-446655440000
 
   # Output as JSON for scripting
-  stackeye probe deps list 550e8400-e29b-41d4-a716-446655440000 -o json`,
+  stackeye probe deps list "web-server" -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runProbeDepsListCmd(cmd.Context(), args[0])
@@ -48,16 +53,16 @@ Examples:
 
 // runProbeDepsListCmd executes the probe deps list command logic.
 func runProbeDepsListCmd(ctx context.Context, probeIDArg string) error {
-	// Parse and validate UUID
-	probeID, err := uuid.Parse(probeIDArg)
-	if err != nil {
-		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", probeIDArg)
-	}
-
-	// Get authenticated API client
+	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	// Resolve probe ID (accepts UUID or name)
+	probeID, err := ResolveProbeID(ctx, apiClient, probeIDArg)
+	if err != nil {
+		return err
 	}
 
 	// Call SDK to get probe dependencies with timeout
