@@ -113,11 +113,29 @@ func TestBuildIncidentRequestFromFlags_RequiredTitle(t *testing.T) {
 	}
 }
 
+func TestBuildIncidentRequestFromFlags_RequiredMessage(t *testing.T) {
+	flags := &incidentCreateFlags{
+		title:   "Test Incident",
+		message: "",
+		impact:  "minor",
+		status:  "investigating",
+	}
+
+	_, err := buildIncidentRequestFromFlags(flags)
+	if err == nil {
+		t.Error("expected error for empty message")
+	}
+	if !strings.Contains(err.Error(), "--message is required") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestBuildIncidentRequestFromFlags_RequiredImpact(t *testing.T) {
 	flags := &incidentCreateFlags{
-		title:  "Test Incident",
-		impact: "",
-		status: "investigating",
+		title:   "Test Incident",
+		message: "Test message",
+		impact:  "",
+		status:  "investigating",
 	}
 
 	_, err := buildIncidentRequestFromFlags(flags)
@@ -134,7 +152,6 @@ func TestBuildIncidentRequestFromFlags_InvalidImpact(t *testing.T) {
 		name   string
 		impact string
 	}{
-		{"empty", ""},
 		{"invalid string", "invalid"},
 		{"typo", "minnor"},
 		{"partial", "crit"},
@@ -143,9 +160,10 @@ func TestBuildIncidentRequestFromFlags_InvalidImpact(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			flags := &incidentCreateFlags{
-				title:  "Test Incident",
-				impact: tt.impact,
-				status: "investigating",
+				title:   "Test Incident",
+				message: "Test message",
+				impact:  tt.impact,
+				status:  "investigating",
 			}
 
 			_, err := buildIncidentRequestFromFlags(flags)
@@ -169,9 +187,10 @@ func TestBuildIncidentRequestFromFlags_InvalidStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			flags := &incidentCreateFlags{
-				title:  "Test Incident",
-				impact: "minor",
-				status: tt.status,
+				title:   "Test Incident",
+				message: "Test message",
+				impact:  "minor",
+				status:  tt.status,
 			}
 
 			_, err := buildIncidentRequestFromFlags(flags)
@@ -188,9 +207,10 @@ func TestBuildIncidentRequestFromFlags_ValidImpacts(t *testing.T) {
 	for _, impact := range validImpacts {
 		t.Run(impact, func(t *testing.T) {
 			flags := &incidentCreateFlags{
-				title:  "Test Incident",
-				impact: impact,
-				status: "investigating",
+				title:   "Test Incident",
+				message: "Test message",
+				impact:  impact,
+				status:  "investigating",
 			}
 
 			req, err := buildIncidentRequestFromFlags(flags)
@@ -211,9 +231,10 @@ func TestBuildIncidentRequestFromFlags_ValidStatuses(t *testing.T) {
 	for _, status := range validStatuses {
 		t.Run(status, func(t *testing.T) {
 			flags := &incidentCreateFlags{
-				title:  "Test Incident",
-				impact: "minor",
-				status: status,
+				title:   "Test Incident",
+				message: "Test message",
+				impact:  "minor",
+				status:  status,
 			}
 
 			req, err := buildIncidentRequestFromFlags(flags)
@@ -257,9 +278,10 @@ func TestBuildIncidentRequestFromFlags_Success(t *testing.T) {
 
 func TestBuildIncidentRequestFromFlags_MinimalInput(t *testing.T) {
 	flags := &incidentCreateFlags{
-		title:  "Service Outage",
-		impact: "critical",
-		status: "investigating",
+		title:   "Service Outage",
+		message: "Investigating service disruption",
+		impact:  "critical",
+		status:  "investigating",
 	}
 
 	req, err := buildIncidentRequestFromFlags(flags)
@@ -273,8 +295,8 @@ func TestBuildIncidentRequestFromFlags_MinimalInput(t *testing.T) {
 	if req.Impact != "critical" {
 		t.Errorf("expected Impact 'critical', got %q", req.Impact)
 	}
-	if req.Message != "" {
-		t.Errorf("expected empty Message, got %q", req.Message)
+	if req.Message != "Investigating service disruption" {
+		t.Errorf("expected Message 'Investigating service disruption', got %q", req.Message)
 	}
 }
 
@@ -309,8 +331,9 @@ impact: "major"
 }
 
 func TestBuildIncidentRequestFromYAML_MinimalFile(t *testing.T) {
-	// Only required fields
+	// Required fields only (without optional status)
 	content := `title: "Simple Incident"
+message: "Brief description of the incident"
 impact: "minor"
 `
 	tmpFile := createTempIncidentYAMLFile(t, content)
@@ -324,16 +347,15 @@ impact: "minor"
 	if req.Title != "Simple Incident" {
 		t.Errorf("expected Title 'Simple Incident', got %q", req.Title)
 	}
+	if req.Message != "Brief description of the incident" {
+		t.Errorf("expected Message 'Brief description of the incident', got %q", req.Message)
+	}
 	if req.Impact != "minor" {
 		t.Errorf("expected Impact 'minor', got %q", req.Impact)
 	}
 	// Status defaults to investigating
 	if req.Status != "investigating" {
 		t.Errorf("expected default Status 'investigating', got %q", req.Status)
-	}
-	// Message is optional
-	if req.Message != "" {
-		t.Errorf("expected empty Message, got %q", req.Message)
 	}
 }
 
@@ -353,8 +375,25 @@ status: "investigating"
 	}
 }
 
+func TestBuildIncidentRequestFromYAML_MissingMessage(t *testing.T) {
+	content := `title: "Test Incident"
+impact: "minor"
+`
+	tmpFile := createTempIncidentYAMLFile(t, content)
+	defer os.Remove(tmpFile)
+
+	_, err := buildIncidentRequestFromYAML(tmpFile)
+	if err == nil {
+		t.Error("expected error for missing message")
+	}
+	if !strings.Contains(err.Error(), "message") {
+		t.Errorf("error should mention 'message', got: %v", err)
+	}
+}
+
 func TestBuildIncidentRequestFromYAML_MissingImpact(t *testing.T) {
 	content := `title: "Test Incident"
+message: "Test message"
 status: "investigating"
 `
 	tmpFile := createTempIncidentYAMLFile(t, content)
@@ -371,6 +410,7 @@ status: "investigating"
 
 func TestBuildIncidentRequestFromYAML_InvalidImpact(t *testing.T) {
 	content := `title: "Test Incident"
+message: "Test message"
 impact: "invalid-impact"
 `
 	tmpFile := createTempIncidentYAMLFile(t, content)
@@ -387,6 +427,7 @@ impact: "invalid-impact"
 
 func TestBuildIncidentRequestFromYAML_InvalidStatus(t *testing.T) {
 	content := `title: "Test Incident"
+message: "Test message"
 impact: "minor"
 status: "invalid-status"
 `
@@ -442,6 +483,7 @@ func TestBuildIncidentRequestFromYAML_EmptyFile(t *testing.T) {
 
 func TestBuildIncidentRequestFromYAML_StatusDefaultsToInvestigating(t *testing.T) {
 	content := `title: "No Status Specified"
+message: "Test message"
 impact: "minor"
 `
 	tmpFile := createTempIncidentYAMLFile(t, content)
@@ -459,6 +501,7 @@ impact: "minor"
 
 func TestBuildIncidentRequestFromYAML_CaseNormalization(t *testing.T) {
 	content := `title: "Test Incident"
+message: "Test message"
 impact: "MAJOR"
 status: "IDENTIFIED"
 `
@@ -489,27 +532,32 @@ func TestRunIncidentCreate_Validation(t *testing.T) {
 	}{
 		{
 			name:         "status-page-id required",
-			args:         []string{"--title", "Test", "--impact", "minor"},
+			args:         []string{"--title", "Test", "--message", "Test message", "--impact", "minor"},
 			wantErrorMsg: "required flag(s) \"status-page-id\" not set",
 		},
 		{
 			name:         "title required without from-file",
-			args:         []string{"--status-page-id", "1", "--impact", "minor"},
+			args:         []string{"--status-page-id", "1", "--message", "Test message", "--impact", "minor"},
 			wantErrorMsg: "--title is required",
 		},
 		{
+			name:         "message required without from-file",
+			args:         []string{"--status-page-id", "1", "--title", "Test", "--impact", "minor"},
+			wantErrorMsg: "--message is required",
+		},
+		{
 			name:         "impact required without from-file",
-			args:         []string{"--status-page-id", "1", "--title", "Test"},
+			args:         []string{"--status-page-id", "1", "--title", "Test", "--message", "Test message"},
 			wantErrorMsg: "--impact is required",
 		},
 		{
 			name:         "invalid impact",
-			args:         []string{"--status-page-id", "1", "--title", "Test", "--impact", "invalid"},
+			args:         []string{"--status-page-id", "1", "--title", "Test", "--message", "Test message", "--impact", "invalid"},
 			wantErrorMsg: "invalid impact",
 		},
 		{
 			name:         "invalid status",
-			args:         []string{"--status-page-id", "1", "--title", "Test", "--impact", "minor", "--status", "invalid"},
+			args:         []string{"--status-page-id", "1", "--title", "Test", "--message", "Test message", "--impact", "minor", "--status", "invalid"},
 			wantErrorMsg: "invalid status",
 		},
 	}
@@ -536,7 +584,7 @@ func TestRunIncidentCreate_Validation(t *testing.T) {
 func TestRunIncidentCreate_ValidFlags(t *testing.T) {
 	// Test that valid flags pass validation (will fail later on API client)
 	cmd := NewIncidentCreateCmd()
-	cmd.SetArgs([]string{"--status-page-id", "123", "--title", "Test Incident", "--impact", "minor"})
+	cmd.SetArgs([]string{"--status-page-id", "123", "--title", "Test Incident", "--message", "Test message", "--impact", "minor"})
 
 	err := cmd.Execute()
 
@@ -549,6 +597,7 @@ func TestRunIncidentCreate_ValidFlags(t *testing.T) {
 	// Error should NOT be a validation error
 	validationErrors := []string{
 		"--title is required",
+		"--message is required",
 		"--impact is required",
 		"invalid impact",
 		"invalid status",
@@ -567,7 +616,7 @@ func TestRunIncidentCreate_AllImpactLevels(t *testing.T) {
 	for _, impact := range impacts {
 		t.Run(impact, func(t *testing.T) {
 			cmd := NewIncidentCreateCmd()
-			cmd.SetArgs([]string{"--status-page-id", "1", "--title", "Test", "--impact", impact})
+			cmd.SetArgs([]string{"--status-page-id", "1", "--title", "Test", "--message", "Test message", "--impact", impact})
 
 			err := cmd.Execute()
 
@@ -592,7 +641,7 @@ func TestRunIncidentCreate_AllStatusValues(t *testing.T) {
 	for _, status := range statuses {
 		t.Run(status, func(t *testing.T) {
 			cmd := NewIncidentCreateCmd()
-			cmd.SetArgs([]string{"--status-page-id", "1", "--title", "Test", "--impact", "minor", "--status", status})
+			cmd.SetArgs([]string{"--status-page-id", "1", "--title", "Test", "--message", "Test message", "--impact", "minor", "--status", status})
 
 			err := cmd.Execute()
 
@@ -610,28 +659,29 @@ func TestRunIncidentCreate_AllStatusValues(t *testing.T) {
 	}
 }
 
-func TestRunIncidentCreate_MessageIsOptional(t *testing.T) {
-	// Verify that --message is optional
+func TestRunIncidentCreate_MessageIsRequired(t *testing.T) {
+	// Verify that --message is required
 	cmd := NewIncidentCreateCmd()
 	cmd.SetArgs([]string{"--status-page-id", "123", "--title", "Test", "--impact", "minor"}) // No --message flag
 
 	err := cmd.Execute()
 
-	// Should fail on API client, not missing flag
+	// Should fail with message required error
 	if err == nil {
-		t.Error("expected error (no API client configured), got nil")
+		t.Error("expected error for missing message")
 		return
 	}
 
-	// Error should be about API client, not missing message flag
-	if strings.Contains(err.Error(), "message") && strings.Contains(err.Error(), "required") {
-		t.Errorf("--message should be optional, got error: %s", err.Error())
+	// Error should be about missing message
+	if !strings.Contains(err.Error(), "--message is required") {
+		t.Errorf("expected '--message is required' error, got: %s", err.Error())
 	}
 }
 
 func TestRunIncidentCreate_FromFile(t *testing.T) {
 	// Create a valid YAML file
 	content := `title: "Database Connectivity Issues"
+message: "Users may experience intermittent connection errors"
 impact: "major"
 status: "investigating"
 `

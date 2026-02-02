@@ -38,7 +38,7 @@ type incidentCreateFlags struct {
 // incidentYAMLConfig represents the YAML structure for --from-file input.
 type incidentYAMLConfig struct {
 	Title   string `yaml:"title"`
-	Message string `yaml:"message,omitempty"`
+	Message string `yaml:"message"`
 	Status  string `yaml:"status,omitempty"`
 	Impact  string `yaml:"impact"`
 }
@@ -59,10 +59,10 @@ update it as you investigate and resolve the problem.
 Required Flags:
   --status-page-id   ID of the status page (required)
   --title            Incident title (required unless using --from-file)
+  --message          Detailed incident message/description (required unless using --from-file)
   --impact           Impact level (required unless using --from-file)
 
 Optional Flags:
-  --message          Detailed incident message/description
   --status           Initial status (default: investigating)
   --from-file        Create incident from YAML file
 
@@ -77,26 +77,33 @@ Impact Levels:
 
 Examples:
   # Create a basic incident
-  stackeye incident create --status-page-id 123 --title "API Degradation" --impact minor
+  stackeye incident create --status-page-id 123 \
+    --title "API Degradation" \
+    --message "We are investigating reports of increased latency" \
+    --impact minor
 
-  # Create with a detailed message
+  # Create with scheduled maintenance
   stackeye incident create --status-page-id 123 \
     --title "Database Maintenance" \
-    --impact none \
-    --message "Scheduled maintenance window for database upgrades"
+    --message "Scheduled maintenance window for database upgrades" \
+    --impact none
 
   # Create with specific status
   stackeye incident create --status-page-id 123 \
     --title "Service Outage" \
+    --message "Root cause identified, working on fix" \
     --impact critical \
-    --status identified \
-    --message "Root cause identified, working on fix"
+    --status identified
 
   # Create from YAML file
   stackeye incident create --status-page-id 123 --from-file incident.yaml
 
   # Output as JSON for scripting
-  stackeye incident create --status-page-id 123 --title "Issue" --impact minor -o json
+  stackeye incident create --status-page-id 123 \
+    --title "Issue" \
+    --message "Investigating reported issues" \
+    --impact minor \
+    -o json
 
 YAML File Format:
   title: "Database Connectivity Issues"
@@ -113,8 +120,8 @@ YAML File Format:
 	cmd.Flags().StringVar(&flags.title, "title", "", "incident title (required unless using --from-file)")
 	cmd.Flags().StringVar(&flags.impact, "impact", "", "impact level: none, minor, major, critical (required unless using --from-file)")
 
-	// Optional flags
-	cmd.Flags().StringVar(&flags.message, "message", "", "detailed incident message/description")
+	// Required unless using --from-file
+	cmd.Flags().StringVar(&flags.message, "message", "", "detailed incident message/description (required unless using --from-file)")
 	cmd.Flags().StringVar(&flags.status, "status", "investigating", "initial status: investigating, identified, monitoring, resolved")
 	cmd.Flags().StringVar(&flags.fromFile, "from-file", "", "create incident from YAML file")
 
@@ -169,6 +176,10 @@ func buildIncidentRequestFromFlags(flags *incidentCreateFlags) (*client.CreateIn
 		return nil, fmt.Errorf("--title is required")
 	}
 
+	if flags.message == "" {
+		return nil, fmt.Errorf("--message is required")
+	}
+
 	if flags.impact == "" {
 		return nil, fmt.Errorf("--impact is required")
 	}
@@ -210,6 +221,10 @@ func buildIncidentRequestFromYAML(filePath string) (*client.CreateIncidentReques
 	// Validate required fields
 	if cfg.Title == "" {
 		return nil, fmt.Errorf("YAML file must contain 'title' field")
+	}
+
+	if cfg.Message == "" {
+		return nil, fmt.Errorf("YAML file must contain 'message' field")
 	}
 
 	if cfg.Impact == "" {
