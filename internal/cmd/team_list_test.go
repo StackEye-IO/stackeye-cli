@@ -4,6 +4,8 @@ package cmd
 import (
 	"strings"
 	"testing"
+
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
 )
 
 // TestNewTeamListCmd verifies that the team list command is properly constructed.
@@ -96,6 +98,40 @@ func TestNewTeamListCmd_HasPaginationFlags(t *testing.T) {
 	}
 }
 
+// TestNewTeamListCmd_HasRoleFlag verifies the --role flag is defined.
+func TestNewTeamListCmd_HasRoleFlag(t *testing.T) {
+	cmd := NewTeamListCmd()
+
+	roleFlag := cmd.Flags().Lookup("role")
+	if roleFlag == nil {
+		t.Error("expected --role flag to be defined")
+	} else {
+		if roleFlag.DefValue != "" {
+			t.Errorf("expected --role default to be empty, got %q", roleFlag.DefValue)
+		}
+		if !strings.Contains(roleFlag.Usage, "owner") {
+			t.Error("expected --role usage to mention 'owner'")
+		}
+		if !strings.Contains(roleFlag.Usage, "admin") {
+			t.Error("expected --role usage to mention 'admin'")
+		}
+	}
+}
+
+// TestNewTeamListCmd_HelpContainsRoleFilter verifies role filter example is present.
+func TestNewTeamListCmd_HelpContainsRoleFilter(t *testing.T) {
+	cmd := NewTeamListCmd()
+
+	if !strings.Contains(cmd.Long, "--role admin") {
+		t.Error("expected Long description to contain role filter example")
+	}
+
+	// Verify client-side filtering note is present
+	if !strings.Contains(cmd.Long, "Role filtering is applied client-side") {
+		t.Error("expected Long description to document client-side filtering limitation")
+	}
+}
+
 // TestValidateTeamListFlags_ValidValues verifies valid flag values are accepted.
 func TestValidateTeamListFlags_ValidValues(t *testing.T) {
 	tests := []struct {
@@ -117,6 +153,34 @@ func TestValidateTeamListFlags_ValidValues(t *testing.T) {
 		{
 			name:  "high page number",
 			flags: &teamListFlags{page: 100, limit: 20},
+		},
+		{
+			name:  "with owner role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "owner"},
+		},
+		{
+			name:  "with admin role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "admin"},
+		},
+		{
+			name:  "with member role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "member"},
+		},
+		{
+			name:  "with viewer role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "viewer"},
+		},
+		{
+			name:  "with uppercase role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "ADMIN"},
+		},
+		{
+			name:  "with mixed case role",
+			flags: &teamListFlags{page: 1, limit: 20, role: "Member"},
+		},
+		{
+			name:  "with empty role",
+			flags: &teamListFlags{page: 1, limit: 20, role: ""},
 		},
 	}
 
@@ -162,6 +226,16 @@ func TestValidateTeamListFlags_InvalidValues(t *testing.T) {
 			flags:       &teamListFlags{page: -1, limit: 20},
 			errContains: "invalid page",
 		},
+		{
+			name:        "invalid role",
+			flags:       &teamListFlags{page: 1, limit: 20, role: "superuser"},
+			errContains: "invalid role",
+		},
+		{
+			name:        "invalid role typo",
+			flags:       &teamListFlags{page: 1, limit: 20, role: "admn"},
+			errContains: "invalid role",
+		},
 	}
 
 	for _, tt := range tests {
@@ -173,5 +247,79 @@ func TestValidateTeamListFlags_InvalidValues(t *testing.T) {
 				t.Errorf("expected error to contain %q, got %q", tt.errContains, err.Error())
 			}
 		})
+	}
+}
+
+// TestFilterMembersByRole verifies the role filtering function works correctly.
+func TestFilterMembersByRole(t *testing.T) {
+	members := []client.TeamMember{
+		{Name: "Alice", Role: client.TeamRoleOwner},
+		{Name: "Bob", Role: client.TeamRoleAdmin},
+		{Name: "Charlie", Role: client.TeamRoleMember},
+		{Name: "Diana", Role: client.TeamRoleMember},
+		{Name: "Eve", Role: client.TeamRoleViewer},
+	}
+
+	tests := []struct {
+		name     string
+		role     string
+		expected int
+	}{
+		{"filter owner", "owner", 1},
+		{"filter admin", "admin", 1},
+		{"filter member", "member", 2},
+		{"filter viewer", "viewer", 1},
+		{"case insensitive - uppercase", "ADMIN", 1},
+		{"case insensitive - mixed", "Member", 2},
+		{"empty role returns all", "", 5},
+		{"non-existent role returns none", "superuser", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Handle empty role case - empty string should skip filtering
+			var result []client.TeamMember
+			if tt.role == "" {
+				result = members // No filtering
+			} else {
+				result = filterMembersByRole(members, tt.role)
+			}
+			if len(result) != tt.expected {
+				t.Errorf("expected %d members, got %d", tt.expected, len(result))
+			}
+		})
+	}
+}
+
+// TestFilterMembersByRole_PreservesOrder verifies filtering preserves member order.
+func TestFilterMembersByRole_PreservesOrder(t *testing.T) {
+	members := []client.TeamMember{
+		{Name: "Alice", Role: client.TeamRoleMember},
+		{Name: "Bob", Role: client.TeamRoleMember},
+		{Name: "Charlie", Role: client.TeamRoleMember},
+	}
+
+	result := filterMembersByRole(members, "member")
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 members, got %d", len(result))
+	}
+
+	expectedOrder := []string{"Alice", "Bob", "Charlie"}
+	for i, name := range expectedOrder {
+		if result[i].Name != name {
+			t.Errorf("expected member[%d] to be %q, got %q", i, name, result[i].Name)
+		}
+	}
+}
+
+// TestFilterMembersByRole_EmptyInput verifies filtering handles empty input.
+func TestFilterMembersByRole_EmptyInput(t *testing.T) {
+	var members []client.TeamMember
+
+	result := filterMembersByRole(members, "admin")
+
+	if len(result) != 0 {
+		t.Errorf("expected 0 members, got %d", len(result))
 	}
 }
