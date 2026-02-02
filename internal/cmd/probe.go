@@ -32,6 +32,10 @@ Channel Management:
   link-channel     Link a notification channel to a probe
   unlink-channel   Unlink a notification channel from a probe
 
+Label Management:
+  label            Add labels to a probe
+  unlabel          Remove labels from a probe
+
 Dependency Management:
   deps             Manage probe dependencies for hierarchical alerting
 
@@ -76,6 +80,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeStatsCmd())
 	cmd.AddCommand(NewProbeLinkChannelCmd())
 	cmd.AddCommand(NewProbeDepsCmd())
+	cmd.AddCommand(NewProbeLabelCmd()) // Task #8068
 
 	return cmd
 }

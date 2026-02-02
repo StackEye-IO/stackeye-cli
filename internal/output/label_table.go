@@ -170,3 +170,39 @@ func PrintLabelKey(labelKey client.LabelKey) error {
 
 	return printer.Print(row)
 }
+
+// ProbeLabelTableRow represents a row in the probe label table output.
+// Task #8068
+type ProbeLabelTableRow struct {
+	Key   string `table:"KEY"`
+	Value string `table:"VALUE"`
+}
+
+// FormatProbeLabels converts a slice of probe labels into table-displayable rows.
+// Task #8068
+func FormatProbeLabels(labels []client.ProbeLabel) []ProbeLabelTableRow {
+	rows := make([]ProbeLabelTableRow, 0, len(labels))
+	for _, l := range labels {
+		value := "(none)"
+		if l.Value != nil && *l.Value != "" {
+			value = *l.Value
+		}
+		rows = append(rows, ProbeLabelTableRow{
+			Key:   l.Key,
+			Value: value,
+		})
+	}
+	return rows
+}
+
+// PrintProbeLabels is a convenience function that formats and prints probe labels.
+// Task #8068
+func PrintProbeLabels(labels []client.ProbeLabel) error {
+	if len(labels) == 0 {
+		return PrintEmpty("No labels assigned to this probe.")
+	}
+
+	printer := getPrinter()
+	rows := FormatProbeLabels(labels)
+	return printer.Print(rows)
+}
