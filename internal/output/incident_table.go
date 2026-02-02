@@ -102,9 +102,14 @@ func (f *IncidentTableFormatter) formatImpact(impact string) string {
 }
 
 // truncateIncidentTitle truncates an incident title for display.
+// Uses rune-based slicing to properly handle Unicode characters.
 func truncateIncidentTitle(title string, maxLen int) string {
-	if len(title) > maxLen {
-		return title[:maxLen-3] + "..."
+	if maxLen < 4 {
+		maxLen = 4
+	}
+	runes := []rune(title)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen-3]) + "..."
 	}
 	return title
 }
