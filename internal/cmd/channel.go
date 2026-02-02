@@ -31,6 +31,7 @@ Available Commands:
   update      Update an existing channel
   delete      Delete a notification channel
   test        Send a test notification through a channel
+  wizard      Interactive wizard for creating channels
 
 Examples:
   # List all channels
@@ -75,6 +76,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewChannelUpdateCmd())
 	cmd.AddCommand(NewChannelDeleteCmd())
 	cmd.AddCommand(NewChannelTestCmd())
+	cmd.AddCommand(NewChannelWizardCmd())
 
 	return cmd
 }
