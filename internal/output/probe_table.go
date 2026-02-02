@@ -24,6 +24,7 @@ type ProbeTableRow struct {
 	Uptime  string `table:"UPTIME,wide"`
 	AvgResp string `table:"AVG RESP,wide"`
 	Regions string `table:"REGIONS,wide"`
+	Labels  string `table:"LABELS,wide"` // Task #8070
 	ID      string `table:"ID,wide"`
 }
 
@@ -83,8 +84,43 @@ func (f *ProbeTableFormatter) formatProbe(p client.Probe) ProbeTableRow {
 		Uptime:  formatUptime(p.Uptime),
 		AvgResp: formatResponseTime(p.AvgResponseTimeMs),
 		Regions: formatRegions(p.Regions),
+		Labels:  formatProbeLabels(p.Labels), // Task #8070
 		ID:      p.ID.String(),
 	}
+}
+
+// formatProbeLabels converts probe labels to a display string.
+// Shows up to 3 labels, with "+N" indicator for additional labels.
+// Task #8070
+func formatProbeLabels(labels []client.ProbeLabel) string {
+	if len(labels) == 0 {
+		return "-"
+	}
+
+	const maxDisplayLabels = 3
+	const maxTotalLength = 40
+
+	parts := make([]string, 0, len(labels))
+	for _, l := range labels {
+		if l.Value != nil && *l.Value != "" {
+			parts = append(parts, l.Key+"="+*l.Value)
+		} else {
+			parts = append(parts, l.Key)
+		}
+	}
+
+	if len(parts) <= maxDisplayLabels {
+		result := strings.Join(parts, ", ")
+		if len(result) > maxTotalLength {
+			return result[:maxTotalLength-3] + "..."
+		}
+		return result
+	}
+
+	// Show first 3 labels with "+N" indicator
+	displayed := strings.Join(parts[:maxDisplayLabels], ", ")
+	remaining := len(parts) - maxDisplayLabels
+	return fmt.Sprintf("%s +%d", displayed, remaining)
 }
 
 // formatStatus applies color based on probe status.

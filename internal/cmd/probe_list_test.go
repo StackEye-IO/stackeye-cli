@@ -70,6 +70,7 @@ func TestNewProbeListCmd_Flags(t *testing.T) {
 		{"page", "", "1"},
 		{"limit", "", "20"},
 		{"period", "", ""},
+		{"labels", "", ""}, // Task #8070
 	}
 
 	for _, f := range flags {
@@ -183,5 +184,101 @@ func TestRunProbeList_ValidFlags(t *testing.T) {
 		if strings.Contains(err.Error(), ve) {
 			t.Errorf("got unexpected validation error: %s", err.Error())
 		}
+	}
+}
+
+// Task #8070: Tests for parseLabelFilters function
+func TestParseLabelFilters(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name:    "empty string",
+			input:   "",
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:  "single key=value",
+			input: "env=production",
+			want:  map[string]string{"env": "production"},
+		},
+		{
+			name:  "single key-only",
+			input: "pci",
+			want:  map[string]string{"pci": ""},
+		},
+		{
+			name:  "multiple key=value",
+			input: "env=production,tier=web",
+			want:  map[string]string{"env": "production", "tier": "web"},
+		},
+		{
+			name:  "mixed key=value and key-only",
+			input: "env=production,pci,tier=web",
+			want:  map[string]string{"env": "production", "pci": "", "tier": "web"},
+		},
+		{
+			name:  "handles whitespace",
+			input: "env=production, tier=web , pci",
+			want:  map[string]string{"env": "production", "tier": "web", "pci": ""},
+		},
+		{
+			name:  "empty value",
+			input: "env=",
+			want:  map[string]string{"env": ""},
+		},
+		{
+			name:    "invalid key with spaces",
+			input:   "env name=production",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseLabelFilters(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseLabelFilters() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("parseLabelFilters() got %d filters, want %d", len(got), len(tt.want))
+				return
+			}
+			for k, v := range tt.want {
+				if gotV, ok := got[k]; !ok || gotV != v {
+					t.Errorf("parseLabelFilters()[%q] = %q, want %q", k, gotV, v)
+				}
+			}
+		})
+	}
+}
+
+func TestRunProbeList_ValidLabelsFlag(t *testing.T) {
+	// Test that valid labels flag passes validation (will fail later on API client)
+	flags := &probeListFlags{
+		page:   1,
+		limit:  20,
+		labels: "env=production,tier=web",
+	}
+
+	err := runProbeList(context.Background(), flags)
+
+	// Should fail on API client initialization, not validation
+	if err == nil {
+		t.Error("expected error (no API client configured), got nil")
+		return
+	}
+
+	// Error should NOT be a label validation error
+	if strings.Contains(err.Error(), "label") {
+		t.Errorf("got unexpected label validation error: %s", err.Error())
 	}
 }
