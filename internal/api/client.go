@@ -65,12 +65,15 @@ var currentConfigGetter configGetter
 
 // SetConfigGetter sets the function used to get the loaded configuration.
 // This should be called during CLI initialization to wire up the config loader.
+// Returns the previous config getter, useful for cleanup in tests.
 //
 // Example usage in root.go init():
 //
 //	api.SetConfigGetter(GetConfig)
-func SetConfigGetter(getter func() *config.Config) {
+func SetConfigGetter(getter func() *config.Config) func() *config.Config {
+	prev := currentConfigGetter
 	currentConfigGetter = getter
+	return prev
 }
 
 // GetClient creates and returns an SDK client from the current configuration context.

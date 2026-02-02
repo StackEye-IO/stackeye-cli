@@ -62,8 +62,8 @@ See also:
 
 	// Register subcommands
 	cmd.AddCommand(NewLabelListCmd())
+	cmd.AddCommand(NewLabelCreateCmd()) // Task #8066
 	// Note: Additional subcommands will be added in subsequent tasks:
-	// - Task #8066: label_create.go
 	// - Task #8067: label_delete.go
 
 	return cmd
