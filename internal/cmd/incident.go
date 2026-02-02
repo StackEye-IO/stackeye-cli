@@ -31,8 +31,12 @@ Examples:
   # List only active incidents (not resolved)
   stackeye incident list --status-page-id 123 --status investigating
 
+  # Get details of a specific incident
+  stackeye incident get --status-page-id 123 --incident-id 456
+
   # Create a new incident
-  stackeye incident create --status-page-id 123 --title "API Degradation" --impact minor
+  stackeye incident create --status-page-id 123 --title "API Degradation" \
+    --message "We are investigating reports of increased latency" --impact minor
 
   # Update an incident status
   stackeye incident update --status-page-id 123 --incident-id 456 --status identified
@@ -50,6 +54,7 @@ For more information about a specific command:
 
 	// Register subcommands
 	cmd.AddCommand(NewIncidentListCmd())
+	cmd.AddCommand(NewIncidentGetCmd())
 	cmd.AddCommand(NewIncidentCreateCmd())
 	cmd.AddCommand(NewIncidentUpdateCmd())
 	cmd.AddCommand(NewIncidentResolveCmd())
