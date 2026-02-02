@@ -173,3 +173,125 @@ func FormatIncidentCount(total int64, page, limit int) string {
 	}
 	return fmt.Sprintf("Showing %d-%d of %d incidents", start, end, total)
 }
+
+// IncidentDetail represents a detailed view of a single incident.
+// Used for displaying full incident information including the message body.
+type IncidentDetail struct {
+	ID         string
+	Title      string
+	Status     string
+	Impact     string
+	Message    string
+	CreatedAt  string
+	UpdatedAt  string
+	ResolvedAt string
+	Duration   string
+}
+
+// FormatIncidentDetail converts a single SDK Incident into a detailed view
+// showing the full message and timeline information.
+func (f *IncidentTableFormatter) FormatIncidentDetail(incident client.Incident) IncidentDetail {
+	return IncidentDetail{
+		ID:         strconv.FormatUint(uint64(incident.ID), 10),
+		Title:      incident.Title,
+		Status:     f.formatStatus(incident.Status),
+		Impact:     f.formatImpact(incident.Impact),
+		Message:    incident.Message,
+		CreatedAt:  incident.CreatedAt.Format("2006-01-02 15:04:05 MST"),
+		UpdatedAt:  incident.UpdatedAt.Format("2006-01-02 15:04:05 MST"),
+		ResolvedAt: formatResolvedAtDetail(incident.ResolvedAt),
+		Duration:   formatIncidentDuration(incident.CreatedAt, incident.ResolvedAt),
+	}
+}
+
+// formatResolvedAtDetail formats the resolved timestamp for detailed display.
+func formatResolvedAtDetail(resolvedAt *time.Time) string {
+	if resolvedAt == nil {
+		return "Not resolved"
+	}
+	return resolvedAt.Format("2006-01-02 15:04:05 MST")
+}
+
+// formatIncidentDuration calculates and formats the incident duration.
+func formatIncidentDuration(createdAt time.Time, resolvedAt *time.Time) string {
+	var end time.Time
+	if resolvedAt != nil {
+		end = *resolvedAt
+	} else {
+		end = time.Now()
+	}
+
+	duration := end.Sub(createdAt)
+	if duration < time.Minute {
+		return fmt.Sprintf("%ds", int(duration.Seconds()))
+	}
+	if duration < time.Hour {
+		return fmt.Sprintf("%dm", int(duration.Minutes()))
+	}
+	if duration < 24*time.Hour {
+		hours := int(duration.Hours())
+		mins := int(duration.Minutes()) % 60
+		if mins > 0 {
+			return fmt.Sprintf("%dh %dm", hours, mins)
+		}
+		return fmt.Sprintf("%dh", hours)
+	}
+	days := int(duration.Hours()) / 24
+	hours := int(duration.Hours()) % 24
+	if hours > 0 {
+		return fmt.Sprintf("%dd %dh", days, hours)
+	}
+	return fmt.Sprintf("%dd", days)
+}
+
+// PrintIncidentDetail prints a single incident in detailed format.
+// This shows the full message and timeline information.
+func PrintIncidentDetail(incident client.Incident) error {
+	printer := getPrinter()
+	colorMode := sdkoutput.ColorAuto
+
+	if configGetter != nil {
+		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+			colorMode = sdkoutput.ColorMode(cfg.Preferences.Color)
+		}
+	}
+
+	// For JSON output, return the full incident data
+	if printer.Format() == sdkoutput.FormatJSON {
+		return printer.Print(incident)
+	}
+
+	formatter := NewIncidentTableFormatter(colorMode, false)
+	detail := formatter.FormatIncidentDetail(incident)
+
+	// Build formatted output for table/text mode
+	output := fmt.Sprintf(`Incident #%s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title:      %s
+Status:     %s
+Impact:     %s
+
+Message:
+%s
+
+Timeline:
+  Created:  %s
+  Updated:  %s
+  Resolved: %s
+  Duration: %s
+`,
+		detail.ID,
+		detail.Title,
+		detail.Status,
+		detail.Impact,
+		detail.Message,
+		detail.CreatedAt,
+		detail.UpdatedAt,
+		detail.ResolvedAt,
+		detail.Duration,
+	)
+
+	fmt.Print(output)
+	return nil
+}

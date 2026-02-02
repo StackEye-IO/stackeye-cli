@@ -378,3 +378,172 @@ func TestFormatIncidents_PreservesOrder(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatIncidentDetail verifies the detailed incident view.
+func TestFormatIncidentDetail(t *testing.T) {
+	formatter := NewIncidentTableFormatter(sdkoutput.ColorNever, false)
+	created := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+	updated := time.Date(2024, 1, 15, 11, 30, 0, 0, time.UTC)
+	resolved := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	incident := client.Incident{
+		ID:         456,
+		Title:      "Database connectivity issues",
+		Message:    "Users are experiencing intermittent connection errors to the primary database.",
+		Status:     "resolved",
+		Impact:     "major",
+		CreatedAt:  created,
+		UpdatedAt:  updated,
+		ResolvedAt: &resolved,
+	}
+
+	detail := formatter.FormatIncidentDetail(incident)
+
+	if detail.ID != "456" {
+		t.Errorf("expected ID '456', got %q", detail.ID)
+	}
+	if detail.Title != "Database connectivity issues" {
+		t.Errorf("expected full title, got %q", detail.Title)
+	}
+	if detail.Message != "Users are experiencing intermittent connection errors to the primary database." {
+		t.Errorf("expected full message, got %q", detail.Message)
+	}
+	if detail.Status != "Resolved" {
+		t.Errorf("expected status 'Resolved', got %q", detail.Status)
+	}
+	if detail.Impact != "Major" {
+		t.Errorf("expected impact 'Major', got %q", detail.Impact)
+	}
+}
+
+// TestFormatIncidentDetail_NotResolved verifies detail view for ongoing incidents.
+func TestFormatIncidentDetail_NotResolved(t *testing.T) {
+	formatter := NewIncidentTableFormatter(sdkoutput.ColorNever, false)
+	created := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+	updated := time.Date(2024, 1, 15, 11, 30, 0, 0, time.UTC)
+
+	incident := client.Incident{
+		ID:         789,
+		Title:      "API Latency Issues",
+		Message:    "We are investigating reports of increased API response times.",
+		Status:     "investigating",
+		Impact:     "minor",
+		CreatedAt:  created,
+		UpdatedAt:  updated,
+		ResolvedAt: nil,
+	}
+
+	detail := formatter.FormatIncidentDetail(incident)
+
+	if detail.ResolvedAt != "Not resolved" {
+		t.Errorf("expected 'Not resolved', got %q", detail.ResolvedAt)
+	}
+}
+
+// TestFormatResolvedAtDetail verifies detailed resolved time formatting.
+func TestFormatResolvedAtDetail(t *testing.T) {
+	t.Run("nil resolved time", func(t *testing.T) {
+		result := formatResolvedAtDetail(nil)
+		if result != "Not resolved" {
+			t.Errorf("expected 'Not resolved', got %q", result)
+		}
+	})
+
+	t.Run("valid resolved time", func(t *testing.T) {
+		resolved := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
+		result := formatResolvedAtDetail(&resolved)
+		expected := "2024-01-15 10:30:45 UTC"
+		if result != expected {
+			t.Errorf("expected %q, got %q", expected, result)
+		}
+	})
+}
+
+// TestFormatIncidentDuration verifies duration formatting.
+func TestFormatIncidentDuration(t *testing.T) {
+	base := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name       string
+		created    time.Time
+		resolved   *time.Time
+		wantPrefix string
+	}{
+		{
+			name:       "2 hours resolved",
+			created:    base,
+			resolved:   timePtr(base.Add(2 * time.Hour)),
+			wantPrefix: "2h",
+		},
+		{
+			name:       "2 hours 30 minutes resolved",
+			created:    base,
+			resolved:   timePtr(base.Add(2*time.Hour + 30*time.Minute)),
+			wantPrefix: "2h 30m",
+		},
+		{
+			name:       "1 day resolved",
+			created:    base,
+			resolved:   timePtr(base.Add(24 * time.Hour)),
+			wantPrefix: "1d",
+		},
+		{
+			name:       "1 day 5 hours resolved",
+			created:    base,
+			resolved:   timePtr(base.Add(29 * time.Hour)),
+			wantPrefix: "1d 5h",
+		},
+		{
+			name:       "30 seconds",
+			created:    base,
+			resolved:   timePtr(base.Add(30 * time.Second)),
+			wantPrefix: "30s",
+		},
+		{
+			name:       "45 minutes",
+			created:    base,
+			resolved:   timePtr(base.Add(45 * time.Minute)),
+			wantPrefix: "45m",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatIncidentDuration(tt.created, tt.resolved)
+			if result != tt.wantPrefix {
+				t.Errorf("formatIncidentDuration() = %q, want %q", result, tt.wantPrefix)
+			}
+		})
+	}
+}
+
+// timePtr is a helper to create a pointer to a time.Time.
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
+
+// TestIncidentDetail_StructFields verifies all detail fields are accessible.
+func TestIncidentDetail_StructFields(t *testing.T) {
+	detail := IncidentDetail{
+		ID:         "123",
+		Title:      "Test Incident",
+		Status:     "investigating",
+		Impact:     "major",
+		Message:    "Full message content",
+		CreatedAt:  "2024-01-15 10:00:00 UTC",
+		UpdatedAt:  "2024-01-15 11:00:00 UTC",
+		ResolvedAt: "Not resolved",
+		Duration:   "1h",
+	}
+
+	// Verify all fields are accessible (compile-time check)
+	_ = detail.ID
+	_ = detail.Title
+	_ = detail.Status
+	_ = detail.Impact
+	_ = detail.Message
+	_ = detail.CreatedAt
+	_ = detail.UpdatedAt
+	_ = detail.ResolvedAt
+	_ = detail.Duration
+}
