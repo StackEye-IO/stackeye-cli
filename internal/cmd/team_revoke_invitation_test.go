@@ -48,6 +48,7 @@ func TestNewTeamRevokeInvitationCmd_HelpContainsExamples(t *testing.T) {
 	examples := []string{
 		"stackeye team revoke-invitation",
 		"--id",
+		"--email",
 		"--force",
 		"-o json",
 	}
@@ -77,6 +78,12 @@ func TestNewTeamRevokeInvitationCmd_HasFlags(t *testing.T) {
 		t.Error("expected --id flag to be defined")
 	}
 
+	// Check --email flag
+	emailFlag := cmd.Flags().Lookup("email")
+	if emailFlag == nil {
+		t.Error("expected --email flag to be defined")
+	}
+
 	// Check --force flag
 	forceFlag := cmd.Flags().Lookup("force")
 	if forceFlag == nil {
@@ -102,6 +109,14 @@ func TestValidateRevokeInvitationFlags_ValidValues(t *testing.T) {
 			name:  "uuid format id",
 			flags: &teamRevokeInvitationFlags{id: "550e8400-e29b-41d4-a716-446655440000"},
 		},
+		{
+			name:  "valid email only",
+			flags: &teamRevokeInvitationFlags{email: "test@stackeye.io"},
+		},
+		{
+			name:  "valid email with force",
+			flags: &teamRevokeInvitationFlags{email: "test@stackeye.io", force: true},
+		},
 	}
 
 	for _, tt := range tests {
@@ -122,14 +137,19 @@ func TestValidateRevokeInvitationFlags_InvalidValues(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:        "empty id",
-			flags:       &teamRevokeInvitationFlags{id: ""},
-			errContains: "--id is required",
+			name:        "neither id nor email",
+			flags:       &teamRevokeInvitationFlags{},
+			errContains: "either --id or --email is required",
 		},
 		{
-			name:        "empty id with force",
-			flags:       &teamRevokeInvitationFlags{id: "", force: true},
-			errContains: "--id is required",
+			name:        "neither id nor email with force",
+			flags:       &teamRevokeInvitationFlags{force: true},
+			errContains: "either --id or --email is required",
+		},
+		{
+			name:        "both id and email",
+			flags:       &teamRevokeInvitationFlags{id: "abc123", email: "test@stackeye.io"},
+			errContains: "cannot specify both --id and --email",
 		},
 	}
 

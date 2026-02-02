@@ -21,6 +21,7 @@ const teamRevokeInvitationTimeout = 30 * time.Second
 // teamRevokeInvitationFlags holds the flag values for the team revoke-invitation command.
 type teamRevokeInvitationFlags struct {
 	id    string
+	email string
 	force bool
 }
 
@@ -36,10 +37,12 @@ func NewTeamRevokeInvitationCmd() *cobra.Command {
 This permanently cancels the invitation. The recipient will no longer be able
 to use the invite code to join your organization.
 
+Identify the invitation using either --id or --email (not both).
 Use 'stackeye team invitations -o wide' to find invitation IDs.
 
-Required Flags:
-  --id   The invitation ID to revoke
+Required (one of):
+  --id      The invitation ID to revoke
+  --email   The email address of the pending invitation
 
 Optional Flags:
   --force   Skip the confirmation prompt
@@ -48,11 +51,14 @@ Examples:
   # Revoke an invitation by ID
   stackeye team revoke-invitation --id abc123def456
 
+  # Revoke an invitation by email
+  stackeye team revoke-invitation --email {invitee_email}
+
   # Skip confirmation prompt
   stackeye team revoke-invitation --id abc123def456 --force
 
   # Output result as JSON
-  stackeye team revoke-invitation --id abc123def456 --force -o json`,
+  stackeye team revoke-invitation --email {invitee_email} --force -o json`,
 		Aliases: []string{"revoke-invite", "cancel-invitation", "cancel-invite"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTeamRevokeInvitation(cmd.Context(), flags)
@@ -61,6 +67,7 @@ Examples:
 
 	// Flags
 	cmd.Flags().StringVar(&flags.id, "id", "", "invitation ID (use 'team invitations -o wide' to find)")
+	cmd.Flags().StringVar(&flags.email, "email", "", "email address of the pending invitation")
 	cmd.Flags().BoolVar(&flags.force, "force", false, "skip confirmation prompt")
 
 	return cmd
@@ -69,8 +76,11 @@ Examples:
 // validateRevokeInvitationFlags validates all flag values before making API calls.
 // Returns an error if any flag value is invalid.
 func validateRevokeInvitationFlags(flags *teamRevokeInvitationFlags) error {
-	if flags.id == "" {
-		return fmt.Errorf("--id is required")
+	if flags.id == "" && flags.email == "" {
+		return fmt.Errorf("either --id or --email is required")
+	}
+	if flags.id != "" && flags.email != "" {
+		return fmt.Errorf("cannot specify both --id and --email")
 	}
 	return nil
 }
@@ -109,31 +119,57 @@ func runTeamRevokeInvitation(ctx context.Context, flags *teamRevokeInvitationFla
 	reqCtx, cancel := context.WithTimeout(ctx, teamRevokeInvitationTimeout)
 	defer cancel()
 
-	// Look up the invitation to get email for confirmation message
+	// Look up the invitation - required if email provided, optional for ID
+	var invitationID string
 	var invitationEmail string
+
 	invitations, err := client.ListInvitations(reqCtx, apiClient)
-	if err == nil {
+	if err != nil {
+		// If looking up by email, we need the invitation list
+		if flags.email != "" {
+			return fmt.Errorf("failed to list invitations: %w", err)
+		}
+		// If looking up by ID, we can proceed without the email
+		invitationID = flags.id
+	} else {
+		// Search invitations for matching ID or email
 		for _, inv := range invitations.Invitations {
-			if inv.ID == flags.id {
+			if flags.email != "" && strings.EqualFold(inv.Email, flags.email) {
+				invitationID = inv.ID
 				invitationEmail = inv.Email
 				break
 			}
+			if flags.id != "" && inv.ID == flags.id {
+				invitationID = inv.ID
+				invitationEmail = inv.Email
+				break
+			}
+		}
+
+		// Handle email lookup not found
+		if flags.email != "" && invitationID == "" {
+			return fmt.Errorf("no pending invitation found for email %q", flags.email)
+		}
+
+		// If ID was provided but not found in list, still use it (might be valid)
+		if flags.id != "" && invitationID == "" {
+			invitationID = flags.id
 		}
 	}
 
 	// Ask for confirmation unless --force or --no-input is specified
 	if !flags.force && !GetNoInput() {
-		if !confirmRevocation(flags.id, invitationEmail) {
+		if !confirmRevocation(invitationID, invitationEmail) {
 			fmt.Println("Operation cancelled.")
 			return nil
 		}
 	}
 
 	// Call SDK to revoke invitation
-	if err := client.RevokeInvitation(reqCtx, apiClient, flags.id); err != nil {
+	if err := client.RevokeInvitation(reqCtx, apiClient, invitationID); err != nil {
 		return fmt.Errorf("failed to revoke invitation: %w", err)
 	}
 
 	// Print the success message
-	return output.PrintInvitationRevoked(flags.id, invitationEmail)
+	return output.PrintInvitationRevoked(invitationID, invitationEmail)
 }
