@@ -61,8 +61,8 @@ See also:
 	}
 
 	// Register subcommands
-	// Note: Subcommands will be added in subsequent tasks:
-	// - Task #8065: label_list.go
+	cmd.AddCommand(NewLabelListCmd())
+	// Note: Additional subcommands will be added in subsequent tasks:
 	// - Task #8066: label_create.go
 	// - Task #8067: label_delete.go
 
