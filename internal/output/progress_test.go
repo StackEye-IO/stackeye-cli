@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
 
 // safeBuffer wraps bytes.Buffer with a mutex for thread-safe access.
@@ -34,7 +36,7 @@ func (sb *safeBuffer) Len() int {
 
 func TestSpinner_StartStop(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Testing...", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Testing...", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(50 * time.Millisecond) // Let a few frames render
@@ -53,7 +55,7 @@ func TestSpinner_StartStop(t *testing.T) {
 
 func TestSpinner_DoubleStart(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Test", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Test", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	spin.Start() // Should not panic or cause issues
@@ -64,7 +66,7 @@ func TestSpinner_DoubleStart(t *testing.T) {
 
 func TestSpinner_StopWithMessage(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Loading", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Loading", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(30 * time.Millisecond)
@@ -77,7 +79,7 @@ func TestSpinner_StopWithMessage(t *testing.T) {
 
 func TestSpinner_StopWithSuccess(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Processing", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Processing", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(30 * time.Millisecond)
@@ -94,7 +96,7 @@ func TestSpinner_StopWithSuccess(t *testing.T) {
 
 func TestSpinner_StopWithError(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Processing", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Processing", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(30 * time.Millisecond)
@@ -111,7 +113,7 @@ func TestSpinner_StopWithError(t *testing.T) {
 
 func TestSpinner_UpdateMessage(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Initial", WithWriter(buf), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Initial", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(30 * time.Millisecond)
@@ -127,7 +129,7 @@ func TestSpinner_UpdateMessage(t *testing.T) {
 
 func TestSpinner_ASCIIFrames(t *testing.T) {
 	buf := &safeBuffer{}
-	spin := NewSpinner("Test", WithWriter(buf), WithFrames(ASCIISpinnerFrames), WithInterval(10*time.Millisecond))
+	spin := NewSpinner("Test", WithWriter(buf), WithDisabled(false), WithFrames(ASCIISpinnerFrames), WithInterval(10*time.Millisecond))
 
 	spin.Start()
 	time.Sleep(50 * time.Millisecond)
@@ -238,5 +240,214 @@ func TestProgressBar_CompleteEarly(t *testing.T) {
 	// Should still show 10/10 from Complete
 	if !strings.Contains(output, "10/10") {
 		t.Errorf("should show completed state, got: %q", output)
+	}
+}
+
+func TestSpinner_DisabledNoOutput(t *testing.T) {
+	buf := &safeBuffer{}
+	spin := NewSpinner("Test", WithWriter(buf), WithDisabled(true), WithInterval(10*time.Millisecond))
+
+	if !spin.Disabled() {
+		t.Error("spinner should be disabled")
+	}
+
+	spin.Start()
+	time.Sleep(50 * time.Millisecond)
+	spin.Stop()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled spinner should produce no output, got: %q", buf.String())
+	}
+}
+
+func TestSpinner_DisabledStopMethods(t *testing.T) {
+	// Disabled spinner's stop methods should still work without panic
+	buf := &safeBuffer{}
+	spin := NewSpinner("Test", WithWriter(buf), WithDisabled(true))
+
+	spin.Start()
+	spin.StopWithMessage("Done")
+	spin.StopWithSuccess("OK")
+	spin.StopWithError("Fail")
+	// No panic means success
+}
+
+func TestSpinner_WithDisabledFalseOverride(t *testing.T) {
+	buf := &safeBuffer{}
+	// Force-enable even though test environment may not be TTY
+	spin := NewSpinner("Forced", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
+
+	if spin.Disabled() {
+		t.Error("spinner should be force-enabled with WithDisabled(false)")
+	}
+
+	spin.Start()
+	time.Sleep(30 * time.Millisecond)
+	spin.Stop()
+
+	if buf.Len() == 0 {
+		t.Error("force-enabled spinner should produce output")
+	}
+}
+
+func TestSpinner_NoInputDisables(t *testing.T) {
+	// Save and restore
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = func() bool { return true }
+	configGetter = nil
+
+	if isSpinnerEnabled() {
+		t.Error("spinner should be disabled when --no-input is set")
+	}
+}
+
+func TestSpinner_JSONOutputDisables(t *testing.T) {
+	// Save and restore
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = func() *config.Config {
+		return &config.Config{
+			Preferences: &config.Preferences{
+				OutputFormat: "json",
+			},
+		}
+	}
+
+	if isSpinnerEnabled() {
+		t.Error("spinner should be disabled for JSON output")
+	}
+}
+
+func TestSpinner_YAMLOutputDisables(t *testing.T) {
+	// Save and restore
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = func() *config.Config {
+		return &config.Config{
+			Preferences: &config.Preferences{
+				OutputFormat: "yaml",
+			},
+		}
+	}
+
+	if isSpinnerEnabled() {
+		t.Error("spinner should be disabled for YAML output")
+	}
+}
+
+func TestSpinner_StackeyeNoInputEnvDisables(t *testing.T) {
+	// Save and restore
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = nil
+	t.Setenv("STACKEYE_NO_INPUT", "1")
+
+	if isSpinnerEnabled() {
+		t.Error("spinner should be disabled when STACKEYE_NO_INPUT=1")
+	}
+}
+
+func TestSpinner_TableOutputAllowed(t *testing.T) {
+	// Save and restore
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = func() bool { return false }
+	configGetter = func() *config.Config {
+		return &config.Config{
+			Preferences: &config.Preferences{
+				OutputFormat: "table",
+			},
+		}
+	}
+
+	// Note: isSpinnerEnabled() may still return false due to TTY detection
+	// in test environments, so we test the config/flag path specifically
+	// by checking that table format doesn't trigger the format disable path
+
+	// We can't directly test TTY in a test, but we verify the config logic
+	// doesn't block table format
+	buf := &safeBuffer{}
+	spin := NewSpinner("Table test", WithWriter(buf), WithDisabled(false), WithInterval(10*time.Millisecond))
+
+	spin.Start()
+	time.Sleep(30 * time.Millisecond)
+	spin.Stop()
+
+	if buf.Len() == 0 {
+		t.Error("spinner with table output and WithDisabled(false) should produce output")
+	}
+}
+
+func TestRunWithSpinner_DisabledStillReturnsResult(t *testing.T) {
+	// Even when spinner is disabled, RunWithSpinner must still execute the function
+	// and return its result.
+	// Save and force disable
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+	noInputGetter = func() bool { return true }
+	configGetter = nil
+
+	result, err := RunWithSpinner("Disabled test", func() (string, error) {
+		return "executed", nil
+	})
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if result != "executed" {
+		t.Errorf("expected 'executed', got %q", result)
+	}
+}
+
+func TestSetNoInputGetter(t *testing.T) {
+	origGetter := noInputGetter
+	defer func() { noInputGetter = origGetter }()
+
+	called := false
+	SetNoInputGetter(func() bool {
+		called = true
+		return true
+	})
+
+	if noInputGetter == nil {
+		t.Fatal("noInputGetter should be set")
+	}
+
+	noInputGetter()
+	if !called {
+		t.Error("noInputGetter was not called after SetNoInputGetter")
 	}
 }

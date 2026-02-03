@@ -70,6 +70,9 @@ func init() {
 	// Wire up the output package to use our config getter
 	clioutput.SetConfigGetter(GetConfig)
 
+	// Wire up the output package to check --no-input for spinner suppression
+	clioutput.SetNoInputGetter(GetNoInput)
+
 	// Register subcommands
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewLoginCmd())

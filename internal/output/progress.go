@@ -8,10 +8,59 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/mattn/go-isatty"
 )
+
+// noInputGetter returns true if interactive prompts should be disabled.
+// This is set by the cmd package to avoid circular imports.
+var noInputGetter func() bool
+
+// SetNoInputGetter sets the function used to check if --no-input is active.
+// This should be called once during CLI initialization from the cmd package.
+func SetNoInputGetter(getter func() bool) {
+	noInputGetter = getter
+}
+
+// isSpinnerEnabled checks whether spinners should be shown based on:
+// - stderr is a TTY (no spinners when piped)
+// - output format is human-readable (no spinners for JSON/YAML)
+// - --no-input flag is not set
+// - STACKEYE_NO_INPUT env var is not set
+func isSpinnerEnabled() bool {
+	// Check TTY on stderr (spinners write to stderr)
+	fd := os.Stderr.Fd()
+	if !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd) {
+		return false
+	}
+
+	// Check --no-input flag
+	if noInputGetter != nil && noInputGetter() {
+		return false
+	}
+
+	// Check STACKEYE_NO_INPUT env var
+	if v, ok := os.LookupEnv("STACKEYE_NO_INPUT"); ok && v != "0" && v != "" {
+		return false
+	}
+
+	// Check if output format is machine-readable (JSON/YAML)
+	if configGetter != nil {
+		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+			format := cfg.Preferences.OutputFormat
+			if format == "json" || format == "yaml" {
+				return false
+			}
+		}
+	}
+
+	return true
+}
 
 // Spinner provides a simple text-based spinner for long-running operations.
 // It displays a spinning animation with an optional message to indicate progress.
+// The spinner auto-disables when stderr is not a TTY, when --no-input is set,
+// or when output format is JSON/YAML.
 //
 // Usage:
 //
@@ -26,6 +75,7 @@ type Spinner struct {
 	frames   []string
 	interval time.Duration
 	active   bool
+	disabled bool
 	mu       sync.Mutex
 	done     chan struct{}
 }
@@ -54,6 +104,14 @@ func WithInterval(d time.Duration) SpinnerOption {
 	}
 }
 
+// WithDisabled explicitly sets the spinner's disabled state.
+// When disabled, Start() is a no-op and the spinner produces no output.
+func WithDisabled(disabled bool) SpinnerOption {
+	return func(s *Spinner) {
+		s.disabled = disabled
+	}
+}
+
 // DefaultSpinnerFrames provides a simple ASCII spinner animation.
 var DefaultSpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
@@ -61,12 +119,16 @@ var DefaultSpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "�
 var ASCIISpinnerFrames = []string{"|", "/", "-", "\\"}
 
 // NewSpinner creates a new spinner with the given message.
+// The spinner auto-disables when stderr is not a TTY, --no-input is set,
+// STACKEYE_NO_INPUT is set, or output format is JSON/YAML.
+// Use WithDisabled(false) to force-enable the spinner regardless of environment.
 func NewSpinner(message string, opts ...SpinnerOption) *Spinner {
 	s := &Spinner{
 		message:  message,
 		writer:   os.Stderr,
 		frames:   DefaultSpinnerFrames,
 		interval: 80 * time.Millisecond,
+		disabled: !isSpinnerEnabled(),
 		done:     make(chan struct{}),
 	}
 
@@ -79,9 +141,11 @@ func NewSpinner(message string, opts ...SpinnerOption) *Spinner {
 
 // Start begins the spinner animation.
 // The spinner runs in a separate goroutine until Stop is called.
+// If the spinner is disabled (non-TTY, --no-input, JSON/YAML output),
+// this is a no-op.
 func (s *Spinner) Start() {
 	s.mu.Lock()
-	if s.active {
+	if s.active || s.disabled {
 		s.mu.Unlock()
 		return
 	}
@@ -109,30 +173,42 @@ func (s *Spinner) Stop() {
 }
 
 // StopWithMessage stops the spinner and prints a final message.
+// If the spinner is disabled, no output is produced.
 func (s *Spinner) StopWithMessage(message string) {
 	s.Stop()
 	s.mu.Lock()
+	disabled := s.disabled
 	writer := s.writer
 	s.mu.Unlock()
-	fmt.Fprintln(writer, message)
+	if !disabled {
+		fmt.Fprintln(writer, message)
+	}
 }
 
 // StopWithSuccess stops the spinner with a success indicator.
+// If the spinner is disabled, no output is produced.
 func (s *Spinner) StopWithSuccess(message string) {
 	s.Stop()
 	s.mu.Lock()
+	disabled := s.disabled
 	writer := s.writer
 	s.mu.Unlock()
-	fmt.Fprintf(writer, "✓ %s\n", message)
+	if !disabled {
+		fmt.Fprintf(writer, "✓ %s\n", message)
+	}
 }
 
 // StopWithError stops the spinner with an error indicator.
+// If the spinner is disabled, no output is produced.
 func (s *Spinner) StopWithError(message string) {
 	s.Stop()
 	s.mu.Lock()
+	disabled := s.disabled
 	writer := s.writer
 	s.mu.Unlock()
-	fmt.Fprintf(writer, "✗ %s\n", message)
+	if !disabled {
+		fmt.Fprintf(writer, "✗ %s\n", message)
+	}
 }
 
 // UpdateMessage changes the spinner message while running.
@@ -140,6 +216,13 @@ func (s *Spinner) UpdateMessage(message string) {
 	s.mu.Lock()
 	s.message = message
 	s.mu.Unlock()
+}
+
+// Disabled returns true if the spinner is disabled and will not display output.
+func (s *Spinner) Disabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.disabled
 }
 
 // spin runs the animation loop.
