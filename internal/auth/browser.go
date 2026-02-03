@@ -4,28 +4,17 @@ package auth
 import (
 	"fmt"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"strings"
+
+	"github.com/StackEye-IO/stackeye-cli/internal/browser"
 )
 
 // OpenBrowser opens the specified URL in the default browser.
 // Returns an error if the browser cannot be opened.
-func OpenBrowser(url string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
-
-	return cmd.Start()
+//
+// Deprecated: Use browser.Open directly for new code.
+func OpenBrowser(rawURL string) error {
+	return browser.Open(rawURL)
 }
 
 // BuildWebUIURL constructs the web UI authentication URL.

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
-	"github.com/StackEye-IO/stackeye-cli/internal/auth"
+	"github.com/StackEye-IO/stackeye-cli/internal/browser"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -23,7 +23,7 @@ var portalFlags struct {
 
 // browserOpener is the function used to open URLs in the browser.
 // It can be overridden in tests.
-var browserOpener = auth.OpenBrowser
+var browserOpener = browser.Open
 
 // NewBillingPortalCmd creates and returns the billing portal command.
 func NewBillingPortalCmd() *cobra.Command {
