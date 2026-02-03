@@ -25,12 +25,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           clean: true
 
       - name: Checkout SDK
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: StackEye-IO/stackeye-go-sdk
           path: .sdk
