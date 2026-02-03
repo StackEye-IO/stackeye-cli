@@ -70,6 +70,9 @@ type Client struct {
 
 	// lastEvent stores the most recent event for debugging
 	lastEvent *Event
+
+	// wg tracks pending async sends for graceful shutdown
+	wg sync.WaitGroup
 }
 
 var (
@@ -100,6 +103,7 @@ func ResetClient() {
 }
 
 // loadConfig loads telemetry settings from config and environment.
+// Must be called with mutex held or during initialization.
 func (c *Client) loadConfig() {
 	// Environment variable takes precedence
 	if envVal := os.Getenv(EnvTelemetry); envVal != "" {
@@ -126,6 +130,13 @@ func (c *Client) loadConfig() {
 	}
 }
 
+// loadConfigLocked loads config while holding the mutex.
+func (c *Client) loadConfigLocked() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.loadConfig()
+}
+
 // IsEnabled returns whether telemetry is currently enabled.
 func (c *Client) IsEnabled() bool {
 	c.mu.Lock()
@@ -144,6 +155,7 @@ func (c *Client) SetEnabled(enabled bool) {
 // Track records a telemetry event.
 // If telemetry is disabled, this is a no-op.
 // Events are sent asynchronously to avoid blocking the CLI.
+// Call Flush() before exit to ensure events are sent.
 func (c *Client) Track(ctx context.Context, command string, exitCode int, duration time.Duration) {
 	c.mu.Lock()
 	enabled := c.enabled
@@ -159,12 +171,32 @@ func (c *Client) Track(ctx context.Context, command string, exitCode int, durati
 	c.lastEvent = event
 	c.mu.Unlock()
 
-	// Send asynchronously to not block CLI exit
+	// Send asynchronously to not block CLI commands
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
 		sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = c.send(sendCtx, event)
 	}()
+}
+
+// Flush waits for all pending telemetry events to be sent.
+// Call this before exiting the CLI to ensure events are not lost.
+// Returns after all pending sends complete or timeout expires.
+func (c *Client) Flush(timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All sends completed
+	case <-time.After(timeout):
+		// Timeout - some events may be lost
+	}
 }
 
 // buildEvent creates a telemetry event with current context.
@@ -260,5 +292,5 @@ func (c *Client) SetEndpoint(endpoint string) {
 // Reload refreshes telemetry settings from config.
 // Call this after changing telemetry preferences.
 func (c *Client) Reload() {
-	c.loadConfig()
+	c.loadConfigLocked()
 }

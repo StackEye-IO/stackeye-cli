@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -645,4 +646,86 @@ func TestClient_Track_StoresLastEvent(t *testing.T) {
 	if event.Command != "probe list" {
 		t.Errorf("expected command='probe list', got %q", event.Command)
 	}
+}
+
+func TestClient_Flush_WaitsForPendingSends(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Create a server that responds slowly
+	var sendCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		atomic.AddInt32(&sendCount, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := GetClient()
+	client.SetEnabled(true)
+	client.SetEndpoint(server.URL)
+
+	// Track multiple events
+	client.Track(context.TODO(), "test1", 0, time.Millisecond)
+	client.Track(context.TODO(), "test2", 0, time.Millisecond)
+	client.Track(context.TODO(), "test3", 0, time.Millisecond)
+
+	// Flush should wait for all sends to complete
+	client.Flush(5 * time.Second)
+
+	// All events should have been sent
+	count := atomic.LoadInt32(&sendCount)
+	if count != 3 {
+		t.Errorf("expected 3 sends, got %d", count)
+	}
+}
+
+func TestClient_Flush_RespectsTimeout(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Use an unresponsive endpoint instead of a slow server
+	// This avoids the httptest server blocking on Close
+	client := GetClient()
+	client.SetEnabled(true)
+	client.SetEndpoint("http://10.255.255.1:1") // Non-routable IP
+
+	client.Track(context.TODO(), "slow", 0, time.Millisecond)
+
+	// Flush with short timeout should return quickly
+	start := time.Now()
+	client.Flush(100 * time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Should return after timeout, not wait for connection
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("Flush should have returned after timeout, took %v", elapsed)
+	}
+}
+
+func TestClient_Reload_ThreadSafe(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+	defer os.Unsetenv(EnvTelemetry)
+
+	client := GetClient()
+
+	// Concurrent reloads should not race
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(idx int) {
+			if idx%2 == 0 {
+				os.Setenv(EnvTelemetry, "1")
+			} else {
+				os.Setenv(EnvTelemetry, "0")
+			}
+			client.Reload()
+			done <- true
+		}(i)
+	}
+
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+	// Test passes if no race conditions
 }

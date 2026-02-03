@@ -5,12 +5,16 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	clioutput "github.com/StackEye-IO/stackeye-cli/internal/output"
+	"github.com/StackEye-IO/stackeye-cli/internal/telemetry"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/StackEye-IO/stackeye-go-sdk/output"
 	"github.com/spf13/cobra"
@@ -239,8 +243,41 @@ func Execute() error {
 //	    os.Exit(cmd.ExecuteWithExitCode())
 //	}
 func ExecuteWithExitCode() int {
+	startTime := time.Now()
+
 	err := rootCmd.Execute()
-	return clierrors.HandleError(err)
+	exitCode := clierrors.HandleError(err)
+
+	// Track telemetry (async, non-blocking)
+	duration := time.Since(startTime)
+	commandName := getExecutedCommandName()
+	telemetry.GetClient().Track(context.Background(), commandName, exitCode, duration)
+
+	// Wait for telemetry to be sent (with timeout)
+	telemetry.GetClient().Flush(2 * time.Second)
+
+	return exitCode
+}
+
+// getExecutedCommandName extracts the command path from the executed command.
+// Returns "stackeye" for the root command, or "stackeye <subcommand>" for subcommands.
+func getExecutedCommandName() string {
+	// Get the args that were passed (excluding flags)
+	args := os.Args[1:]
+	var commandParts []string
+
+	for _, arg := range args {
+		// Stop at first flag
+		if strings.HasPrefix(arg, "-") {
+			break
+		}
+		commandParts = append(commandParts, arg)
+	}
+
+	if len(commandParts) == 0 {
+		return "stackeye"
+	}
+	return strings.Join(commandParts, " ")
 }
 
 // RootCmd returns the root command for adding subcommands.
