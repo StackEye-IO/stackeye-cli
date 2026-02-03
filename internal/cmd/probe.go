@@ -26,6 +26,7 @@ Probe Operations:
   resume        Resume a paused probe
   test          Run an immediate test check
   history       View probe check history
+  logs          View recent check logs with follow mode
   stats         View uptime and response time statistics
   watch         Watch probe status with live updates
   export        Export probe configurations for backup
@@ -89,6 +90,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeWatchCmd())   // Task #7109
 	cmd.AddCommand(NewProbeExportCmd())  // Task #7110
 	cmd.AddCommand(NewProbeImportCmd())  // Task #7111
+	cmd.AddCommand(NewProbeLogsCmd())   // Task #7112
 
 	return cmd
 }
