@@ -139,13 +139,30 @@ scoop install stackeye
 scoop update stackeye
 ```
 
+### Debian/Ubuntu (.deb)
+
+Download and install the `.deb` package directly:
+
+```bash
+# Get latest version
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+
+# Download and install (amd64)
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_amd64.deb"
+sudo dpkg -i "stackeye_${VERSION}_linux_amd64.deb"
+
+# Download and install (arm64)
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_arm64.deb"
+sudo dpkg -i "stackeye_${VERSION}_linux_arm64.deb"
+```
+
 ### Coming Soon
 
 The following installation methods will be available in future releases:
 
 | Method | Platform | Status |
 |--------|----------|--------|
-| APT | Debian/Ubuntu | `.deb` packages |
+| APT Repository | Debian/Ubuntu | `apt-get install stackeye` support |
 | RPM | RHEL/Fedora | `.rpm` packages |
 | Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
 

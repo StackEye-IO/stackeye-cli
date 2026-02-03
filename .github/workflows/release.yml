@@ -80,6 +80,7 @@ jobs:
             --exclude "*" \
             --include "*.tar.gz" \
             --include "*.zip" \
+            --include "*.deb" \
             --include "checksums.txt" \
             --acl public-read
 

@@ -50,6 +50,29 @@ archives:
       - LICENSE
       - README.md
 
+# Linux package configuration (deb)
+nfpms:
+  - id: stackeye-deb
+    package_name: stackeye
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: StackEye IO
+    homepage: https://stackeye.io
+    maintainer: StackEye IO <support@stackeye.io>
+    description: "CLI for StackEye uptime monitoring platform"
+    license: MIT
+    formats:
+      - deb
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+    dependencies:
+      - ca-certificates
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/stackeye/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/stackeye/README.md
+
 # Checksum configuration
 checksum:
   name_template: "checksums.txt"
@@ -110,6 +133,10 @@ release:
     # Windows (Scoop)
     scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket
     scoop install stackeye
+
+    # Debian/Ubuntu (.deb)
+    curl -LO https://releases.stackeye.io/cli/{{.Tag}}/stackeye_{{.Version}}_linux_amd64.deb
+    sudo dpkg -i stackeye_{{.Version}}_linux_amd64.deb
 
     # Linux/macOS (curl)
     curl -fsSL https://releases.stackeye.io/install.sh | bash
