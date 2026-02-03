@@ -53,7 +53,7 @@ Examples:
   stackeye alert list
 
   # List only active alerts
-  stackeye alert list --status active
+  stackeye alert list -s active
 
   # List critical alerts only
   stackeye alert list --severity critical
@@ -73,7 +73,7 @@ Examples:
 	}
 
 	// Define command-specific flags
-	cmd.Flags().StringVar(&flags.status, "status", "", "filter by status: active, acknowledged, resolved")
+	cmd.Flags().StringVarP(&flags.status, "status", "s", "", "filter by status: active, acknowledged, resolved")
 	cmd.Flags().StringVar(&flags.severity, "severity", "", "filter by severity: critical, warning, info")
 	cmd.Flags().StringVar(&flags.probeID, "probe", "", "filter by probe ID")
 	cmd.Flags().IntVar(&flags.page, "page", 1, "page number for pagination")

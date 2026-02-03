@@ -57,19 +57,19 @@ Examples:
   stackeye probe list
 
   # List only probes that are down
-  stackeye probe list --status down
+  stackeye probe list -s down
 
   # List probes with specific labels
-  stackeye probe list --labels "env=production,tier=web"
+  stackeye probe list -l "env=production,tier=web"
 
   # List probes with a label key (any value)
   stackeye probe list --labels "pci"
 
   # Combine status and label filters
-  stackeye probe list --status up --labels "env=production"
+  stackeye probe list -s up -l "env=production"
 
   # List probes with uptime stats for last 7 days
-  stackeye probe list --period 7d
+  stackeye probe list -p 7d
 
   # Output as JSON for scripting
   stackeye probe list -o json
@@ -83,11 +83,11 @@ Examples:
 	}
 
 	// Define command-specific flags
-	cmd.Flags().StringVar(&flags.status, "status", "", "filter by status: up, down, degraded, paused, pending")
+	cmd.Flags().StringVarP(&flags.status, "status", "s", "", "filter by status: up, down, degraded, paused, pending")
 	cmd.Flags().IntVar(&flags.page, "page", 1, "page number for pagination")
 	cmd.Flags().IntVar(&flags.limit, "limit", 20, "results per page (max: 100)")
-	cmd.Flags().StringVar(&flags.period, "period", "", "include uptime stats for period: 24h, 7d, 30d")
-	cmd.Flags().StringVar(&flags.labels, "labels", "", "filter by labels: key=value,key2=value2 (AND logic)")
+	cmd.Flags().StringVarP(&flags.period, "period", "p", "", "include uptime stats for period: 24h, 7d, 30d")
+	cmd.Flags().StringVarP(&flags.labels, "labels", "l", "", "filter by labels: key=value,key2=value2 (AND logic)")
 
 	return cmd
 }

@@ -50,7 +50,7 @@ Examples:
   stackeye channel list
 
   # List only Slack channels
-  stackeye channel list --type slack
+  stackeye channel list -t slack
 
   # List disabled channels
   stackeye channel list --enabled=false
@@ -67,7 +67,7 @@ Examples:
 	}
 
 	// Define command-specific flags
-	cmd.Flags().StringVar(&flags.channelType, "type", "", "filter by channel type: email, slack, webhook, pagerduty, discord, teams, sms")
+	cmd.Flags().StringVarP(&flags.channelType, "type", "t", "", "filter by channel type: email, slack, webhook, pagerduty, discord, teams, sms")
 	cmd.Flags().StringVar(&flags.enabled, "enabled", "", "filter by enabled status: true, false")
 	cmd.Flags().IntVar(&flags.page, "page", 1, "page number for pagination")
 	cmd.Flags().IntVar(&flags.limit, "limit", 20, "results per page (max: 100)")
