@@ -12,6 +12,12 @@ import (
 // terminal state, which varies between local and CI environments.
 var isPipedOverride func() bool
 
+// isStderrPipedOverride, when non-nil, replaces the OS-level TTY check in
+// IsStderrPiped. This allows tests to simulate a TTY stderr so that
+// animation suppression tests can isolate individual disable conditions
+// (--no-input, JSON/YAML format) without the stderr pipe check short-circuiting.
+var isStderrPipedOverride func() bool
+
 // SetIsPipedOverride sets a function that overrides IsPiped's OS detection.
 // Pass nil to restore default behaviour. Intended for testing only.
 func SetIsPipedOverride(fn func() bool) {
@@ -33,6 +39,9 @@ func IsPiped() bool {
 // piped, interactive elements like spinners and progress bars should be
 // disabled since they use ANSI escape sequences that corrupt piped output.
 func IsStderrPiped() bool {
+	if isStderrPipedOverride != nil {
+		return isStderrPipedOverride()
+	}
 	fd := os.Stderr.Fd()
 	return !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd)
 }

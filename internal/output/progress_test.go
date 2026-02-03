@@ -734,33 +734,49 @@ func TestProgressBar_AutoDisabledCompleteMethodsNoOutput(t *testing.T) {
 	}
 }
 
-func TestProgressBar_NoInputDisablesAnimation(t *testing.T) {
-	// Verify isAnimationEnabled returns false when --no-input is set,
-	// which is the mechanism ProgressBar uses for suppression.
+func TestProgressBar_NoInputDisablesBar(t *testing.T) {
 	origGetter := noInputGetter
 	origConfig := configGetter
+	origStderr := isStderrPipedOverride
 	defer func() {
 		noInputGetter = origGetter
 		configGetter = origConfig
+		isStderrPipedOverride = origStderr
 	}()
 
+	// Simulate TTY stderr so only --no-input triggers the disable
+	isStderrPipedOverride = func() bool { return false }
 	noInputGetter = func() bool { return true }
 	configGetter = nil
+	t.Setenv("TERM", "xterm-256color")
 
-	if isAnimationEnabled() {
-		t.Error("isAnimationEnabled should return false when --no-input is set")
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "No-input test", WithBarWriter(&buf))
+
+	if !bar.Disabled() {
+		t.Error("ProgressBar should be disabled when --no-input is set")
+	}
+
+	bar.Increment()
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled ProgressBar should produce no output, got: %q", buf.String())
 	}
 }
 
-func TestProgressBar_JSONOutputDisablesAnimation(t *testing.T) {
+func TestProgressBar_JSONOutputDisablesBar(t *testing.T) {
 	origGetter := noInputGetter
 	origConfig := configGetter
+	origStderr := isStderrPipedOverride
 	defer func() {
 		noInputGetter = origGetter
 		configGetter = origConfig
+		isStderrPipedOverride = origStderr
 	}()
 
-	noInputGetter = nil
+	isStderrPipedOverride = func() bool { return false }
+	noInputGetter = func() bool { return false }
 	configGetter = func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
@@ -768,21 +784,35 @@ func TestProgressBar_JSONOutputDisablesAnimation(t *testing.T) {
 			},
 		}
 	}
+	t.Setenv("TERM", "xterm-256color")
 
-	if isAnimationEnabled() {
-		t.Error("isAnimationEnabled should return false for JSON output format")
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "JSON test", WithBarWriter(&buf))
+
+	if !bar.Disabled() {
+		t.Error("ProgressBar should be disabled for JSON output format")
+	}
+
+	bar.Increment()
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled ProgressBar should produce no output, got: %q", buf.String())
 	}
 }
 
-func TestProgressBar_YAMLOutputDisablesAnimation(t *testing.T) {
+func TestProgressBar_YAMLOutputDisablesBar(t *testing.T) {
 	origGetter := noInputGetter
 	origConfig := configGetter
+	origStderr := isStderrPipedOverride
 	defer func() {
 		noInputGetter = origGetter
 		configGetter = origConfig
+		isStderrPipedOverride = origStderr
 	}()
 
-	noInputGetter = nil
+	isStderrPipedOverride = func() bool { return false }
+	noInputGetter = func() bool { return false }
 	configGetter = func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
@@ -790,26 +820,51 @@ func TestProgressBar_YAMLOutputDisablesAnimation(t *testing.T) {
 			},
 		}
 	}
+	t.Setenv("TERM", "xterm-256color")
 
-	if isAnimationEnabled() {
-		t.Error("isAnimationEnabled should return false for YAML output format")
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "YAML test", WithBarWriter(&buf))
+
+	if !bar.Disabled() {
+		t.Error("ProgressBar should be disabled for YAML output format")
+	}
+
+	bar.Increment()
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled ProgressBar should produce no output, got: %q", buf.String())
 	}
 }
 
-func TestProgressBar_StackeyeNoInputEnvDisablesAnimation(t *testing.T) {
+func TestProgressBar_StackeyeNoInputEnvDisablesBar(t *testing.T) {
 	origGetter := noInputGetter
 	origConfig := configGetter
+	origStderr := isStderrPipedOverride
 	defer func() {
 		noInputGetter = origGetter
 		configGetter = origConfig
+		isStderrPipedOverride = origStderr
 	}()
 
+	isStderrPipedOverride = func() bool { return false }
 	noInputGetter = nil
 	configGetter = nil
 	t.Setenv("STACKEYE_NO_INPUT", "1")
+	t.Setenv("TERM", "xterm-256color")
 
-	if isAnimationEnabled() {
-		t.Error("isAnimationEnabled should return false when STACKEYE_NO_INPUT=1")
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Env test", WithBarWriter(&buf))
+
+	if !bar.Disabled() {
+		t.Error("ProgressBar should be disabled when STACKEYE_NO_INPUT=1")
+	}
+
+	bar.Increment()
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled ProgressBar should produce no output, got: %q", buf.String())
 	}
 }
 
