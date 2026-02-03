@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/debug"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	clioutput "github.com/StackEye-IO/stackeye-cli/internal/output"
@@ -76,6 +77,9 @@ func init() {
 
 	// Wire up the interactive package to check --no-input for prompt bypass
 	cliinteractive.SetNoInputGetter(GetNoInput)
+
+	// Wire up the debug logger to use our verbosity getter
+	debug.SetVerbosityGetter(GetVerbosity)
 
 	// Register subcommands
 	rootCmd.AddCommand(NewVersionCmd())
@@ -143,6 +147,11 @@ func loadConfig() error {
 		cfg.Preferences = config.NewPreferences()
 	}
 
+	// STACKEYE_DEBUG env var enables debug mode (same as --debug flag)
+	if os.Getenv("STACKEYE_DEBUG") != "" && !debugFlag {
+		debugFlag = true
+	}
+
 	// --debug flag is shorthand for --v=6
 	// Only apply if --v wasn't explicitly set
 	if debugFlag && verbosity == 0 {
@@ -152,6 +161,11 @@ func loadConfig() error {
 	// --debug flag overrides config preference
 	if debugFlag || verbosity > 0 {
 		cfg.Preferences.Debug = true
+	}
+
+	// Log after verbosity is set so the message is actually emitted
+	if os.Getenv("STACKEYE_DEBUG") != "" {
+		debug.Log(3, "debug enabled via STACKEYE_DEBUG env var")
 	}
 
 	// --output flag overrides config preference
@@ -192,6 +206,7 @@ func loadConfig() error {
 	}
 
 	loadedConfig = cfg
+	debug.ConfigLoaded(configFile, cfg.CurrentContext)
 	return nil
 }
 
