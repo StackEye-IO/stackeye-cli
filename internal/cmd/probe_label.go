@@ -21,8 +21,9 @@ const probeLabelTimeout = 30 * time.Second
 // Task #8068
 func NewProbeLabelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "label <probe-id> <labels...>",
-		Short: "Add labels to a probe",
+		Use:               "label <probe-id> <labels...>",
+		Short:             "Add labels to a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Add or update labels on a probe.
 
 Labels are added/merged with existing labels. If a label key already exists on

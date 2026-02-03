@@ -51,8 +51,9 @@ func NewProbeUpdateCmd() *cobra.Command {
 	flags := &probeUpdateFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an existing monitoring probe",
+		Use:               "update <id>",
+		Short:             "Update an existing monitoring probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Update an existing monitoring probe configuration.
 
 Only the specified flags will be updated; all other fields remain unchanged.

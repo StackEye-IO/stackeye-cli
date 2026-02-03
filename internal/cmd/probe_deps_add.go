@@ -22,8 +22,9 @@ func NewProbeDepsAddCmd() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "add <probe-id> --parent <parent-probe-id>",
-		Short: "Add a parent dependency to a probe",
+		Use:               "add <probe-id> --parent <parent-probe-id>",
+		Short:             "Add a parent dependency to a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Add a parent dependency so that when the parent probe is DOWN, the child probe
 is marked as UNREACHABLE and its alerts are suppressed.
 

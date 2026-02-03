@@ -19,8 +19,9 @@ const probeLinkChannelTimeout = 30 * time.Second
 // NewProbeLinkChannelCmd creates and returns the probe link-channel subcommand.
 func NewProbeLinkChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "link-channel <probe-id> <channel-id>",
-		Short: "Link a notification channel to a probe",
+		Use:               "link-channel <probe-id> <channel-id>",
+		Short:             "Link a notification channel to a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Link a notification channel to a probe for alert notifications.
 
 The probe can be specified by UUID or by name. If the name matches multiple

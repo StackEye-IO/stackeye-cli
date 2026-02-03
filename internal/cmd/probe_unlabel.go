@@ -20,8 +20,9 @@ const probeUnlabelTimeout = 30 * time.Second
 // Task #8069
 func NewProbeUnlabelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unlabel <probe-id> <keys...>",
-		Short: "Remove labels from a probe",
+		Use:               "unlabel <probe-id> <keys...>",
+		Short:             "Remove labels from a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Remove one or more labels from a probe by key name.
 
 Label keys that don't exist on the probe are silently ignored (no error).

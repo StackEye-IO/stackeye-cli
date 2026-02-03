@@ -34,8 +34,9 @@ type ProbeTestResult struct {
 // NewProbeTestCmd creates and returns the probe test subcommand.
 func NewProbeTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "test <id>",
-		Short: "Run an immediate test check for a probe",
+		Use:               "test <id>",
+		Short:             "Run an immediate test check for a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Run an immediate test check for a probe without affecting its history.
 
 This command fetches the probe configuration and executes an ad-hoc test check

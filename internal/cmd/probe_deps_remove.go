@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +23,9 @@ func NewProbeDepsRemoveCmd() *cobra.Command {
 	var skipConfirm bool
 
 	cmd := &cobra.Command{
-		Use:   "remove <probe-id> --parent <parent-probe-id>",
-		Short: "Remove a parent dependency from a probe",
+		Use:               "remove <probe-id> --parent <parent-probe-id>",
+		Short:             "Remove a parent dependency from a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Remove a parent dependency so that the child probe will no longer be
 marked as UNREACHABLE when the parent is DOWN.
 
@@ -112,25 +113,25 @@ func runProbeDepsRemoveCmd(ctx context.Context, probeIDArg, parentIDArg string, 
 		fmt.Printf("Warning: Parent probe %q is currently DOWN.\n", parentName)
 		fmt.Printf("If %q has suppressed alerts, they will become active after removal.\n\n", probeName)
 
-		confirmed, confirmErr := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: "Remove this dependency?",
-			Default: false,
-		})
+		confirmed, confirmErr := cliinteractive.Confirm(
+			"Remove this dependency?",
+			cliinteractive.WithYesFlag(skipConfirm),
+		)
 		if confirmErr != nil {
-			return fmt.Errorf("failed to get confirmation: %w", confirmErr)
+			return confirmErr
 		}
 		if !confirmed {
 			fmt.Println("Operation cancelled.")
 			return nil
 		}
-	} else if !skipConfirm {
+	} else {
 		// Normal confirmation
-		confirmed, confirmErr := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: fmt.Sprintf("Remove dependency: %q will no longer depend on %q?", probeName, parentName),
-			Default: false,
-		})
+		confirmed, confirmErr := cliinteractive.Confirm(
+			fmt.Sprintf("Remove dependency: %q will no longer depend on %q?", probeName, parentName),
+			cliinteractive.WithYesFlag(skipConfirm),
+		)
 		if confirmErr != nil {
-			return fmt.Errorf("failed to get confirmation: %w", confirmErr)
+			return confirmErr
 		}
 		if !confirmed {
 			fmt.Println("Operation cancelled.")

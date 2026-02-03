@@ -3,13 +3,12 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +25,9 @@ func NewProbeDeleteCmd() *cobra.Command {
 	flags := &probeDeleteFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "delete <id> [id...]",
-		Short: "Delete one or more monitoring probes",
+		Use:               "delete <id> [id...]",
+		Short:             "Delete one or more monitoring probes",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Delete one or more monitoring probes.
 
 Probes can be specified by UUID or by name. If a name matches multiple probes,
@@ -80,27 +80,18 @@ func runProbeDelete(ctx context.Context, idArgs []string, flags *probeDeleteFlag
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
-	if !flags.yes && !GetNoInput() {
-		message := "Are you sure you want to delete this probe?"
-		if len(probeIDs) > 1 {
-			message = fmt.Sprintf("Are you sure you want to delete %d probes?", len(probeIDs))
-		}
+	message := "Are you sure you want to delete this probe?"
+	if len(probeIDs) > 1 {
+		message = fmt.Sprintf("Are you sure you want to delete %d probes?", len(probeIDs))
+	}
 
-		confirmed, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: message,
-			Default: false,
-		})
-		if err != nil {
-			if errors.Is(err, interactive.ErrPromptCancelled) {
-				return fmt.Errorf("operation cancelled by user")
-			}
-			return fmt.Errorf("failed to prompt for confirmation: %w", err)
-		}
-
-		if !confirmed {
-			fmt.Println("Delete cancelled.")
-			return nil
-		}
+	confirmed, err := cliinteractive.Confirm(message, cliinteractive.WithYesFlag(flags.yes))
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Delete cancelled.")
+		return nil
 	}
 
 	// Delete each probe

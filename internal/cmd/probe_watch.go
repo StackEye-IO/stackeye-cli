@@ -29,8 +29,9 @@ func NewProbeWatchCmd() *cobra.Command {
 	flags := &probeWatchFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "watch [id]",
-		Short: "Watch probe status with live updates",
+		Use:               "watch [id]",
+		Short:             "Watch probe status with live updates",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Watch probe status with live-updating display.
 
 Polls the StackEye API at a configurable interval and displays current probe

@@ -28,8 +28,9 @@ func NewProbeGetCmd() *cobra.Command {
 	flags := &probeGetFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get details of a monitoring probe",
+		Use:               "get <id>",
+		Short:             "Get details of a monitoring probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Get detailed information about a specific monitoring probe.
 
 Displays the full probe configuration including target URL, check type, interval,

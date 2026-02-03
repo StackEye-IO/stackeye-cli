@@ -52,8 +52,9 @@ func NewProbeHistoryCmd() *cobra.Command {
 	flags := &probeHistoryFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "history <id>",
-		Short: "View probe check history",
+		Use:               "history <id>",
+		Short:             "View probe check history",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `View the historical check results for a monitoring probe.
 
 Displays recent check results including timestamp, region, status, response time,

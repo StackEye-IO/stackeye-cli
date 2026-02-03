@@ -35,8 +35,9 @@ func NewProbeLogsCmd() *cobra.Command {
 	flags := &probeLogsFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "logs <id>",
-		Short: "View recent check logs for a probe",
+		Use:               "logs <id>",
+		Short:             "View recent check logs for a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `View recent check logs for a monitoring probe.
 
 Displays check results including timestamp, region, status, response time,

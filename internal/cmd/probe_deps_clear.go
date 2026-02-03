@@ -8,8 +8,8 @@ import (
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +23,9 @@ func NewProbeDepsClearCmd() *cobra.Command {
 	var skipConfirm bool
 
 	cmd := &cobra.Command{
-		Use:   "clear <probe-id>",
-		Short: "Remove all dependencies from a probe",
+		Use:               "clear <probe-id>",
+		Short:             "Remove all dependencies from a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Remove all dependencies from a probe in the specified direction(s).
 
 The probe can be specified by UUID or by name. If the name matches multiple
@@ -145,18 +146,18 @@ func runProbeDepsClearCmd(ctx context.Context, probeIDArg, direction string, ski
 			}
 			fmt.Println()
 		}
+	}
 
-		confirmed, confirmErr := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: fmt.Sprintf("Remove %d dependencies?", totalToRemove),
-			Default: false,
-		})
-		if confirmErr != nil {
-			return fmt.Errorf("failed to get confirmation: %w", confirmErr)
-		}
-		if !confirmed {
-			fmt.Println("Operation cancelled.")
-			return nil
-		}
+	confirmed, confirmErr := cliinteractive.Confirm(
+		fmt.Sprintf("Remove %d dependencies?", totalToRemove),
+		cliinteractive.WithYesFlag(skipConfirm),
+	)
+	if confirmErr != nil {
+		return confirmErr
+	}
+	if !confirmed {
+		fmt.Println("Operation cancelled.")
+		return nil
 	}
 
 	// Remove parent dependencies

@@ -3,13 +3,12 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +25,9 @@ func NewProbePauseCmd() *cobra.Command {
 	flags := &probePauseFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "pause <id> [id...]",
-		Short: "Pause monitoring for one or more probes",
+		Use:               "pause <id> [id...]",
+		Short:             "Pause monitoring for one or more probes",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Pause monitoring for one or more probes.
 
 Pausing a probe temporarily stops all monitoring checks without deleting the probe
@@ -87,27 +87,18 @@ func runProbePause(ctx context.Context, idArgs []string, flags *probePauseFlags)
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
-	if !flags.yes && !GetNoInput() {
-		message := "Are you sure you want to pause monitoring for this probe?"
-		if len(probeIDs) > 1 {
-			message = fmt.Sprintf("Are you sure you want to pause monitoring for %d probes?", len(probeIDs))
-		}
+	message := "Are you sure you want to pause monitoring for this probe?"
+	if len(probeIDs) > 1 {
+		message = fmt.Sprintf("Are you sure you want to pause monitoring for %d probes?", len(probeIDs))
+	}
 
-		confirmed, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: message,
-			Default: false,
-		})
-		if err != nil {
-			if errors.Is(err, interactive.ErrPromptCancelled) {
-				return fmt.Errorf("operation cancelled by user")
-			}
-			return fmt.Errorf("failed to prompt for confirmation: %w", err)
-		}
-
-		if !confirmed {
-			fmt.Println("Pause cancelled.")
-			return nil
-		}
+	confirmed, err := cliinteractive.Confirm(message, cliinteractive.WithYesFlag(flags.yes))
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Pause cancelled.")
+		return nil
 	}
 
 	// Pause each probe

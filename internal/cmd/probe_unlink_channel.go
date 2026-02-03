@@ -19,8 +19,9 @@ const probeUnlinkChannelTimeout = 30 * time.Second
 // NewProbeUnlinkChannelCmd creates and returns the probe unlink-channel subcommand.
 func NewProbeUnlinkChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unlink-channel <probe-id> <channel-id>",
-		Short: "Unlink a notification channel from a probe",
+		Use:               "unlink-channel <probe-id> <channel-id>",
+		Short:             "Unlink a notification channel from a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `Unlink a notification channel from a probe to stop receiving alert notifications.
 
 The probe can be specified by UUID or by name. If the name matches multiple

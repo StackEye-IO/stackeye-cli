@@ -20,8 +20,9 @@ const probeDepsListTimeout = 30 * time.Second
 // NewProbeDepsListCmd creates and returns the probe deps list subcommand.
 func NewProbeDepsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list <probe-id>",
-		Short: "List dependencies for a probe",
+		Use:               "list <probe-id>",
+		Short:             "List dependencies for a probe",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `List parent and child dependencies for a specific probe.
 
 The probe can be specified by UUID or by name. If the name matches multiple

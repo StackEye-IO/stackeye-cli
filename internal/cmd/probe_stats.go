@@ -46,8 +46,9 @@ func NewProbeStatsCmd() *cobra.Command {
 	flags := &probeStatsFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "stats <id>",
-		Short: "View probe uptime and latency statistics",
+		Use:               "stats <id>",
+		Short:             "View probe uptime and latency statistics",
+		ValidArgsFunction: ProbeCompletion(),
 		Long: `View aggregated uptime and response time statistics for a monitoring probe.
 
 Displays uptime percentage, average response time, and percentile latencies (p95, p99)
