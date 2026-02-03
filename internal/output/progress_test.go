@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -166,8 +167,7 @@ func TestRunWithSpinner(t *testing.T) {
 
 func TestProgressBar_Basic(t *testing.T) {
 	var buf bytes.Buffer
-	bar := NewProgressBar(10, "Processing")
-	bar.SetWriter(&buf)
+	bar := NewProgressBar(10, "Processing", WithBarWriter(&buf), WithBarDisabled(false))
 
 	for i := 0; i < 10; i++ {
 		bar.Increment()
@@ -194,8 +194,7 @@ func TestProgressBar_Basic(t *testing.T) {
 
 func TestProgressBar_Set(t *testing.T) {
 	var buf bytes.Buffer
-	bar := NewProgressBar(100, "Downloading")
-	bar.SetWriter(&buf)
+	bar := NewProgressBar(100, "Downloading", WithBarWriter(&buf), WithBarDisabled(false))
 
 	bar.Set(50)
 
@@ -210,24 +209,22 @@ func TestProgressBar_Set(t *testing.T) {
 
 func TestProgressBar_ZeroTotal(t *testing.T) {
 	var buf bytes.Buffer
-	bar := NewProgressBar(0, "Test")
-	bar.SetWriter(&buf)
+	bar := NewProgressBar(0, "Test", WithBarWriter(&buf), WithBarDisabled(false))
 
 	// Should not panic
 	bar.Increment()
 	bar.Set(5)
 	bar.Complete()
 
-	// With zero total, nothing should be rendered
-	if buf.Len() > 1 { // Allow for newline from Complete
-		t.Errorf("expected minimal output for zero total, got: %q", buf.String())
+	// With zero total, nothing should be rendered (Complete is no-op for zero total)
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for zero total, got: %q", buf.String())
 	}
 }
 
 func TestProgressBar_CompleteEarly(t *testing.T) {
 	var buf bytes.Buffer
-	bar := NewProgressBar(10, "Test")
-	bar.SetWriter(&buf)
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(false))
 
 	bar.Set(5)
 	bar.Complete()
@@ -240,6 +237,193 @@ func TestProgressBar_CompleteEarly(t *testing.T) {
 	// Should still show 10/10 from Complete
 	if !strings.Contains(output, "10/10") {
 		t.Errorf("should show completed state, got: %q", output)
+	}
+}
+
+func TestProgressBar_DisabledNoOutput(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(true))
+
+	if !bar.Disabled() {
+		t.Error("progress bar should be disabled")
+	}
+
+	bar.Increment()
+	bar.Set(5)
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled progress bar should produce no output, got: %q", buf.String())
+	}
+}
+
+func TestProgressBar_WithBarDisabledFalseOverride(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Forced", WithBarWriter(&buf), WithBarDisabled(false))
+
+	if bar.Disabled() {
+		t.Error("progress bar should be force-enabled with WithBarDisabled(false)")
+	}
+
+	bar.Set(5)
+
+	if buf.Len() == 0 {
+		t.Error("force-enabled progress bar should produce output")
+	}
+}
+
+func TestProgressBar_CompleteWithSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Processing", WithBarWriter(&buf), WithBarDisabled(false))
+
+	for i := 0; i < 10; i++ {
+		bar.Increment()
+	}
+	bar.CompleteWithSuccess("All items processed")
+
+	output := buf.String()
+	if !strings.Contains(output, "✓") {
+		t.Errorf("output should contain success checkmark, got: %q", output)
+	}
+	if !strings.Contains(output, "All items processed") {
+		t.Errorf("output should contain success message, got: %q", output)
+	}
+}
+
+func TestProgressBar_CompleteWithError(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Processing", WithBarWriter(&buf), WithBarDisabled(false))
+
+	bar.Set(5)
+	bar.CompleteWithError("connection timeout")
+
+	output := buf.String()
+	if !strings.Contains(output, "✗") {
+		t.Errorf("output should contain error X, got: %q", output)
+	}
+	if !strings.Contains(output, "connection timeout") {
+		t.Errorf("output should contain error message, got: %q", output)
+	}
+}
+
+func TestProgressBar_DisabledCompleteMethods(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(true))
+
+	bar.Increment()
+	bar.CompleteWithSuccess("OK")
+	bar.CompleteWithError("Fail")
+
+	if buf.Len() != 0 {
+		t.Errorf("disabled progress bar complete methods should produce no output, got: %q", buf.String())
+	}
+}
+
+func TestProgressBar_WithBarWidth(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(false), WithBarWidth(10))
+
+	bar.Set(5)
+
+	output := buf.String()
+	// With width 10 at 50%, expect 5 filled + 5 empty
+	filledCount := strings.Count(output, "█")
+	emptyCount := strings.Count(output, "░")
+	if filledCount != 5 {
+		t.Errorf("expected 5 filled chars with width=10 at 50%%, got %d", filledCount)
+	}
+	if emptyCount != 5 {
+		t.Errorf("expected 5 empty chars with width=10 at 50%%, got %d", emptyCount)
+	}
+}
+
+func TestProgressBar_WithBarWidthInvalid(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(false), WithBarWidth(0))
+
+	bar.Set(5)
+
+	output := buf.String()
+	// Width 0 should be ignored, default 30 should be used
+	filledCount := strings.Count(output, "█")
+	emptyCount := strings.Count(output, "░")
+	if filledCount+emptyCount != 30 {
+		t.Errorf("expected default width 30, got %d total chars", filledCount+emptyCount)
+	}
+}
+
+func TestProgressBar_ETA(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(100, "Processing", WithBarWriter(&buf), WithBarDisabled(false))
+
+	// Manually set start time to simulate elapsed time for ETA calculation
+	bar.mu.Lock()
+	bar.startTime = time.Now().Add(-5 * time.Second)
+	bar.mu.Unlock()
+
+	bar.Set(50)
+
+	output := buf.String()
+	if !strings.Contains(output, "ETA:") {
+		t.Errorf("output should contain ETA after sufficient elapsed time, got: %q", output)
+	}
+}
+
+func TestProgressBar_NoETAWhenComplete(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarWriter(&buf), WithBarDisabled(false))
+
+	bar.mu.Lock()
+	bar.startTime = time.Now().Add(-5 * time.Second)
+	bar.mu.Unlock()
+
+	bar.Complete()
+
+	// The final render at Complete should not show ETA
+	output := buf.String()
+	// Count ETA occurrences - the Complete render should not have one
+	// Split by \r to get individual renders
+	renders := strings.Split(output, "\r")
+	lastRender := renders[len(renders)-1]
+	if strings.Contains(lastRender, "ETA:") {
+		t.Errorf("completed progress bar should not show ETA, last render: %q", lastRender)
+	}
+}
+
+func TestProgressBar_SetWriterDeprecated(t *testing.T) {
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Test", WithBarDisabled(false))
+	bar.SetWriter(&buf)
+
+	bar.Set(5)
+
+	if buf.Len() == 0 {
+		t.Error("SetWriter should still work for backward compatibility")
+	}
+}
+
+func TestRunWithProgressBar_Success(t *testing.T) {
+	err := RunWithProgressBar(5, "Processing", func(bar *ProgressBar) error {
+		for i := 0; i < 5; i++ {
+			bar.Increment()
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunWithProgressBar_Error(t *testing.T) {
+	expectedErr := fmt.Errorf("test error")
+	err := RunWithProgressBar(5, "Processing", func(bar *ProgressBar) error {
+		bar.Increment()
+		return expectedErr
+	})
+
+	if err != expectedErr {
+		t.Errorf("expected error %v, got %v", expectedErr, err)
 	}
 }
 

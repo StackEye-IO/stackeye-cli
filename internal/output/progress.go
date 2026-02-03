@@ -288,40 +288,104 @@ func RunWithSpinnerCtx[T any](ctx context.Context, message string, fn func(conte
 	return result, err
 }
 
-// ProgressBar provides a simple text-based progress bar.
-// Use this for operations with known progress (like batch operations).
+// ProgressBar provides a text-based progress bar for bulk operations.
+// It auto-disables when stderr is not a TTY, when --no-input is set,
+// or when output format is JSON/YAML. Use for operations with known
+// item counts (import, export, bulk pause/resume).
+//
+// Usage:
+//
+//	bar := NewProgressBar(100, "Importing probes...", WithBarDisabled(false))
+//	for i := 0; i < 100; i++ {
+//	    bar.Increment()
+//	}
+//	bar.Complete()
 type ProgressBar struct {
-	total    int
-	current  int
-	message  string
-	width    int
-	writer   io.Writer
-	mu       sync.Mutex
-	complete bool
+	total     int
+	current   int
+	message   string
+	width     int
+	writer    io.Writer
+	disabled  bool
+	startTime time.Time
+	mu        sync.Mutex
+	complete  bool
 }
 
-// NewProgressBar creates a new progress bar.
-func NewProgressBar(total int, message string) *ProgressBar {
-	return &ProgressBar{
-		total:   total,
-		message: message,
-		width:   30,
-		writer:  os.Stderr,
+// ProgressBarOption configures a ProgressBar.
+type ProgressBarOption func(*ProgressBar)
+
+// WithBarWriter sets the output writer for the progress bar.
+func WithBarWriter(w io.Writer) ProgressBarOption {
+	return func(p *ProgressBar) {
+		p.writer = w
 	}
 }
 
+// WithBarWidth sets the visual width of the progress bar in characters.
+func WithBarWidth(width int) ProgressBarOption {
+	return func(p *ProgressBar) {
+		if width > 0 {
+			p.width = width
+		}
+	}
+}
+
+// WithBarDisabled explicitly sets the progress bar's disabled state.
+// When disabled, Increment/Set/Complete produce no output.
+func WithBarDisabled(disabled bool) ProgressBarOption {
+	return func(p *ProgressBar) {
+		p.disabled = disabled
+	}
+}
+
+// NewProgressBar creates a new progress bar with the given total and message.
+// The bar auto-disables when stderr is not a TTY, --no-input is set,
+// STACKEYE_NO_INPUT is set, or output format is JSON/YAML.
+// Use WithBarDisabled(false) to force-enable regardless of environment.
+func NewProgressBar(total int, message string, opts ...ProgressBarOption) *ProgressBar {
+	p := &ProgressBar{
+		total:    total,
+		message:  message,
+		width:    30,
+		writer:   os.Stderr,
+		disabled: !isSpinnerEnabled(),
+	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
+}
+
 // SetWriter sets the output writer for the progress bar.
+// Deprecated: Use WithBarWriter option in NewProgressBar instead.
 func (p *ProgressBar) SetWriter(w io.Writer) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.writer = w
 }
 
+// Disabled returns true if the progress bar is disabled and will not display output.
+func (p *ProgressBar) Disabled() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.disabled
+}
+
 // Increment advances the progress bar by one step.
+// If the bar is disabled, this is a no-op.
 func (p *ProgressBar) Increment() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.complete {
+	if p.complete || p.disabled {
 		return
+	}
+
+	if p.startTime.IsZero() {
+		p.startTime = time.Now()
 	}
 
 	p.current++
@@ -329,22 +393,32 @@ func (p *ProgressBar) Increment() {
 }
 
 // Set sets the current progress value.
+// If the bar is disabled, this is a no-op.
 func (p *ProgressBar) Set(current int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.complete {
+	if p.complete || p.disabled {
 		return
+	}
+
+	if p.startTime.IsZero() {
+		p.startTime = time.Now()
 	}
 
 	p.current = current
 	p.render()
 }
 
-// Complete marks the progress bar as complete.
+// Complete marks the progress bar as complete and prints a newline.
+// If the bar is disabled or total is zero, this is a no-op.
 func (p *ProgressBar) Complete() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.disabled || p.total <= 0 {
+		return
+	}
 
 	p.complete = true
 	p.current = p.total
@@ -352,7 +426,38 @@ func (p *ProgressBar) Complete() {
 	fmt.Fprintln(p.writer)
 }
 
-// render draws the progress bar.
+// CompleteWithSuccess marks the bar as complete and prints a success message.
+// If the bar is disabled, no output is produced.
+func (p *ProgressBar) CompleteWithSuccess(message string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.disabled {
+		return
+	}
+
+	p.complete = true
+	p.current = p.total
+	p.render()
+	fmt.Fprintf(p.writer, "\n✓ %s\n", message)
+}
+
+// CompleteWithError marks the bar as complete and prints an error message.
+// If the bar is disabled, no output is produced.
+func (p *ProgressBar) CompleteWithError(message string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.disabled {
+		return
+	}
+
+	p.complete = true
+	p.render()
+	fmt.Fprintf(p.writer, "\n✗ %s\n", message)
+}
+
+// render draws the progress bar. Must be called with p.mu held.
 func (p *ProgressBar) render() {
 	if p.total <= 0 {
 		return
@@ -373,6 +478,61 @@ func (p *ProgressBar) render() {
 		}
 	}
 
-	fmt.Fprintf(p.writer, "\r%s [%s] %d/%d (%.0f%%)",
-		p.message, bar, p.current, p.total, percent*100)
+	eta := p.estimateRemaining()
+	if eta != "" {
+		fmt.Fprintf(p.writer, "\r\033[K%s [%s] %d/%d (%.0f%%) %s",
+			p.message, bar, p.current, p.total, percent*100, eta)
+	} else {
+		fmt.Fprintf(p.writer, "\r\033[K%s [%s] %d/%d (%.0f%%)",
+			p.message, bar, p.current, p.total, percent*100)
+	}
+}
+
+// estimateRemaining calculates the ETA based on elapsed time and progress.
+// Must be called with p.mu held.
+func (p *ProgressBar) estimateRemaining() string {
+	if p.current <= 0 || p.startTime.IsZero() || p.complete {
+		return ""
+	}
+
+	elapsed := time.Since(p.startTime)
+	if elapsed < 500*time.Millisecond {
+		return ""
+	}
+
+	avgPerItem := elapsed / time.Duration(p.current)
+	remaining := time.Duration(p.total-p.current) * avgPerItem
+
+	if remaining < time.Second {
+		return "ETA: <1s"
+	}
+	if remaining < time.Minute {
+		return fmt.Sprintf("ETA: %ds", int(remaining.Seconds()))
+	}
+	return fmt.Sprintf("ETA: %dm%ds", int(remaining.Minutes()), int(remaining.Seconds())%60)
+}
+
+// RunWithProgressBar executes a function that processes items, displaying a
+// progress bar. The callback receives the bar to call Increment() on each item.
+//
+// Example:
+//
+//	err := output.RunWithProgressBar(len(probes), "Pausing probes...", func(bar *ProgressBar) error {
+//	    for _, probe := range probes {
+//	        if err := client.PauseProbe(ctx, probe.ID); err != nil {
+//	            return err
+//	        }
+//	        bar.Increment()
+//	    }
+//	    return nil
+//	})
+func RunWithProgressBar(total int, message string, fn func(bar *ProgressBar) error) error {
+	bar := NewProgressBar(total, message)
+	err := fn(bar)
+	if err != nil {
+		bar.CompleteWithError(err.Error())
+		return err
+	}
+	bar.Complete()
+	return nil
 }
