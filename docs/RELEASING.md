@@ -29,7 +29,7 @@ Complete these items before tagging.
   ```bash
   make validate
   ```
-- [ ] **CHANGELOG updated** — add a section for the new version summarizing features, fixes, and breaking changes (GoReleaser auto-generates one from commits, but a curated summary is preferred for major releases)
+- [ ] **CHANGELOG updated** (optional) — if `CHANGELOG.md` exists, add a section for the new version. GoReleaser auto-generates release notes from conventional commit messages, so a curated changelog is only needed for major releases
 - [ ] **Version string is correct** — the version comes from the git tag, not from source. Verify `internal/version` uses ldflags injection (no hardcoded version)
 - [ ] **Dependencies are current** — check for any pending Dependabot PRs that should be merged first
 - [ ] **No unmerged breaking changes** — confirm all intended PRs are merged to `main`
@@ -199,6 +199,8 @@ docker manifest inspect ghcr.io/stackeye-io/stackeye-cli:vX.Y.Z
 ```
 
 ### Go Install
+
+Requires access to the `StackEye-IO` GitHub organization (the SDK dependency is in a private repository).
 
 ```bash
 go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@vX.Y.Z
