@@ -18,6 +18,8 @@ import (
 	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	clioutput "github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-cli/internal/telemetry"
+	cliupdate "github.com/StackEye-IO/stackeye-cli/internal/update"
+	"github.com/StackEye-IO/stackeye-cli/internal/version"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 	"github.com/StackEye-IO/stackeye-go-sdk/output"
 	"github.com/spf13/cobra"
@@ -33,7 +35,8 @@ var (
 	noColor         bool
 	noInput         bool
 	dryRun          bool
-	timeoutSeconds  int // HTTP request timeout in seconds (0 = use config/default)
+	timeoutSeconds  int  // HTTP request timeout in seconds (0 = use config/default)
+	noUpdateCheck   bool // Disable automatic update checking
 )
 
 // loadedConfig holds the configuration loaded during PersistentPreRunE.
@@ -123,6 +126,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "disable interactive prompts")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without executing")
 	rootCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeout", 0, "HTTP request timeout in seconds (default: 30, or config preference)")
+	rootCmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "disable automatic update checking")
 
 	// Initialize custom help system with colored output and grouped commands
 	InitHelp(rootCmd, &HelpConfig{
@@ -295,6 +299,14 @@ func ExecuteWithExitCode() int {
 func ExecuteWithContext(ctx context.Context) int {
 	startTime := time.Now()
 
+	// Start background update check early (before command execution)
+	// so it has time to complete while the command runs.
+	var notifier *cliupdate.Notifier
+	if shouldCheckForUpdates() {
+		notifier = cliupdate.NewNotifier(version.Version, cliupdate.WithColor(!noColor))
+		notifier.StartCheck(ctx)
+	}
+
 	rootCmd.SetContext(ctx)
 	err := rootCmd.Execute()
 	exitCode := clierrors.HandleError(err)
@@ -305,6 +317,12 @@ func ExecuteWithContext(ctx context.Context) int {
 	duration := time.Since(startTime)
 	commandName := getExecutedCommandName()
 	telemetry.GetClient().Track(context.Background(), commandName, exitCode, duration)
+
+	// Print update notification after command completes (non-blocking wait).
+	// Only print on successful execution to avoid cluttering error output.
+	if notifier != nil && exitCode == 0 {
+		notifier.PrintNotification()
+	}
 
 	return exitCode
 }
@@ -358,4 +376,19 @@ func GetVerbosity() int {
 // or 0 if none is set (SDK uses its own default of 30s).
 func GetTimeout() int {
 	return timeoutSeconds
+}
+
+// shouldCheckForUpdates returns true if update checking should be performed.
+// Returns false if:
+// - --no-update-check flag is set
+// - STACKEYE_NO_UPDATE_CHECK environment variable is set
+// - Running a dev build (version == "dev")
+func shouldCheckForUpdates() bool {
+	// Check environment variable
+	if os.Getenv("STACKEYE_NO_UPDATE_CHECK") != "" {
+		return false
+	}
+
+	// Use the helper function that checks flag and dev build
+	return cliupdate.ShouldCheck(version.Version, noUpdateCheck)
 }
