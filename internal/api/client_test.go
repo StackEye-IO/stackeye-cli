@@ -1,7 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -305,5 +309,126 @@ func TestBuildClientOptions_NoTimeoutUsesDefault(t *testing.T) {
 	// SDK default is 30s
 	if c.Timeout() != client.DefaultTimeout {
 		t.Errorf("expected SDK default timeout %v, got %v", client.DefaultTimeout, c.Timeout())
+	}
+}
+
+// captureStderr redirects os.Stderr to capture output during a function call.
+func captureStderr(fn func()) string {
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	fn()
+
+	w.Close()
+	os.Stderr = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	return buf.String()
+}
+
+// TestWarnExcessiveTimeout_NoWarningBelowThreshold verifies no warning for reasonable timeouts.
+func TestWarnExcessiveTimeout_NoWarningBelowThreshold(t *testing.T) {
+	tests := []struct {
+		name    string
+		seconds int
+	}{
+		{"1 second", 1},
+		{"30 seconds (default)", 30},
+		{"60 seconds", 60},
+		{"300 seconds (exactly 5 min)", 300},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureStderr(func() {
+				warnExcessiveTimeout(tt.seconds)
+			})
+			if output != "" {
+				t.Errorf("expected no warning for %d seconds, got: %s", tt.seconds, output)
+			}
+		})
+	}
+}
+
+// TestWarnExcessiveTimeout_WarningAboveThreshold verifies warning for excessive timeouts.
+func TestWarnExcessiveTimeout_WarningAboveThreshold(t *testing.T) {
+	tests := []struct {
+		name        string
+		seconds     int
+		expectedMin int
+	}{
+		{"301 seconds", 301, 5},
+		{"600 seconds (10 min)", 600, 10},
+		{"3000 seconds (typo for 30)", 3000, 50},
+		{"3600 seconds (1 hour)", 3600, 60},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureStderr(func() {
+				warnExcessiveTimeout(tt.seconds)
+			})
+			if output == "" {
+				t.Errorf("expected warning for %d seconds, got none", tt.seconds)
+				return
+			}
+			expectedSecondsStr := fmt.Sprintf("%d seconds", tt.seconds)
+			if !strings.Contains(output, expectedSecondsStr) {
+				t.Errorf("warning should mention %q, got: %s", expectedSecondsStr, output)
+			}
+			expectedMinStr := fmt.Sprintf("%d minutes", tt.expectedMin)
+			if !strings.Contains(output, expectedMinStr) {
+				t.Errorf("warning should mention %q, got: %s", expectedMinStr, output)
+			}
+			if !strings.Contains(output, "unusually high") {
+				t.Errorf("warning should say 'unusually high', got: %s", output)
+			}
+		})
+	}
+}
+
+// TestBuildClientOptions_WarnsOnExcessiveTimeoutFromFlag tests that buildClientOptions
+// warns when the --timeout flag provides an excessive value.
+func TestBuildClientOptions_WarnsOnExcessiveTimeoutFromFlag(t *testing.T) {
+	cfg := config.NewConfig()
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	SetTimeoutGetter(func() int { return 3000 })
+	defer SetTimeoutGetter(nil)
+
+	output := captureStderr(func() {
+		opts := buildClientOptions()
+		c := client.New("se_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "", opts...)
+		if c.Timeout() != 3000*time.Second {
+			t.Errorf("expected timeout 3000s, got %v", c.Timeout())
+		}
+	})
+
+	if !strings.Contains(output, "3000 seconds") {
+		t.Errorf("expected warning about 3000 seconds, got: %s", output)
+	}
+}
+
+// TestBuildClientOptions_NoWarningForNormalTimeout tests that buildClientOptions
+// does not warn for a normal timeout value.
+func TestBuildClientOptions_NoWarningForNormalTimeout(t *testing.T) {
+	cfg := config.NewConfig()
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	SetTimeoutGetter(func() int { return 30 })
+	defer SetTimeoutGetter(nil)
+
+	output := captureStderr(func() {
+		buildClientOptions()
+	})
+
+	if output != "" {
+		t.Errorf("expected no warning for 30s timeout, got: %s", output)
 	}
 }

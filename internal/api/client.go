@@ -153,6 +153,10 @@ func GetClient() (*client.Client, error) {
 	return apiClient, nil
 }
 
+// maxReasonableTimeout is the threshold above which a timeout value is likely a typo.
+// For example, 3000 seconds (50 minutes) when the user probably meant 30 seconds.
+const maxReasonableTimeout = 5 * 60 // 5 minutes in seconds
+
 // buildClientOptions creates SDK client options based on current settings.
 func buildClientOptions() []client.Option {
 	var opts []client.Option
@@ -166,12 +170,26 @@ func buildClientOptions() []client.Option {
 	// Apply timeout configuration.
 	// Precedence: --timeout flag / STACKEYE_TIMEOUT env > config preference > SDK default (30s).
 	if timeout := getTimeout(); timeout > 0 {
+		warnExcessiveTimeout(timeout)
 		opts = append(opts, client.WithTimeout(time.Duration(timeout)*time.Second))
 	} else if cfg := getConfigForTimeout(); cfg != nil && cfg.Preferences != nil && cfg.Preferences.DefaultTimeout > 0 {
+		warnExcessiveTimeout(cfg.Preferences.DefaultTimeout)
 		opts = append(opts, client.WithTimeout(time.Duration(cfg.Preferences.DefaultTimeout)*time.Second))
 	}
 
 	return opts
+}
+
+// warnExcessiveTimeout prints a warning to stderr if the timeout value
+// exceeds maxReasonableTimeout. This catches common typos like entering
+// 3000 (50 minutes) when 30 (seconds) was intended.
+func warnExcessiveTimeout(seconds int) {
+	if seconds <= maxReasonableTimeout {
+		return
+	}
+	mins := seconds / 60
+	fmt.Fprintf(os.Stderr, "Warning: timeout is set to %d seconds (%d minutes). This seems unusually high.\n", seconds, mins)
+	fmt.Fprintf(os.Stderr, "  If this is a typo, update with: stackeye config set timeout <seconds>\n")
 }
 
 // getConfigForTimeout returns the current config for reading timeout preferences.
