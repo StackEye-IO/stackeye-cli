@@ -215,10 +215,8 @@ func getSpecificRelease(ctx context.Context, updater *sdkupdate.Updater, tag str
 		tag = "v" + tag
 	}
 
-	// For specific versions, we need to query the releases API directly
-	// Create a new updater with the specific version to leverage existing code
-	specificUpdater := sdkupdate.NewUpdater(updater.Repository(), tag)
-	return specificUpdater.GetLatestRelease(ctx)
+	// Use the SDK's GetReleaseByTag method to fetch specific version
+	return updater.GetReleaseByTag(ctx, tag)
 }
 
 // checkWritePermission verifies we can write to the executable location.
