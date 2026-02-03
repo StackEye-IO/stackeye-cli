@@ -90,7 +90,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeWatchCmd())   // Task #7109
 	cmd.AddCommand(NewProbeExportCmd())  // Task #7110
 	cmd.AddCommand(NewProbeImportCmd())  // Task #7111
-	cmd.AddCommand(NewProbeLogsCmd())   // Task #7112
+	cmd.AddCommand(NewProbeLogsCmd())    // Task #7112
 
 	return cmd
 }

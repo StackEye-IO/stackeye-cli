@@ -322,9 +322,9 @@ func runProbeLogsFollow(ctx context.Context, apiClient *client.Client, probeID u
 
 // ProbeLogsOutput wraps probe results for the logs command output.
 type ProbeLogsOutput struct {
-	ProbeID uuid.UUID        `json:"probe_id" yaml:"probe_id"`
-	Results []ProbeLogEntry  `json:"results" yaml:"results"`
-	Total   int64            `json:"total" yaml:"total"`
+	ProbeID uuid.UUID       `json:"probe_id" yaml:"probe_id"`
+	Results []ProbeLogEntry `json:"results" yaml:"results"`
+	Total   int64           `json:"total" yaml:"total"`
 }
 
 // ProbeLogEntry represents a single check result in the logs output.
