@@ -90,7 +90,7 @@ func TestNewProbeCmd_Subcommands(t *testing.T) {
 	cmd := NewProbeCmd()
 
 	// Verify expected subcommands are registered
-	expectedSubcommands := []string{"list", "get", "create", "wizard", "update", "delete", "pause", "resume", "test", "history", "stats", "link-channel", "unlink-channel", "deps", "label", "unlabel", "watch"}
+	expectedSubcommands := []string{"list", "get", "create", "wizard", "update", "delete", "pause", "resume", "test", "history", "stats", "link-channel", "unlink-channel", "deps", "label", "unlabel", "watch", "export"}
 
 	if len(cmd.Commands()) != len(expectedSubcommands) {
 		t.Errorf("expected %d subcommands, got %d", len(expectedSubcommands), len(cmd.Commands()))

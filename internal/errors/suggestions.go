@@ -201,3 +201,6 @@ var ValidPagerDutySeverities = []string{"critical", "error", "warning", "info"}
 
 // ValidWebhookMethods contains valid HTTP methods for webhooks.
 var ValidWebhookMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+
+// ValidExportFormats contains valid export output formats.
+var ValidExportFormats = []string{"yaml", "json"}
