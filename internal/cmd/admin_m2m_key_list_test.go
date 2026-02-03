@@ -201,8 +201,10 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 		{
 			name: "empty response",
 			response: &admin.M2MKeyListResponse{
-				Data:  []admin.M2MKey{},
-				Total: 0,
+				Data: []admin.M2MKey{},
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 0},
 			},
 		},
 		{
@@ -218,7 +220,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt: now,
 					},
 				},
-				Total: 1,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 1},
 			},
 		},
 		{
@@ -235,7 +239,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt:  now,
 					},
 				},
-				Total: 1,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 1},
 			},
 		},
 		{
@@ -268,7 +274,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt:  now.Add(-72 * time.Hour),
 					},
 				},
-				Total: 3,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 3},
 			},
 		},
 		{
@@ -284,7 +292,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt: now,
 					},
 				},
-				Total: 1,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 1},
 			},
 		},
 		{
@@ -300,7 +310,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt: now,
 					},
 				},
-				Total: 1,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 1},
 			},
 		},
 		{
@@ -316,7 +328,9 @@ func TestPrintM2MKeyList_DoesNotPanic(t *testing.T) {
 						CreatedAt: time.Time{},
 					},
 				},
-				Total: 1,
+				Meta: struct {
+					Total int `json:"total"`
+				}{Total: 1},
 			},
 		},
 	}

@@ -71,7 +71,7 @@ func runAdminM2MKeyGet(ctx context.Context, keyID string) error {
 	}
 
 	// Pretty print for table format (default)
-	printM2MKeyDetail(key)
+	printM2MKeyDetail(&key.Data)
 	return nil
 }
 

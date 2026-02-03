@@ -96,7 +96,7 @@ func printM2MKeyList(response *admin.M2MKeyListResponse) {
 		return
 	}
 
-	fmt.Printf("  Total: %d key(s)\n\n", response.Total)
+	fmt.Printf("  Total: %d key(s)\n\n", response.Meta.Total)
 
 	// Print header
 	fmt.Println("  ┌──────────────────────────────────────────────────────────────────────────────┐")
