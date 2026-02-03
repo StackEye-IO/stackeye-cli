@@ -167,7 +167,7 @@ func TestIsInteractive_NoInputFlag(t *testing.T) {
 	// Even if stdout is a TTY, --no-input should make it non-interactive
 	// Note: in test environments stdout is usually piped anyway, so
 	// IsInteractive will return false for that reason too. We test the
-	// flag path specifically via isSpinnerEnabled tests.
+	// flag path specifically via isAnimationEnabled tests.
 	if IsInteractive() {
 		t.Error("IsInteractive() should return false when --no-input is set")
 	}
@@ -209,7 +209,7 @@ func TestIsInteractive_StackeyeNoInputEnvEmpty(t *testing.T) {
 	_ = IsInteractive() // Verify no panic
 }
 
-func TestIsSpinnerEnabled_DumbTerminalDisables(t *testing.T) {
+func TestIsAnimationEnabled_DumbTerminalDisables(t *testing.T) {
 	origGetter := noInputGetter
 	origConfig := configGetter
 	defer func() {
@@ -221,8 +221,8 @@ func TestIsSpinnerEnabled_DumbTerminalDisables(t *testing.T) {
 	configGetter = nil
 	t.Setenv("TERM", "dumb")
 
-	if isSpinnerEnabled() {
-		t.Error("spinner should be disabled when TERM=dumb")
+	if isAnimationEnabled() {
+		t.Error("animations should be disabled when TERM=dumb")
 	}
 }
 

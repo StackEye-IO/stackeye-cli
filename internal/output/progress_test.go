@@ -486,7 +486,7 @@ func TestSpinner_NoInputDisables(t *testing.T) {
 	noInputGetter = func() bool { return true }
 	configGetter = nil
 
-	if isSpinnerEnabled() {
+	if isAnimationEnabled() {
 		t.Error("spinner should be disabled when --no-input is set")
 	}
 }
@@ -509,7 +509,7 @@ func TestSpinner_JSONOutputDisables(t *testing.T) {
 		}
 	}
 
-	if isSpinnerEnabled() {
+	if isAnimationEnabled() {
 		t.Error("spinner should be disabled for JSON output")
 	}
 }
@@ -532,7 +532,7 @@ func TestSpinner_YAMLOutputDisables(t *testing.T) {
 		}
 	}
 
-	if isSpinnerEnabled() {
+	if isAnimationEnabled() {
 		t.Error("spinner should be disabled for YAML output")
 	}
 }
@@ -550,7 +550,7 @@ func TestSpinner_StackeyeNoInputEnvDisables(t *testing.T) {
 	configGetter = nil
 	t.Setenv("STACKEYE_NO_INPUT", "1")
 
-	if isSpinnerEnabled() {
+	if isAnimationEnabled() {
 		t.Error("spinner should be disabled when STACKEYE_NO_INPUT=1")
 	}
 }
@@ -573,7 +573,7 @@ func TestSpinner_TableOutputAllowed(t *testing.T) {
 		}
 	}
 
-	// Note: isSpinnerEnabled() may still return false due to TTY detection
+	// Note: isAnimationEnabled() may still return false due to TTY detection
 	// in test environments, so we test the config/flag path specifically
 	// by checking that table format doesn't trigger the format disable path
 
@@ -691,6 +691,146 @@ func TestProgressBar_ConcurrentMixedOperations(t *testing.T) {
 	}
 
 	bar.Complete()
+}
+
+func TestProgressBar_AutoDisabledInNonTTY(t *testing.T) {
+	// In test environments stderr is piped, so NewProgressBar should
+	// auto-disable without WithBarDisabled(true) being explicitly set.
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Auto-disable test", WithBarWriter(&buf))
+
+	if !bar.Disabled() {
+		t.Error("ProgressBar should auto-disable when stderr is not a TTY")
+	}
+
+	bar.Increment()
+	bar.Set(5)
+	bar.Complete()
+
+	if buf.Len() != 0 {
+		t.Errorf("auto-disabled ProgressBar should produce no output, got: %q", buf.String())
+	}
+}
+
+func TestProgressBar_AutoDisabledCompleteMethodsNoOutput(t *testing.T) {
+	// Verify all complete variants produce no output when auto-disabled
+	var buf bytes.Buffer
+	bar := NewProgressBar(10, "Complete methods test", WithBarWriter(&buf))
+
+	bar.Increment()
+	bar.CompleteWithSuccess("should not appear")
+
+	if buf.Len() != 0 {
+		t.Errorf("auto-disabled ProgressBar CompleteWithSuccess should produce no output, got: %q", buf.String())
+	}
+
+	var buf2 bytes.Buffer
+	bar2 := NewProgressBar(10, "Error test", WithBarWriter(&buf2))
+	bar2.Increment()
+	bar2.CompleteWithError("should not appear")
+
+	if buf2.Len() != 0 {
+		t.Errorf("auto-disabled ProgressBar CompleteWithError should produce no output, got: %q", buf2.String())
+	}
+}
+
+func TestProgressBar_NoInputDisablesAnimation(t *testing.T) {
+	// Verify isAnimationEnabled returns false when --no-input is set,
+	// which is the mechanism ProgressBar uses for suppression.
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = func() bool { return true }
+	configGetter = nil
+
+	if isAnimationEnabled() {
+		t.Error("isAnimationEnabled should return false when --no-input is set")
+	}
+}
+
+func TestProgressBar_JSONOutputDisablesAnimation(t *testing.T) {
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = func() *config.Config {
+		return &config.Config{
+			Preferences: &config.Preferences{
+				OutputFormat: "json",
+			},
+		}
+	}
+
+	if isAnimationEnabled() {
+		t.Error("isAnimationEnabled should return false for JSON output format")
+	}
+}
+
+func TestProgressBar_YAMLOutputDisablesAnimation(t *testing.T) {
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = func() *config.Config {
+		return &config.Config{
+			Preferences: &config.Preferences{
+				OutputFormat: "yaml",
+			},
+		}
+	}
+
+	if isAnimationEnabled() {
+		t.Error("isAnimationEnabled should return false for YAML output format")
+	}
+}
+
+func TestProgressBar_StackeyeNoInputEnvDisablesAnimation(t *testing.T) {
+	origGetter := noInputGetter
+	origConfig := configGetter
+	defer func() {
+		noInputGetter = origGetter
+		configGetter = origConfig
+	}()
+
+	noInputGetter = nil
+	configGetter = nil
+	t.Setenv("STACKEYE_NO_INPUT", "1")
+
+	if isAnimationEnabled() {
+		t.Error("isAnimationEnabled should return false when STACKEYE_NO_INPUT=1")
+	}
+}
+
+func TestProgressBar_RunWithProgressBarDisabledStillExecutes(t *testing.T) {
+	// Even when ProgressBar is auto-disabled, RunWithProgressBar must
+	// still execute the callback and return its result.
+	executed := false
+	err := RunWithProgressBar(5, "Disabled test", func(bar *ProgressBar) error {
+		executed = true
+		for i := 0; i < 5; i++ {
+			bar.Increment()
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !executed {
+		t.Error("RunWithProgressBar should execute callback even when disabled")
+	}
 }
 
 func TestSetNoInputGetter(t *testing.T) {

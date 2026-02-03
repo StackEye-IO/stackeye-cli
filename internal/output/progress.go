@@ -20,11 +20,13 @@ func SetNoInputGetter(getter func() bool) {
 	noInputGetter = getter
 }
 
-// isSpinnerEnabled checks whether spinners should be shown based on:
-// - stderr is a TTY (no spinners when piped)
-// - stdout is interactive (not piped, not dumb terminal, no --no-input)
-// - output format is human-readable (no spinners for JSON/YAML)
-func isSpinnerEnabled() bool {
+// isAnimationEnabled checks whether animated progress indicators (spinners,
+// progress bars) should be shown based on:
+// - stderr is a TTY (no animations when piped)
+// - terminal supports ANSI (not dumb terminal)
+// - interactive mode is active (no --no-input flag, no STACKEYE_NO_INPUT env)
+// - output format is human-readable (no animations for JSON/YAML)
+func isAnimationEnabled() bool {
 	// Spinners write to stderr, so check stderr specifically
 	if IsStderrPiped() {
 		return false
@@ -123,7 +125,7 @@ func NewSpinner(message string, opts ...SpinnerOption) *Spinner {
 		writer:   os.Stderr,
 		frames:   DefaultSpinnerFrames,
 		interval: 80 * time.Millisecond,
-		disabled: !isSpinnerEnabled(),
+		disabled: !isAnimationEnabled(),
 		done:     make(chan struct{}),
 	}
 
@@ -344,7 +346,7 @@ func NewProgressBar(total int, message string, opts ...ProgressBarOption) *Progr
 		message:  message,
 		width:    30,
 		writer:   os.Stderr,
-		disabled: !isSpinnerEnabled(),
+		disabled: !isAnimationEnabled(),
 	}
 
 	for _, opt := range opts {
