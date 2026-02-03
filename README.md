@@ -139,21 +139,30 @@ scoop install stackeye
 scoop update stackeye
 ```
 
-### Debian/Ubuntu (.deb)
+### Debian/Ubuntu (APT Repository)
 
-Download and install the `.deb` package directly:
+Add the StackEye APT repository for automatic updates:
 
 ```bash
-# Get latest version
+# Import the GPG signing key
+curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
+
+# Add the repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
+
+# Install
+sudo apt-get update && sudo apt-get install stackeye
+
+# Update (when new versions are released)
+sudo apt-get update && sudo apt-get upgrade stackeye
+```
+
+**Manual .deb install** (without APT repository):
+
+```bash
 VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-
-# Download and install (amd64)
-curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_amd64.deb"
-sudo dpkg -i "stackeye_${VERSION}_linux_amd64.deb"
-
-# Download and install (arm64)
-curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_arm64.deb"
-sudo dpkg -i "stackeye_${VERSION}_linux_arm64.deb"
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_$(dpkg --print-architecture).deb"
+sudo dpkg -i "stackeye_${VERSION}_linux_$(dpkg --print-architecture).deb"
 ```
 
 ### Coming Soon
@@ -162,9 +171,27 @@ The following installation methods will be available in future releases:
 
 | Method | Platform | Status |
 |--------|----------|--------|
-| APT Repository | Debian/Ubuntu | `apt-get install stackeye` support |
 | RPM | RHEL/Fedora | `.rpm` packages |
 | Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
+
+### Verifying Downloads
+
+All release checksums are GPG-signed. To verify:
+
+```bash
+# Import the StackEye GPG public key
+curl -fsSL https://releases.stackeye.io/gpg-key.asc | gpg --import
+
+# Download checksums and signature for your version
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt"
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt.sig"
+
+# Verify the signature
+gpg --verify checksums.txt.sig checksums.txt
+
+# Verify your downloaded file against the checksums
+sha256sum -c checksums.txt --ignore-missing
+```
 
 ## Quick Start
 

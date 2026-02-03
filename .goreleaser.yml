@@ -78,6 +78,19 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+# GPG signing configuration
+signs:
+  - artifacts: checksum
+    cmd: gpg2
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
 # Wasabi S3 upload handled by AWS CLI in workflow (more reliable credential handling)
 # CloudFlare CDN fronts releases.stackeye.io
 
@@ -134,9 +147,10 @@ release:
     scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket
     scoop install stackeye
 
-    # Debian/Ubuntu (.deb)
-    curl -LO https://releases.stackeye.io/cli/{{.Tag}}/stackeye_{{.Version}}_linux_amd64.deb
-    sudo dpkg -i stackeye_{{.Version}}_linux_amd64.deb
+    # Debian/Ubuntu (APT repository)
+    curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
+    sudo apt-get update && sudo apt-get install stackeye
 
     # Linux/macOS (curl)
     curl -fsSL https://releases.stackeye.io/install.sh | bash

@@ -50,6 +50,13 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
       - name: Run GoReleaser
         id: goreleaser
         continue-on-error: true  # Continue even if Homebrew tap push fails
@@ -62,6 +69,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
           SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
 
       - name: Upload to Wasabi S3
         if: always() && hashFiles('dist/checksums.txt') != ''
@@ -81,10 +89,53 @@ jobs:
             --include "*.tar.gz" \
             --include "*.zip" \
             --include "*.deb" \
+            --include "*.sig" \
             --include "checksums.txt" \
             --acl public-read
 
           echo "Uploaded release artifacts to s3://releases.stackeye.io/cli/${VERSION}/"
+
+      - name: Upload GPG public key to S3
+        if: always() && hashFiles('dist/checksums.txt') != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-central-1
+        run: |
+          gpg --armor --export "${{ steps.import_gpg.outputs.fingerprint }}" > /tmp/gpg-key.asc
+          gpg --export "${{ steps.import_gpg.outputs.fingerprint }}" > /tmp/apt-key.gpg
+
+          aws s3 cp /tmp/gpg-key.asc "s3://releases.stackeye.io/gpg-key.asc" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com \
+            --acl public-read \
+            --content-type "text/plain"
+
+          aws s3 cp /tmp/apt-key.gpg "s3://releases.stackeye.io/apt-key.gpg" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com \
+            --acl public-read \
+            --content-type "application/octet-stream"
+
+      - name: Build and upload APT repository
+        if: always() && hashFiles('dist/checksums.txt') != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-central-1
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq dpkg-dev apt-utils
+
+          chmod +x scripts/build-apt-repo.sh
+          ./scripts/build-apt-repo.sh "${GITHUB_REF_NAME}" "${{ steps.import_gpg.outputs.fingerprint }}" dist
+
+          # Clean old pool and upload new (only latest version indexed)
+          aws s3 rm "s3://releases.stackeye.io/pool/" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com --recursive
+
+          aws s3 sync apt-repo/pool/ "s3://releases.stackeye.io/pool/" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read
+
+          aws s3 sync apt-repo/dists/ "s3://releases.stackeye.io/dists/" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read --delete
 
       - name: Purge CloudFlare cache
         if: always() && hashFiles('dist/checksums.txt') != ''
@@ -93,4 +144,4 @@ jobs:
           curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            --data '{"prefixes":["https://releases.stackeye.io/cli/"]}'
+            --data '{"prefixes":["https://releases.stackeye.io/cli/","https://releases.stackeye.io/dists/","https://releases.stackeye.io/pool/","https://releases.stackeye.io/gpg-key.asc","https://releases.stackeye.io/apt-key.gpg"]}'
