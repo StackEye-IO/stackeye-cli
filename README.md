@@ -151,6 +151,8 @@ The following installation methods will be available in future releases:
 
 ## Quick Start
 
+Get monitoring up and running in minutes. For a comprehensive walkthrough, see the **[Getting Started Tutorial](docs/getting-started.md)**.
+
 ### 1. Authenticate
 
 ```bash
