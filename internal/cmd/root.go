@@ -283,14 +283,18 @@ func Execute() error {
 //   - 9: Timeout
 //   - 10: Plan limit exceeded
 //
-// Example usage in main.go:
-//
-//	func main() {
-//	    os.Exit(cmd.ExecuteWithExitCode())
-//	}
+// Deprecated: Use ExecuteWithContext for signal-aware execution.
 func ExecuteWithExitCode() int {
+	return ExecuteWithContext(context.Background())
+}
+
+// ExecuteWithContext runs the root command with the given context and returns
+// an appropriate exit code. The context is passed to Cobra so that all
+// subcommands can observe cancellation (e.g. from SIGINT/SIGTERM).
+func ExecuteWithContext(ctx context.Context) int {
 	startTime := time.Now()
 
+	rootCmd.SetContext(ctx)
 	err := rootCmd.Execute()
 	exitCode := clierrors.HandleError(err)
 

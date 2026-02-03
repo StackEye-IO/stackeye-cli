@@ -17,8 +17,12 @@ import (
 	"os"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/cmd"
+	clisignal "github.com/StackEye-IO/stackeye-cli/internal/signal"
 )
 
 func main() {
-	os.Exit(cmd.ExecuteWithExitCode())
+	ctx, handler := clisignal.Setup()
+	exitCode := cmd.ExecuteWithContext(ctx)
+	handler.RunCleanups()
+	os.Exit(handler.ExitCode(exitCode))
 }
