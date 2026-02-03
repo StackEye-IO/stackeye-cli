@@ -8,8 +8,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/mattn/go-isatty"
 )
 
 // noInputGetter returns true if interactive prompts should be disabled.
@@ -24,22 +22,23 @@ func SetNoInputGetter(getter func() bool) {
 
 // isSpinnerEnabled checks whether spinners should be shown based on:
 // - stderr is a TTY (no spinners when piped)
+// - stdout is interactive (not piped, not dumb terminal, no --no-input)
 // - output format is human-readable (no spinners for JSON/YAML)
-// - --no-input flag is not set
-// - STACKEYE_NO_INPUT env var is not set
 func isSpinnerEnabled() bool {
-	// Check TTY on stderr (spinners write to stderr)
-	fd := os.Stderr.Fd()
-	if !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd) {
+	// Spinners write to stderr, so check stderr specifically
+	if IsStderrPiped() {
 		return false
 	}
 
-	// Check --no-input flag
+	// Check interactive mode (TERM=dumb, --no-input, STACKEYE_NO_INPUT)
+	if IsDumbTerminal() {
+		return false
+	}
+
 	if noInputGetter != nil && noInputGetter() {
 		return false
 	}
 
-	// Check STACKEYE_NO_INPUT env var
 	if v, ok := os.LookupEnv("STACKEYE_NO_INPUT"); ok && v != "0" && v != "" {
 		return false
 	}
