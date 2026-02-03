@@ -126,7 +126,7 @@ Use 'stackeye probe get {probe_id}' to view status.
 ### Understanding the Output
 
 - **ID**: Unique identifier for your probe (use this in other commands)
-- **Interval**: How often the probe runs (default: 30 seconds)
+- **Interval**: How often the probe runs (default: 60 seconds)
 - **Timeout**: How long to wait for a response (default: 10 seconds)
 - **Regions**: Where checks run from (default: all active regions)
 - **Status**: Initially "pending" until the first check completes
