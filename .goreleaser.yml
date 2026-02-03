@@ -11,10 +11,11 @@ git:
   ignore_tags:
     - nightly
 
-# Generate man pages before build
+# Generate documentation before build
 before:
   hooks:
     - go run ./docs/man/generate.go
+    - go run ./docs/markdown/generate.go
 
 # Build configuration
 builds:

@@ -49,3 +49,6 @@ coverage_full.out
 
 # Generated man pages
 docs/man/pages/
+
+# Generated markdown docs
+docs/markdown/pages/

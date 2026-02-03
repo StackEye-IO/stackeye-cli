@@ -3,7 +3,7 @@
 
 .PHONY: all build build-all build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64 build-windows-amd64 \
         build-local install clean test test-verbose test-e2e test-integration coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy \
-        man man-clean snapshot release-dry-run help
+        man man-clean markdown markdown-clean snapshot release-dry-run help
 
 # Go parameters
 GOCMD=go
@@ -224,6 +224,17 @@ man-clean:
 	@rm -rf docs/man/pages/
 	@echo "Man pages removed"
 
+## markdown: Generate markdown docs for all CLI commands
+markdown:
+	@echo "Generating markdown docs..."
+	@$(GOCMD) run ./docs/markdown/generate.go
+
+## markdown-clean: Remove generated markdown docs
+markdown-clean:
+	@echo "Removing generated markdown docs..."
+	@rm -rf docs/markdown/pages/
+	@echo "Markdown docs removed"
+
 #==============================================================================
 # Release targets (GoReleaser)
 #==============================================================================
@@ -265,7 +276,7 @@ help:
 	@grep -E '^## validate' $(MAKEFILE_LIST) | sed 's/## /  /'
 	@echo ""
 	@echo "Documentation targets:"
-	@grep -E '^## (man)' $(MAKEFILE_LIST) | sed 's/## /  /'
+	@grep -E '^## (man|markdown)' $(MAKEFILE_LIST) | sed 's/## /  /'
 	@echo ""
 	@echo "Release targets:"
 	@grep -E '^## (snapshot|release)' $(MAKEFILE_LIST) | sed 's/## /  /'
