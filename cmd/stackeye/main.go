@@ -15,13 +15,16 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/cmd"
 	clisignal "github.com/StackEye-IO/stackeye-cli/internal/signal"
+	"github.com/StackEye-IO/stackeye-cli/internal/telemetry"
 )
 
 func main() {
 	ctx, handler := clisignal.Setup()
+	handler.OnCleanup(func() { telemetry.GetClient().Flush(2 * time.Second) })
 	exitCode := cmd.ExecuteWithContext(ctx)
 	handler.RunCleanups()
 	os.Exit(handler.ExitCode(exitCode))

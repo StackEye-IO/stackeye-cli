@@ -298,13 +298,12 @@ func ExecuteWithContext(ctx context.Context) int {
 	err := rootCmd.Execute()
 	exitCode := clierrors.HandleError(err)
 
-	// Track telemetry (async, non-blocking)
+	// Track telemetry (async, non-blocking).
+	// Flush is handled by the signal handler's OnCleanup chain in main.go,
+	// so it runs on both normal exit and signal-driven shutdown.
 	duration := time.Since(startTime)
 	commandName := getExecutedCommandName()
 	telemetry.GetClient().Track(context.Background(), commandName, exitCode, duration)
-
-	// Wait for telemetry to be sent (with timeout)
-	telemetry.GetClient().Flush(2 * time.Second)
 
 	return exitCode
 }
