@@ -198,13 +198,22 @@ curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux
 sudo rpm -i "stackeye_${VERSION}_linux_amd64.rpm"
 ```
 
-### Coming Soon
+### Docker
 
-The following installation methods will be available in future releases:
+Run the CLI directly from a container:
 
-| Method | Platform | Status |
-|--------|----------|--------|
-| Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
+```bash
+# Run a command
+docker run --rm ghcr.io/stackeye-io/stackeye-cli version
+
+# Use with API key
+docker run --rm -e STACKEYE_API_KEY=se_your_key ghcr.io/stackeye-io/stackeye-cli probe list
+
+# Pin to a specific version
+docker run --rm ghcr.io/stackeye-io/stackeye-cli:v1.0.0 version
+```
+
+Multi-arch images are available for `linux/amd64` and `linux/arm64`.
 
 ### Verifying Downloads
 

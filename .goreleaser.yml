@@ -95,6 +95,54 @@ nfpms:
       - src: README.md
         dst: /usr/share/doc/stackeye/README.md
 
+# Docker image configuration
+dockers:
+  - id: stackeye-amd64
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=stackeye"
+      - "--label=org.opencontainers.image.description=CLI for StackEye uptime monitoring platform"
+      - "--label=org.opencontainers.image.url=https://stackeye.io"
+      - "--label=org.opencontainers.image.source=https://github.com/StackEye-IO/stackeye-cli"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+  - id: stackeye-arm64
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=stackeye"
+      - "--label=org.opencontainers.image.description=CLI for StackEye uptime monitoring platform"
+      - "--label=org.opencontainers.image.url=https://stackeye.io"
+      - "--label=org.opencontainers.image.source=https://github.com/StackEye-IO/stackeye-cli"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+# Multi-arch Docker manifest
+docker_manifests:
+  - name_template: "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-amd64"
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-arm64"
+
+  - name_template: "ghcr.io/stackeye-io/stackeye-cli:latest"
+    image_templates:
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-amd64"
+      - "ghcr.io/stackeye-io/stackeye-cli:{{ .Tag }}-arm64"
+
 # Checksum configuration
 checksum:
   name_template: "checksums.txt"
@@ -185,6 +233,9 @@ release:
     gpgkey=https://releases.stackeye.io/gpg-key.asc
     REPO
     sudo dnf install stackeye
+
+    # Docker
+    docker run --rm ghcr.io/stackeye-io/stackeye-cli:{{.Tag}} version
 
     # Linux/macOS (curl)
     curl -fsSL https://releases.stackeye.io/install.sh | bash
