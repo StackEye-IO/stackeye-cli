@@ -163,6 +163,12 @@ func loadConfig() error {
 		}
 	}
 
+	// NO_COLOR environment variable disables colors (per https://no-color.org/)
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		cfg.Preferences.Color = config.ColorModeNever
+		SetNoColor(true)
+	}
+
 	// --no-color flag overrides config preference
 	if noColor {
 		cfg.Preferences.Color = config.ColorModeNever
