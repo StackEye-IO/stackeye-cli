@@ -324,7 +324,7 @@ func captureStderr(fn func()) string {
 	os.Stderr = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	return buf.String()
 }
 
