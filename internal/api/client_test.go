@@ -3,7 +3,9 @@ package api
 import (
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
 
@@ -212,11 +214,96 @@ func TestGetClientWithContext_NoAPIKey(t *testing.T) {
 		return cfg
 	})
 
-	client, err := GetClientWithContext("nokey")
-	if client != nil {
+	c, err := GetClientWithContext("nokey")
+	if c != nil {
 		t.Error("expected nil client when no API key")
 	}
 	if !errors.Is(err, ErrNoAPIKey) {
 		t.Errorf("expected ErrNoAPIKey, got %v", err)
+	}
+}
+
+// TestBuildClientOptions_TimeoutFromFlag tests that the --timeout flag
+// value is passed through to the SDK client.
+func TestBuildClientOptions_TimeoutFromFlag(t *testing.T) {
+	// Set up config with default timeout
+	cfg := config.NewConfig()
+	cfg.Preferences.DefaultTimeout = 30
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	// Set timeout getter to simulate --timeout=45 flag
+	SetTimeoutGetter(func() int { return 45 })
+	defer SetTimeoutGetter(nil)
+
+	opts := buildClientOptions()
+	c := client.New("se_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "", opts...)
+
+	if c.Timeout() != 45*time.Second {
+		t.Errorf("expected timeout 45s from flag, got %v", c.Timeout())
+	}
+}
+
+// TestBuildClientOptions_TimeoutFromConfig tests that the config preference
+// timeout is used when no flag is set.
+func TestBuildClientOptions_TimeoutFromConfig(t *testing.T) {
+	cfg := config.NewConfig()
+	cfg.Preferences.DefaultTimeout = 60
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	// No flag timeout set
+	SetTimeoutGetter(func() int { return 0 })
+	defer SetTimeoutGetter(nil)
+
+	opts := buildClientOptions()
+	c := client.New("se_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "", opts...)
+
+	if c.Timeout() != 60*time.Second {
+		t.Errorf("expected timeout 60s from config, got %v", c.Timeout())
+	}
+}
+
+// TestBuildClientOptions_TimeoutFlagOverridesConfig tests that the --timeout
+// flag takes precedence over the config preference.
+func TestBuildClientOptions_TimeoutFlagOverridesConfig(t *testing.T) {
+	cfg := config.NewConfig()
+	cfg.Preferences.DefaultTimeout = 60
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	// Flag overrides config
+	SetTimeoutGetter(func() int { return 10 })
+	defer SetTimeoutGetter(nil)
+
+	opts := buildClientOptions()
+	c := client.New("se_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "", opts...)
+
+	if c.Timeout() != 10*time.Second {
+		t.Errorf("expected timeout 10s from flag (overriding config 60s), got %v", c.Timeout())
+	}
+}
+
+// TestBuildClientOptions_NoTimeoutUsesDefault tests that when neither flag
+// nor config is set, the SDK default timeout (30s) is used.
+func TestBuildClientOptions_NoTimeoutUsesDefault(t *testing.T) {
+	cfg := config.NewConfig()
+	cfg.Preferences.DefaultTimeout = 0 // No config preference
+	SetConfigGetter(func() *config.Config {
+		return cfg
+	})
+
+	SetTimeoutGetter(func() int { return 0 })
+	defer SetTimeoutGetter(nil)
+
+	opts := buildClientOptions()
+	c := client.New("se_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "", opts...)
+
+	// SDK default is 30s
+	if c.Timeout() != client.DefaultTimeout {
+		t.Errorf("expected SDK default timeout %v, got %v", client.DefaultTimeout, c.Timeout())
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ var (
 	noColor         bool
 	noInput         bool
 	dryRun          bool
+	timeoutSeconds  int // HTTP request timeout in seconds (0 = use config/default)
 )
 
 // loadedConfig holds the configuration loaded during PersistentPreRunE.
@@ -68,6 +70,9 @@ func init() {
 
 	// Wire up the API client helper to use our verbosity getter
 	api.SetVerbosityGetter(GetVerbosity)
+
+	// Wire up the API client helper to use our timeout getter
+	api.SetTimeoutGetter(GetTimeout)
 
 	// Wire up the output package to use our config getter
 	clioutput.SetConfigGetter(GetConfig)
@@ -116,6 +121,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "disable interactive prompts")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without executing")
+	rootCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeout", 0, "HTTP request timeout in seconds (default: 30, or config preference)")
 
 	// Initialize custom help system with colored output and grouped commands
 	InitHelp(rootCmd, &HelpConfig{
@@ -194,6 +200,18 @@ func loadConfig() error {
 	if noColor {
 		cfg.Preferences.Color = config.ColorModeNever
 		SetNoColor(true)
+	}
+
+	// STACKEYE_TIMEOUT env var sets timeout (same as --timeout flag)
+	if envTimeout := os.Getenv("STACKEYE_TIMEOUT"); envTimeout != "" && timeoutSeconds == 0 {
+		if v, err := strconv.Atoi(envTimeout); err == nil && v > 0 {
+			timeoutSeconds = v
+		}
+	}
+
+	// --timeout flag overrides config preference
+	if timeoutSeconds > 0 {
+		cfg.Preferences.DefaultTimeout = timeoutSeconds
 	}
 
 	// --context flag overrides current_context from config
@@ -329,4 +347,11 @@ func RootCmd() *cobra.Command {
 //   - 10: Trace (curl equivalent, timing breakdown)
 func GetVerbosity() int {
 	return verbosity
+}
+
+// GetTimeout returns the effective HTTP request timeout in seconds.
+// Returns the --timeout flag value, STACKEYE_TIMEOUT env var, config preference,
+// or 0 if none is set (SDK uses its own default of 30s).
+func GetTimeout() int {
+	return timeoutSeconds
 }

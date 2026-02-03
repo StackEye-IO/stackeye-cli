@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -38,6 +39,26 @@ func getVerbosity() int {
 		return 0
 	}
 	return currentVerbosityGetter()
+}
+
+// timeoutGetter is the interface for getting the timeout in seconds.
+type timeoutGetter func() int
+
+// currentTimeoutGetter returns 0 (use default) - overridden via SetTimeoutGetter.
+var currentTimeoutGetter timeoutGetter
+
+// SetTimeoutGetter sets the function used to get the timeout in seconds.
+// This should be called during CLI initialization to wire up the timeout flag.
+func SetTimeoutGetter(getter func() int) {
+	currentTimeoutGetter = getter
+}
+
+// getTimeout returns the current timeout in seconds, or 0 if not configured.
+func getTimeout() int {
+	if currentTimeoutGetter == nil {
+		return 0
+	}
+	return currentTimeoutGetter()
 }
 
 // Error types for API client initialization failures.
@@ -142,7 +163,23 @@ func buildClientOptions() []client.Option {
 		opts = append(opts, client.WithVerbosity(verbosity, os.Stderr))
 	}
 
+	// Apply timeout configuration.
+	// Precedence: --timeout flag / STACKEYE_TIMEOUT env > config preference > SDK default (30s).
+	if timeout := getTimeout(); timeout > 0 {
+		opts = append(opts, client.WithTimeout(time.Duration(timeout)*time.Second))
+	} else if cfg := getConfigForTimeout(); cfg != nil && cfg.Preferences != nil && cfg.Preferences.DefaultTimeout > 0 {
+		opts = append(opts, client.WithTimeout(time.Duration(cfg.Preferences.DefaultTimeout)*time.Second))
+	}
+
 	return opts
+}
+
+// getConfigForTimeout returns the current config for reading timeout preferences.
+func getConfigForTimeout() *config.Config {
+	if currentConfigGetter == nil {
+		return nil
+	}
+	return currentConfigGetter()
 }
 
 // GetClientOptions returns SDK client options for use by commands that create
