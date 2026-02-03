@@ -80,7 +80,8 @@ Examples:
 
   # Switch to staging
   stackeye context use acme-staging`,
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: ContextCompletion(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runContextUse(args[0])
 		},
@@ -260,8 +261,9 @@ Examples:
 
   # Delete a context by name
   stackeye context delete old-org`,
-		Aliases: []string{"rm", "remove"},
-		Args:    cobra.ExactArgs(1),
+		Aliases:           []string{"rm", "remove"},
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: ContextCompletion(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runContextDelete(args[0])
 		},
