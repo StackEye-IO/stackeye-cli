@@ -73,6 +73,28 @@ nfpms:
       - src: README.md
         dst: /usr/share/doc/stackeye/README.md
 
+  # Linux package configuration (rpm)
+  - id: stackeye-rpm
+    package_name: stackeye
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: StackEye IO
+    homepage: https://stackeye.io
+    maintainer: StackEye IO <support@stackeye.io>
+    description: "CLI for StackEye uptime monitoring platform"
+    license: MIT
+    formats:
+      - rpm
+    bindir: /usr/bin
+    dependencies:
+      - ca-certificates
+    rpm:
+      group: Applications/Internet
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/stackeye/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/stackeye/README.md
+
 # Checksum configuration
 checksum:
   name_template: "checksums.txt"
@@ -151,6 +173,18 @@ release:
     curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
     sudo apt-get update && sudo apt-get install stackeye
+
+    # RHEL/Fedora/CentOS (DNF)
+    sudo rpm --import https://releases.stackeye.io/gpg-key.asc
+    sudo tee /etc/yum.repos.d/stackeye.repo << 'REPO'
+    [stackeye]
+    name=StackEye CLI
+    baseurl=https://releases.stackeye.io/yum/stable/$basearch
+    enabled=1
+    gpgcheck=1
+    gpgkey=https://releases.stackeye.io/gpg-key.asc
+    REPO
+    sudo dnf install stackeye
 
     # Linux/macOS (curl)
     curl -fsSL https://releases.stackeye.io/install.sh | bash

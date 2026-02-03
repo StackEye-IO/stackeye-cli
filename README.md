@@ -165,13 +165,45 @@ curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux
 sudo dpkg -i "stackeye_${VERSION}_linux_$(dpkg --print-architecture).deb"
 ```
 
+### RHEL/Fedora/CentOS (DNF)
+
+Add the StackEye YUM repository:
+
+```bash
+# Import the GPG signing key
+sudo rpm --import https://releases.stackeye.io/gpg-key.asc
+
+# Add the repository
+sudo tee /etc/yum.repos.d/stackeye.repo << 'EOF'
+[stackeye]
+name=StackEye CLI
+baseurl=https://releases.stackeye.io/yum/stable/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://releases.stackeye.io/gpg-key.asc
+EOF
+
+# Install
+sudo dnf install stackeye
+
+# Update (when new versions are released)
+sudo dnf upgrade stackeye
+```
+
+**Manual .rpm install** (without DNF repository):
+
+```bash
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_amd64.rpm"
+sudo rpm -i "stackeye_${VERSION}_linux_amd64.rpm"
+```
+
 ### Coming Soon
 
 The following installation methods will be available in future releases:
 
 | Method | Platform | Status |
 |--------|----------|--------|
-| RPM | RHEL/Fedora | `.rpm` packages |
 | Docker | All | `docker run ghcr.io/stackeye-io/stackeye-cli` |
 
 ### Verifying Downloads
