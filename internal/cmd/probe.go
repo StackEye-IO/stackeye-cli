@@ -27,6 +27,7 @@ Probe Operations:
   test          Run an immediate test check
   history       View probe check history
   stats         View uptime and response time statistics
+  watch         Watch probe status with live updates
 
 Channel Management:
   link-channel     Link a notification channel to a probe
@@ -83,6 +84,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeDepsCmd())
 	cmd.AddCommand(NewProbeLabelCmd())   // Task #8068
 	cmd.AddCommand(NewProbeUnlabelCmd()) // Task #8069
+	cmd.AddCommand(NewProbeWatchCmd())   // Task #7109
 
 	return cmd
 }
