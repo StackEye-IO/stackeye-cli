@@ -14,6 +14,91 @@ func TestIsPiped_InTestEnvironment(t *testing.T) {
 	}
 }
 
+func TestIsPiped_OverrideTrue(t *testing.T) {
+	orig := isPipedOverride
+	defer func() { isPipedOverride = orig }()
+
+	isPipedOverride = func() bool { return true }
+
+	if !IsPiped() {
+		t.Error("IsPiped() should return true when override returns true")
+	}
+}
+
+func TestIsPiped_OverrideFalse(t *testing.T) {
+	orig := isPipedOverride
+	defer func() { isPipedOverride = orig }()
+
+	isPipedOverride = func() bool { return false }
+
+	if IsPiped() {
+		t.Error("IsPiped() should return false when override returns false")
+	}
+}
+
+func TestIsPiped_OverrideNilFallsThrough(t *testing.T) {
+	orig := isPipedOverride
+	defer func() { isPipedOverride = orig }()
+
+	isPipedOverride = nil
+
+	// With nil override, IsPiped should fall through to OS detection.
+	// Just verify it runs without panic; actual value depends on environment.
+	_ = IsPiped()
+}
+
+func TestSetIsPipedOverride(t *testing.T) {
+	orig := isPipedOverride
+	defer func() { isPipedOverride = orig }()
+
+	called := false
+	SetIsPipedOverride(func() bool {
+		called = true
+		return false
+	})
+
+	IsPiped()
+	if !called {
+		t.Error("isPipedOverride was not called after SetIsPipedOverride")
+	}
+
+	SetIsPipedOverride(nil)
+	if isPipedOverride != nil {
+		t.Error("isPipedOverride should be nil after SetIsPipedOverride(nil)")
+	}
+}
+
+func TestIsInteractive_WithPipedOverrideFalse(t *testing.T) {
+	origPiped := isPipedOverride
+	origNoInput := noInputGetter
+	defer func() {
+		isPipedOverride = origPiped
+		noInputGetter = origNoInput
+	}()
+
+	// Override IsPiped to return false (simulate real TTY)
+	isPipedOverride = func() bool { return false }
+	noInputGetter = nil
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("STACKEYE_NO_INPUT", "")
+
+	if !IsInteractive() {
+		t.Error("IsInteractive() should return true when IsPiped override returns false and no other disabling conditions")
+	}
+}
+
+func TestIsInteractive_WithPipedOverrideTrue(t *testing.T) {
+	origPiped := isPipedOverride
+	defer func() { isPipedOverride = origPiped }()
+
+	// Override IsPiped to return true (simulate piped output)
+	isPipedOverride = func() bool { return true }
+
+	if IsInteractive() {
+		t.Error("IsInteractive() should return false when IsPiped override returns true")
+	}
+}
+
 func TestIsStderrPiped_InTestEnvironment(t *testing.T) {
 	// Verify IsStderrPiped() returns a boolean without panicking.
 	result := IsStderrPiped()

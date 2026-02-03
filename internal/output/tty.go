@@ -7,10 +7,24 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
+// isPipedOverride, when non-nil, replaces the OS-level TTY check in IsPiped.
+// This allows tests to control pipe detection without relying on actual
+// terminal state, which varies between local and CI environments.
+var isPipedOverride func() bool
+
+// SetIsPipedOverride sets a function that overrides IsPiped's OS detection.
+// Pass nil to restore default behaviour. Intended for testing only.
+func SetIsPipedOverride(fn func() bool) {
+	isPipedOverride = fn
+}
+
 // IsPiped returns true if stdout is not a terminal (i.e., output is being
 // piped or redirected to a file). When piped, commands should prefer
 // machine-readable output and disable colors.
 func IsPiped() bool {
+	if isPipedOverride != nil {
+		return isPipedOverride()
+	}
 	fd := os.Stdout.Fd()
 	return !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd)
 }
