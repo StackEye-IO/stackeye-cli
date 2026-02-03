@@ -1,0 +1,53 @@
+# Microsoft Teams Channel Configuration
+# =====================================
+#
+# Posts alert notifications to a Microsoft Teams channel via webhooks.
+# Best for: Enterprise environments using Microsoft 365.
+#
+# Prerequisites:
+#   1. Open Microsoft Teams
+#   2. Navigate to the channel where you want alerts
+#   3. Click the "..." menu > Connectors
+#   4. Find "Incoming Webhook" and configure it
+#   5. Copy the webhook URL
+#
+# Usage:
+#   stackeye channel create --from-file teams.yaml
+
+# Human-readable name for the channel
+name: "Teams - Operations"
+
+# Channel type
+type: teams
+
+# Whether the channel is enabled
+enabled: true
+
+# Teams-specific configuration
+config:
+  # Microsoft Teams incoming webhook URL
+  # Format: https://outlook.office.com/webhook/xxx/IncomingWebhook/xxx/xxx
+  # Note: New Teams uses different URL format starting with your tenant domain
+  webhook_url: "{teams_webhook_url}"
+
+# Webhook URL Setup Guide:
+# ------------------------
+# For Microsoft Teams (new version):
+# 1. Open Teams and go to the desired channel
+# 2. Click "..." (More options) > "Connectors"
+# 3. Search for "Incoming Webhook"
+# 4. Click "Configure" or "Add"
+# 5. Give it a name (e.g., "StackEye Monitoring")
+# 6. Optionally upload a custom icon
+# 7. Click "Create" and copy the webhook URL
+#
+# For Teams (classic):
+# 1. Right-click the channel > "Connectors"
+# 2. Find "Incoming Webhook" and click "Configure"
+# 3. Provide a name and click "Create"
+# 4. Copy the webhook URL
+#
+# Best Practices:
+# - Create a dedicated "Monitoring" or "Alerts" channel
+# - Use Teams tags to mention specific people for critical alerts
+# - Set up channel notification settings appropriately

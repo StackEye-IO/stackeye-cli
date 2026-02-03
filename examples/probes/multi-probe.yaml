@@ -1,0 +1,93 @@
+# Multiple Probes Example
+# =======================
+#
+# This script demonstrates creating multiple probes for a typical
+# web application stack. Copy and customize for your environment.
+#
+# Usage:
+#   chmod +x multi-probe.sh
+#   ./multi-probe.sh
+
+# #!/bin/bash
+# set -euo pipefail
+#
+# # Configuration
+# APP_NAME="myapp"
+# DOMAIN="example.com"
+# REGIONS="us-east-1,eu-west-1,ap-southeast-1"
+#
+# echo "Creating probes for ${APP_NAME}..."
+#
+# # 1. Website / Frontend
+# stackeye probe create \
+#   --name "${APP_NAME} - Website" \
+#   --url "https://www.${DOMAIN}" \
+#   --interval 60 \
+#   --timeout 10 \
+#   --keyword-check "</html>" \
+#   --keyword-check-type contains \
+#   --ssl-check-enabled \
+#   --ssl-expiry-threshold-days 30 \
+#   --regions "${REGIONS}"
+#
+# # 2. API Health Endpoint
+# stackeye probe create \
+#   --name "${APP_NAME} - API Health" \
+#   --url "https://api.${DOMAIN}/health" \
+#   --interval 30 \
+#   --timeout 10 \
+#   --json-path-check "$.status" \
+#   --json-path-expected "ok" \
+#   --regions "${REGIONS}"
+#
+# # 3. Database (via TCP)
+# stackeye probe create \
+#   --name "${APP_NAME} - Database" \
+#   --url "db.${DOMAIN}:5432" \
+#   --check-type tcp \
+#   --interval 60 \
+#   --timeout 10 \
+#   --regions us-east-1
+#
+# # 4. Cache (Redis)
+# stackeye probe create \
+#   --name "${APP_NAME} - Redis Cache" \
+#   --url "cache.${DOMAIN}:6379" \
+#   --check-type tcp \
+#   --interval 60 \
+#   --timeout 5 \
+#   --regions us-east-1
+#
+# # 5. CDN / Static Assets
+# stackeye probe create \
+#   --name "${APP_NAME} - CDN" \
+#   --url "https://cdn.${DOMAIN}/assets/health.txt" \
+#   --interval 120 \
+#   --timeout 10 \
+#   --regions "${REGIONS}"
+#
+# # 6. Authentication Service
+# stackeye probe create \
+#   --name "${APP_NAME} - Auth Service" \
+#   --url "https://auth.${DOMAIN}/health" \
+#   --interval 30 \
+#   --timeout 10 \
+#   --regions "${REGIONS}"
+#
+# echo "All probes created successfully!"
+# echo ""
+# echo "Next steps:"
+# echo "  1. View probes: stackeye probe list"
+# echo "  2. Create notification channels: stackeye channel create ..."
+# echo "  3. Link channels to probes: stackeye probe link-channel ..."
+
+# Probe Summary Table
+# -------------------
+# | Probe              | Type | Interval | Timeout | Purpose                    |
+# |--------------------|------|----------|---------|----------------------------|
+# | Website            | HTTP | 60s      | 10s     | Frontend availability      |
+# | API Health         | HTTP | 30s      | 10s     | API responsiveness         |
+# | Database           | TCP  | 60s      | 10s     | DB connectivity            |
+# | Redis Cache        | TCP  | 60s      | 5s      | Cache availability         |
+# | CDN                | HTTP | 120s     | 10s     | Static asset delivery      |
+# | Auth Service       | HTTP | 30s      | 10s     | Authentication system      |

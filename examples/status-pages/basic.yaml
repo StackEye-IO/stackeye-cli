@@ -1,0 +1,45 @@
+# Basic Status Page Configuration
+# ================================
+#
+# Minimal configuration for a public status page.
+# Use this as a starting point and customize as needed.
+#
+# Usage:
+#   stackeye status-page create --from-file basic.yaml
+#
+# After creation, add probes to the status page:
+#   stackeye status-page add-probe "{status_page_id}" "{probe_id}"
+
+# Human-readable name displayed on the status page
+name: "Service Status"
+
+# URL-safe slug for the status page URL
+# Format: lowercase, alphanumeric, hyphens only, 3-63 characters
+# Your status page will be at: https://status.stackeye.io/{slug}
+slug: "my-service"
+
+# Page theme: light, dark, or system (follows user preference)
+theme: light
+
+# Make the page publicly accessible (no authentication required)
+is_public: true
+
+# Show uptime percentages on the status page
+show_uptime_percentage: true
+
+# Enable the status page (set false to hide temporarily)
+enabled: true
+
+# After Creating Your Status Page:
+# ---------------------------------
+# 1. Get the status page ID:
+#    stackeye status-page list
+#
+# 2. Add probes to display on the page:
+#    stackeye status-page add-probe "{status_page_id}" "{probe_id}"
+#
+# 3. Reorder probes if needed:
+#    stackeye status-page reorder-probes "{status_page_id}" "{probe_id_1},{probe_id_2}"
+#
+# 4. View your status page:
+#    https://status.stackeye.io/{slug}

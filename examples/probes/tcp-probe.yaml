@@ -1,0 +1,52 @@
+# TCP Probe Example
+# =================
+#
+# This file documents a TCP connectivity check probe.
+# Useful for monitoring database servers, mail servers, or any TCP service.
+#
+# CLI Command:
+#   stackeye probe create \
+#     --name "PostgreSQL Database" \
+#     --url db.example.com:5432 \
+#     --check-type tcp \
+#     --interval 60 \
+#     --timeout 10 \
+#     --regions us-east-1,eu-west-1
+
+# Probe Configuration (Documentation)
+# ------------------------------------
+
+# Human-readable name for the probe
+name: "PostgreSQL Database"
+
+# Target host and port
+# Format: hostname:port (no scheme for TCP checks)
+url: "db.example.com:5432"
+
+# Check type: tcp for TCP connectivity check
+check_type: tcp
+
+# Check interval in seconds
+interval_seconds: 60
+
+# Connection timeout in seconds
+timeout_seconds: 10
+
+# Monitoring regions
+regions:
+  - us-east-1
+  - eu-west-1
+
+# Common TCP Ports Reference
+# --------------------------
+# PostgreSQL:      5432
+# MySQL:           3306
+# MongoDB:         27017
+# Redis:           6379
+# Elasticsearch:   9200
+# RabbitMQ:        5672
+# Kafka:           9092
+# SSH:             22
+# SMTP:            25, 587
+# IMAP:            143, 993
+# POP3:            110, 995

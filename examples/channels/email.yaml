@@ -1,0 +1,33 @@
+# Email Channel Configuration
+# ===========================
+#
+# Sends alert notifications to an email address.
+# Best for: Individual alerts, backup notifications, compliance logging.
+#
+# Usage:
+#   stackeye channel create --from-file email.yaml
+#
+# After creation, link to probes:
+#   stackeye probe link-channel "{probe_id}" "{channel_id}"
+
+# Human-readable name for the channel
+# Displayed in the dashboard and alert notifications
+name: "Ops Team Email"
+
+# Channel type
+type: email
+
+# Whether the channel is enabled
+# Set to false to temporarily disable without deleting
+enabled: true
+
+# Email-specific configuration
+config:
+  # Email address to receive notifications
+  # Must be a valid email address
+  address: "{your_email}"
+
+# Notes:
+# - StackEye sends alerts from noreply@stackeye.io
+# - Check your spam folder if you don't receive notifications
+# - Consider using a distribution list for team-wide alerts

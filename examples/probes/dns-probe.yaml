@@ -1,0 +1,42 @@
+# DNS Probe Example
+# =================
+#
+# This file documents a DNS resolution check probe.
+# Verifies that a domain name resolves correctly from monitoring regions.
+#
+# CLI Command:
+#   stackeye probe create \
+#     --name "DNS Resolution Check" \
+#     --url example.com \
+#     --check-type dns_resolve \
+#     --interval 300 \
+#     --timeout 10
+
+# Probe Configuration (Documentation)
+# ------------------------------------
+
+# Human-readable name for the probe
+name: "DNS Resolution Check"
+
+# Domain to resolve
+# Note: No scheme (http://) - just the domain name
+url: "example.com"
+
+# Check type: dns_resolve for DNS resolution check
+check_type: dns_resolve
+
+# Check interval in seconds
+# DNS checks can use longer intervals (300s = 5 minutes)
+# since DNS changes are typically infrequent
+interval_seconds: 300
+
+# Resolution timeout in seconds
+timeout_seconds: 10
+
+# Use Cases for DNS Monitoring
+# ----------------------------
+# 1. Verify domain resolution after DNS changes
+# 2. Monitor for DNS propagation issues
+# 3. Detect DNS hijacking attempts
+# 4. Ensure failover DNS records are working
+# 5. Monitor CDN or load balancer DNS entries

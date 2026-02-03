@@ -1,0 +1,113 @@
+# HTTP Advanced Probe Example
+# ===========================
+#
+# This file documents a fully-configured HTTP probe with all available options.
+# Use the equivalent CLI command below to create this probe.
+#
+# CLI Command:
+#   stackeye probe create \
+#     --name "API Endpoint - Full Config" \
+#     --url https://api.example.com/v1/status \
+#     --method POST \
+#     --headers '{"Authorization":"Bearer {your_token}","Content-Type":"application/json"}' \
+#     --body '{"check":"health"}' \
+#     --interval 30 \
+#     --timeout 15 \
+#     --expected-status-codes "200,201,204" \
+#     --keyword-check '"status":"healthy"' \
+#     --keyword-check-type contains \
+#     --json-path-check "$.data.status" \
+#     --json-path-expected "ok" \
+#     --follow-redirects \
+#     --max-redirects 5 \
+#     --ssl-check-enabled \
+#     --ssl-expiry-threshold-days 30 \
+#     --regions us-east-1,eu-west-1,ap-southeast-1
+
+# Probe Configuration (Documentation)
+# ------------------------------------
+
+# Human-readable name for the probe
+name: "API Endpoint - Full Config"
+
+# Target URL to monitor
+url: "https://api.example.com/v1/status"
+
+# Check type
+check_type: http
+
+# HTTP Configuration
+# ------------------
+
+# HTTP method for the request
+method: POST
+
+# Custom headers (JSON object)
+# Use for authentication tokens, content types, etc.
+headers:
+  Authorization: "Bearer {your_token}"
+  Content-Type: "application/json"
+  X-Custom-Header: "{custom_value}"
+
+# Request body for POST/PUT requests
+body: '{"check":"health"}'
+
+# Expected HTTP status codes (any match = success)
+expected_status_codes:
+  - 200
+  - 201
+  - 204
+
+# Redirect Handling
+# -----------------
+
+# Whether to follow HTTP redirects
+follow_redirects: true
+
+# Maximum number of redirects to follow (0-20)
+max_redirects: 5
+
+# Timing Configuration
+# --------------------
+
+# Check interval in seconds (30-3600)
+# Pro tip: Use shorter intervals (30-60s) for critical services
+interval_seconds: 30
+
+# Request timeout in seconds (1-60)
+timeout_seconds: 15
+
+# Content Validation
+# ------------------
+
+# Keyword check: search for specific content in response body
+# Useful for verifying the response contains expected data
+keyword_check: '"status":"healthy"'
+
+# Keyword check type: "contains" or "not_contains"
+keyword_check_type: contains
+
+# JSONPath validation: extract and validate specific values
+# Uses JSONPath syntax (https://goessner.net/articles/JsonPath/)
+json_path_check: "$.data.status"
+json_path_expected: "ok"
+
+# SSL/TLS Monitoring
+# ------------------
+
+# Enable SSL certificate monitoring
+ssl_check_enabled: true
+
+# Alert when certificate expires within N days (1-365)
+# Recommended: 30 days for most services
+ssl_expiry_threshold_days: 30
+
+# Region Configuration
+# --------------------
+
+# Specific regions to run checks from
+# If not specified, all active regions are used
+regions:
+  - us-east-1
+  - eu-west-1
+  - ap-southeast-1

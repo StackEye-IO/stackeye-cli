@@ -1,0 +1,69 @@
+# PagerDuty Channel Configuration
+# ================================
+#
+# Creates incidents in PagerDuty when alerts trigger.
+# Best for: On-call rotation, incident management, 24/7 operations.
+#
+# Prerequisites:
+#   1. Log into PagerDuty
+#   2. Go to Services > Service Directory
+#   3. Select your service or create a new one
+#   4. Go to Integrations tab
+#   5. Add integration: "Events API v2"
+#   6. Copy the Integration Key (Routing Key)
+#
+# Usage:
+#   stackeye channel create --from-file pagerduty.yaml
+
+# Human-readable name for the channel
+name: "PagerDuty - On-Call"
+
+# Channel type
+type: pagerduty
+
+# Whether the channel is enabled
+enabled: true
+
+# PagerDuty-specific configuration
+config:
+  # PagerDuty Events API v2 routing key (Integration Key)
+  # Found in: Services > Your Service > Integrations > Events API v2
+  routing_key: "{pagerduty_routing_key}"
+
+  # Severity level for incidents
+  # Options: critical, error, warning, info
+  # - critical: Triggers high-urgency incident, pages on-call immediately
+  # - error: Triggers high-urgency incident
+  # - warning: Triggers low-urgency incident
+  # - info: Creates an alert without paging
+  severity: critical
+
+# Routing Key Setup Guide:
+# ------------------------
+# 1. Log into your PagerDuty account
+# 2. Go to Services > Service Directory
+# 3. Select an existing service or click "+ New Service"
+# 4. For a new service:
+#    - Name: "StackEye Monitoring"
+#    - Integration: Select "Events API v2"
+#    - Escalation Policy: Choose appropriate policy
+# 5. For existing service:
+#    - Go to Integrations tab
+#    - Click "+ Add Integration"
+#    - Select "Events API v2"
+# 6. Copy the "Integration Key" (this is your routing_key)
+#
+# Severity Mapping:
+# -----------------
+# | Severity | PagerDuty Behavior                    | Use Case                |
+# |----------|---------------------------------------|-------------------------|
+# | critical | High-urgency, immediate page          | Production down         |
+# | error    | High-urgency incident                 | Major service issues    |
+# | warning  | Low-urgency incident                  | Degraded performance    |
+# | info     | Alert only, no page                   | Informational events    |
+#
+# Best Practices:
+# - Use 'critical' severity sparingly to avoid alert fatigue
+# - Set up escalation policies in PagerDuty
+# - Configure on-call schedules before going live
+# - Test the integration with a manual probe test

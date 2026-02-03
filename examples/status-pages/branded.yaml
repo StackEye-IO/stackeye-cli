@@ -1,0 +1,85 @@
+# Branded Status Page Configuration
+# ==================================
+#
+# Fully customized status page with branding and custom domain.
+# Perfect for customer-facing status pages.
+#
+# Usage:
+#   stackeye status-page create --from-file branded.yaml
+
+# Human-readable name displayed on the status page
+name: "Acme Corp System Status"
+
+# URL-safe slug
+# Default URL: https://status.stackeye.io/acme-status
+# With custom domain: https://status.acme.com
+slug: "acme-status"
+
+# Custom domain for your status page (optional)
+# Requires DNS configuration - see notes below
+custom_domain: "status.acme.com"
+
+# Branding
+# --------
+
+# URL to your company logo
+# Recommended: PNG or SVG, max 200x50px
+logo_url: "{logo_url}"
+
+# URL to favicon
+# Recommended: 32x32 or 16x16 ICO/PNG
+favicon_url: "{favicon_url}"
+
+# Custom text displayed at the top of the page
+# Use for announcements, welcome messages, or context
+header_text: "Welcome to the Acme Corp Status Page. We monitor our systems 24/7 to ensure the best experience."
+
+# Custom text displayed in the footer
+# Use for support contact, legal links, etc.
+footer_text: "Questions? Contact {support_email} | Acme Corp {year}"
+
+# Page Configuration
+# ------------------
+
+# Theme: light, dark, or system
+theme: dark
+
+# Public visibility
+is_public: true
+
+# Show uptime percentages
+show_uptime_percentage: true
+
+# Enable the status page
+enabled: true
+
+# Custom Domain Setup:
+# --------------------
+# To use a custom domain like status.acme.com:
+#
+# 1. Add this CNAME record to your DNS:
+#    Host:  status
+#    Value: cname.stackeye.io
+#    TTL:   300 (or lowest available)
+#
+# 2. Wait for DNS propagation (up to 48 hours, usually much faster)
+#
+# 3. Update this config with your custom_domain
+#
+# 4. StackEye will automatically provision SSL certificate
+#
+# DNS Verification:
+#   dig status.acme.com CNAME
+#   # Should return: cname.stackeye.io
+#
+# SSL provisioning typically takes 5-15 minutes after DNS is verified.
+
+# Plan Limits:
+# ------------
+# | Plan       | Status Pages | Custom Domain |
+# |------------|--------------|---------------|
+# | Free       | 1            | No            |
+# | Starter    | 2            | No            |
+# | Pro        | 5            | Yes           |
+# | Team       | Unlimited    | Yes           |
+# | Enterprise | Unlimited    | Yes           |

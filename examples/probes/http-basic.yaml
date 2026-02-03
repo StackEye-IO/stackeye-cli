@@ -1,0 +1,54 @@
+# HTTP Basic Probe Example
+# =======================
+#
+# This file documents the configuration for a basic HTTP health check probe.
+# Use the equivalent CLI command below to create this probe.
+#
+# CLI Command:
+#   stackeye probe create \
+#     --name "Website Health Check" \
+#     --url https://example.com/health \
+#     --interval 60 \
+#     --timeout 10
+
+# Probe Configuration (Documentation)
+# ------------------------------------
+
+# Human-readable name for the probe
+# Used in alerts and the dashboard
+name: "Website Health Check"
+
+# Target URL to monitor
+# Must include scheme (http:// or https://)
+url: "https://example.com/health"
+
+# Check type: http, ping, tcp, or dns_resolve
+# Default: http
+check_type: http
+
+# HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
+# Default: GET
+method: GET
+
+# Check interval in seconds (30-3600)
+# How often the probe runs
+# Default: 60
+interval_seconds: 60
+
+# Request timeout in seconds (1-60)
+# Maximum time to wait for a response
+# Default: 10
+timeout_seconds: 10
+
+# Expected HTTP status codes
+# Probe passes if response matches any of these codes
+# Default: [200]
+expected_status_codes:
+  - 200
+
+# Monitoring regions
+# If not specified, all active regions are used
+# regions:
+#   - us-east-1
+#   - eu-west-1
+#   - ap-southeast-1

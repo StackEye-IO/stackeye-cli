@@ -1,0 +1,44 @@
+# Discord Channel Configuration
+# =============================
+#
+# Posts alert notifications to a Discord channel via webhooks.
+# Best for: Gaming/community teams, developer Discord servers.
+#
+# Prerequisites:
+#   1. Open Discord and go to your server
+#   2. Right-click the channel > Edit Channel
+#   3. Go to Integrations > Webhooks
+#   4. Create a new webhook and copy the URL
+#
+# Usage:
+#   stackeye channel create --from-file discord.yaml
+
+# Human-readable name for the channel
+name: "Discord - Dev Alerts"
+
+# Channel type
+type: discord
+
+# Whether the channel is enabled
+enabled: true
+
+# Discord-specific configuration
+config:
+  # Discord webhook URL
+  # Format: https://discord.com/api/webhooks/000000000000000000/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  webhook_url: "{discord_webhook_url}"
+
+# Webhook URL Setup Guide:
+# ------------------------
+# 1. Open Discord and navigate to your server
+# 2. Right-click on the channel you want alerts in
+# 3. Select "Edit Channel"
+# 4. Go to "Integrations" > "Webhooks"
+# 5. Click "New Webhook"
+# 6. Give it a name (e.g., "StackEye Alerts")
+# 7. Copy the webhook URL
+#
+# Tips:
+# - Use a dedicated #monitoring channel
+# - Set up Discord notification preferences per channel
+# - You can customize the webhook name and avatar in Discord settings

@@ -1,0 +1,57 @@
+# SMS Channel Configuration
+# =========================
+#
+# Sends SMS text messages when alerts trigger.
+# Best for: Critical alerts, backup notifications, unreachable on-call.
+#
+# Note: SMS notifications require a paid plan with SMS credits.
+#
+# Usage:
+#   stackeye channel create --from-file sms.yaml
+
+# Human-readable name for the channel
+name: "Emergency SMS"
+
+# Channel type
+type: sms
+
+# Whether the channel is enabled
+enabled: true
+
+# SMS-specific configuration
+config:
+  # Phone number in E.164 format
+  # E.164 format: +[country code][phone number]
+  # Examples:
+  #   US:  +14155551234
+  #   UK:  +447911123456
+  #   DE:  +491701234567
+  #   AU:  +61412345678
+  phone_number: "{phone_e164}"
+
+# E.164 Format Reference:
+# -----------------------
+# | Country        | Code | Example          |
+# |----------------|------|------------------|
+# | United States  | +1   | +14155551234     |
+# | United Kingdom | +44  | +447911123456    |
+# | Germany        | +49  | +491701234567    |
+# | France         | +33  | +33612345678     |
+# | Australia      | +61  | +61412345678     |
+# | Japan          | +81  | +819012345678    |
+# | India          | +91  | +919876543210    |
+# | Brazil         | +55  | +5511987654321   |
+#
+# Best Practices:
+# ---------------
+# - Reserve SMS for truly critical alerts
+# - SMS can be more expensive than other channels
+# - Use as a backup when other channels might be unavailable
+# - Verify phone numbers can receive SMS (some VoIP numbers cannot)
+# - Consider timezone of the recipient
+#
+# When to Use SMS:
+# - Production system completely down
+# - All other notification channels failed
+# - Security incidents requiring immediate attention
+# - After-hours critical alerts

@@ -1,0 +1,81 @@
+# Webhook Channel Configuration
+# =============================
+#
+# Sends HTTP requests to any endpoint when alerts trigger.
+# Best for: Custom integrations, internal tools, third-party services.
+#
+# Usage:
+#   stackeye channel create --from-file webhook.yaml
+
+# Human-readable name for the channel
+name: "Custom Integration"
+
+# Channel type
+type: webhook
+
+# Whether the channel is enabled
+enabled: true
+
+# Webhook-specific configuration
+config:
+  # Endpoint URL to receive webhook payloads
+  url: "{webhook_endpoint_url}"
+
+  # HTTP method: GET, POST, PUT, PATCH, DELETE
+  # Default: POST
+  method: POST
+
+  # Custom HTTP headers
+  # Use for authentication, content type, etc.
+  headers:
+    Authorization: "Bearer {your_api_token}"
+    Content-Type: "application/json"
+    X-Source: "stackeye"
+
+# Webhook Payload Format:
+# -----------------------
+# StackEye sends a JSON payload with alert details:
+#
+# {
+#   "alert_id": "{uuid}",
+#   "probe_id": "{uuid}",
+#   "probe_name": "My Probe",
+#   "status": "down",           // "down" or "up" (recovery)
+#   "triggered_at": "2024-01-15T10:30:00Z",
+#   "resolved_at": null,        // Set when alert resolves
+#   "error_message": "Connection timeout",
+#   "response_time_ms": 10045,
+#   "status_code": null,        // HTTP status if applicable
+#   "region": "us-east-1",
+#   "organization_id": "{uuid}",
+#   "severity": "critical"
+# }
+
+# Example Use Cases:
+# ------------------
+#
+# 1. Internal Dashboard Update
+#    url: "https://internal.example.com/api/status/update"
+#    method: POST
+#    headers:
+#      X-Internal-Token: "{internal_token}"
+#
+# 2. Incident Management System
+#    url: "https://incidents.example.com/api/v1/events"
+#    method: POST
+#    headers:
+#      Authorization: "Bearer {api_key}"
+#
+# 3. Zapier/Make Integration
+#    url: "https://hooks.zapier.com/hooks/catch/{zapier_id}/"
+#    method: POST
+#
+# 4. AWS Lambda/API Gateway
+#    url: "https://{api_id}.execute-api.us-east-1.amazonaws.com/prod/alerts"
+#    method: POST
+#    headers:
+#      x-api-key: "{aws_api_key}"
+#
+# 5. n8n Workflow
+#    url: "https://n8n.example.com/webhook/{workflow_id}"
+#    method: POST

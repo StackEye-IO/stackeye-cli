@@ -1,0 +1,44 @@
+# Slack Channel Configuration
+# ===========================
+#
+# Posts alert notifications to a Slack channel via incoming webhooks.
+# Best for: Team notifications, ChatOps workflows, real-time visibility.
+#
+# Prerequisites:
+#   1. Create a Slack App: https://api.slack.com/apps
+#   2. Enable Incoming Webhooks in your app settings
+#   3. Add the webhook to your workspace
+#   4. Copy the webhook URL
+#
+# Usage:
+#   stackeye channel create --from-file slack.yaml
+
+# Human-readable name for the channel
+name: "Slack - Production Alerts"
+
+# Channel type
+type: slack
+
+# Whether the channel is enabled
+enabled: true
+
+# Slack-specific configuration
+config:
+  # Slack incoming webhook URL
+  # Obtain from: Slack App > Incoming Webhooks > Add New Webhook
+  webhook_url: "{slack_webhook_url}"
+
+# Webhook URL Setup Guide:
+# ------------------------
+# 1. Go to https://api.slack.com/apps
+# 2. Create a new app or select existing
+# 3. Under "Features", click "Incoming Webhooks"
+# 4. Toggle "Activate Incoming Webhooks" to ON
+# 5. Click "Add New Webhook to Workspace"
+# 6. Select the channel to receive alerts
+# 7. Copy the webhook URL
+#
+# Best Practices:
+# - Create separate channels for different environments (prod, staging)
+# - Use a dedicated #alerts channel to avoid noise
+# - Pin important alert messages for incident tracking

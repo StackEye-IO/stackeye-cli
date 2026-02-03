@@ -1,0 +1,135 @@
+# GitLab CI: StackEye Monitoring Integration
+# ==========================================
+#
+# This pipeline sets up monitoring for your application after deployment.
+# Add this to .gitlab-ci.yml in your repository.
+#
+# Required CI/CD Variables:
+#   STACKEYE_API_KEY - Your StackEye API key (se_...)
+#
+# Optional Variables:
+#   SLACK_WEBHOOK_URL - For Slack notifications
+#   APP_URL - Override default application URL
+
+stages:
+  - build
+  - test
+  - deploy
+  - monitor
+
+variables:
+  APP_NAME: my-application
+  APP_URL: https://api.example.com
+
+# Your existing build and test jobs here
+build:
+  stage: build
+  script:
+    - echo "Building application..."
+
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying application..."
+  environment:
+    name: production
+    url: $APP_URL
+
+# Monitoring setup after deployment
+setup-monitoring:
+  stage: monitor
+  image: alpine:latest
+  needs:
+    - deploy
+  before_script:
+    # Install dependencies
+    - apk add --no-cache curl bash jq
+    # Install StackEye CLI
+    - curl -fsSL https://get.stackeye.io/cli | bash
+    - export PATH="$PATH:$HOME/.local/bin"
+    # Configure authentication
+    - stackeye setup --no-input
+  script:
+    - stackeye whoami
+
+    # Check if probe exists, create if not
+    - |
+      EXISTING_PROBE=$(stackeye probe list -o json | jq -r ".[] | select(.name == \"${APP_NAME} - Health\") | .id")
+      if [ -z "$EXISTING_PROBE" ]; then
+        echo "Creating new probe..."
+        stackeye probe create \
+          --name "${APP_NAME} - Health" \
+          --url "${APP_URL}/health" \
+          --interval 60 \
+          --timeout 10
+      else
+        echo "Probe already exists: $EXISTING_PROBE"
+      fi
+
+    # Run immediate health check
+    - |
+      PROBE_ID=$(stackeye probe list -o json | jq -r ".[] | select(.name | contains(\"${APP_NAME}\")) | .id" | head -1)
+      if [ -n "$PROBE_ID" ]; then
+        stackeye probe test "$PROBE_ID"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment:
+    name: production
+
+# Optional: Setup notification channels
+setup-notifications:
+  stage: monitor
+  image: alpine:latest
+  needs:
+    - setup-monitoring
+  before_script:
+    - apk add --no-cache curl bash jq
+    - curl -fsSL https://get.stackeye.io/cli | bash
+    - export PATH="$PATH:$HOME/.local/bin"
+    - stackeye setup --no-input
+  script:
+    # Create Slack channel from inline YAML
+    - |
+      cat > /tmp/slack-channel.yaml << EOF
+      name: "${APP_NAME} - Slack Alerts"
+      type: slack
+      enabled: true
+      config:
+        webhook_url: "${SLACK_WEBHOOK_URL}"
+      EOF
+      stackeye channel create --from-file /tmp/slack-channel.yaml || true
+
+    # Link channel to probe
+    - |
+      PROBE_ID=$(stackeye probe list -o json | jq -r ".[] | select(.name | contains(\"${APP_NAME}\")) | .id" | head -1)
+      CHANNEL_ID=$(stackeye channel list -o json | jq -r ".[] | select(.name | contains(\"${APP_NAME}\")) | .id" | head -1)
+      if [ -n "$PROBE_ID" ] && [ -n "$CHANNEL_ID" ]; then
+        stackeye probe link-channel "$PROBE_ID" "$CHANNEL_ID" || true
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  environment:
+    name: production
+
+# Scheduled monitoring check
+scheduled-check:
+  stage: monitor
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl bash jq
+    - curl -fsSL https://get.stackeye.io/cli | bash
+    - export PATH="$PATH:$HOME/.local/bin"
+    - stackeye setup --no-input
+  script:
+    - stackeye probe list
+    - stackeye alert list --status active
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
