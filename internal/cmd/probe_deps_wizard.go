@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/google/uuid"
@@ -250,12 +251,12 @@ func runProbeDepsWizard(ctx context.Context) error {
 	fmt.Printf("\nTotal: %d dependencies\n\n", len(depsToCreate))
 
 	// Confirm
-	confirmed, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Create these dependencies?",
-		Default: true,
-	})
+	confirmed, err := cliinteractive.Confirm(
+		"Create these dependencies?",
+		cliinteractive.WithDefault(true),
+	)
 	if err != nil {
-		if err == interactive.ErrPromptCancelled {
+		if err == cliinteractive.ErrCancelled {
 			fmt.Println("\nWizard cancelled.")
 			return nil
 		}
