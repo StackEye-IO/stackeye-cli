@@ -168,17 +168,17 @@ func TestValidateTeamUpdateRoleFlags_InvalidValues(t *testing.T) {
 		{
 			name:        "invalid role with member-id",
 			flags:       &teamUpdateRoleFlags{memberID: 42, role: "superadmin"},
-			errContains: "invalid role",
+			errContains: "for --role",
 		},
 		{
 			name:        "invalid role typo",
 			flags:       &teamUpdateRoleFlags{memberID: 42, role: "adnin"},
-			errContains: "invalid role",
+			errContains: "for --role",
 		},
 		{
 			name:        "invalid role with email",
 			flags:       &teamUpdateRoleFlags{email: "user@company.io", role: "moderator"},
-			errContains: "invalid role",
+			errContains: "for --role",
 		},
 	}
 

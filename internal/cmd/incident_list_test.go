@@ -129,7 +129,7 @@ func TestRunIncidentList_Validation(t *testing.T) {
 		{
 			name:         "invalid status value",
 			args:         []string{"--status-page-id", "1", "--status", "invalid"},
-			wantErrorMsg: "invalid status \"invalid\"",
+			wantErrorMsg: "for --status",
 		},
 	}
 

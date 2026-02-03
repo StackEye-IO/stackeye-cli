@@ -110,8 +110,8 @@ func TestValidateChannelType_Invalid(t *testing.T) {
 			if err == nil {
 				t.Errorf("expected invalid channel type %q to fail validation", ct)
 			}
-			if !strings.Contains(err.Error(), "invalid --type") {
-				t.Errorf("expected error to mention 'invalid --type', got: %v", err)
+			if !strings.Contains(err.Error(), "for --type") {
+				t.Errorf("expected error to mention 'for --type', got: %v", err)
 			}
 		})
 	}

@@ -140,8 +140,8 @@ func TestProbeDepsClearCmd_InvalidDirection(t *testing.T) {
 		t.Error("expected error for invalid direction")
 	}
 
-	if !strings.Contains(err.Error(), "invalid direction") {
-		t.Errorf("expected 'invalid direction' error, got: %v", err)
+	if !strings.Contains(err.Error(), "for --direction") {
+		t.Errorf("expected 'for --direction' error, got: %v", err)
 	}
 }
 
@@ -199,11 +199,11 @@ func TestProbeDepsClearCmd_DirectionValues(t *testing.T) {
 			// Note: This test will fail at the API call stage since we don't have
 			// a mock server. We're just testing that direction validation works.
 			// Valid directions will fail later at API call; invalid ones fail at validation.
-			if tt.valid && err != nil && strings.Contains(err.Error(), "invalid direction") {
+			if tt.valid && err != nil && strings.Contains(err.Error(), "for --direction") {
 				t.Errorf("direction %q should be valid but got: %v", tt.direction, err)
 			}
-			if !tt.valid && err != nil && !strings.Contains(err.Error(), "invalid direction") {
-				// For invalid directions, we expect an "invalid direction" error.
+			if !tt.valid && err != nil && !strings.Contains(err.Error(), "for --direction") {
+				// For invalid directions, we expect a "for --direction" error.
 				// But empty direction falls through as "both" via default, so it's valid.
 				if tt.direction != "" {
 					t.Errorf("direction %q should be invalid but got different error: %v", tt.direction, err)

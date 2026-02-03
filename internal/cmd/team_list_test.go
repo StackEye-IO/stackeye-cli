@@ -229,12 +229,12 @@ func TestValidateTeamListFlags_InvalidValues(t *testing.T) {
 		{
 			name:        "invalid role",
 			flags:       &teamListFlags{page: 1, limit: 20, role: "superuser"},
-			errContains: "invalid role",
+			errContains: "for --role",
 		},
 		{
 			name:        "invalid role typo",
 			flags:       &teamListFlags{page: 1, limit: 20, role: "admn"},
-			errContains: "invalid role",
+			errContains: "for --role",
 		},
 	}
 
