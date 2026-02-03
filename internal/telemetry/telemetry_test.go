@@ -1,6 +1,11 @@
 package telemetry
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 )
@@ -213,10 +218,431 @@ func TestClient_Track_WhenDisabled(t *testing.T) {
 	client.SetEnabled(false)
 
 	// Track should be a no-op when disabled
-	client.Track(nil, "test command", 0, time.Second)
+	client.Track(context.TODO(), "test command", 0, time.Second)
 
 	// Should not panic and should not set lastEvent
 	if client.GetLastEvent() != nil {
 		t.Error("expected no event to be tracked when telemetry is disabled")
+	}
+}
+
+func TestClient_Track_WhenEnabled(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	client.SetEnabled(true)
+
+	// Use a non-existent endpoint to avoid actual network calls
+	client.SetEndpoint("http://127.0.0.1:1")
+
+	// Track should store the event
+	client.Track(context.TODO(), "probe list --verbose", 0, 500*time.Millisecond)
+
+	// Give async goroutine time to run (even though it will fail)
+	time.Sleep(10 * time.Millisecond)
+
+	// Should set lastEvent
+	event := client.GetLastEvent()
+	if event == nil {
+		t.Fatal("expected event to be tracked when telemetry is enabled")
+	}
+
+	if event.Command != "probe list" {
+		t.Errorf("expected command='probe list', got %q", event.Command)
+	}
+	if event.ExitCode != 0 {
+		t.Errorf("expected exit code=0, got %d", event.ExitCode)
+	}
+	if event.DurationMs != 500 {
+		t.Errorf("expected duration=500, got %d", event.DurationMs)
+	}
+	if event.OS == "" {
+		t.Error("expected OS to be set")
+	}
+	if event.Arch == "" {
+		t.Error("expected Arch to be set")
+	}
+}
+
+func TestClient_GetLastEvent_NilInitially(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	if client.GetLastEvent() != nil {
+		t.Error("expected nil for last event initially")
+	}
+}
+
+func TestClient_BuildEvent(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	event := client.buildEvent("admin worker-key list", 1, 2*time.Second)
+
+	if event.Command != "admin worker-key list" {
+		t.Errorf("expected command='admin worker-key list', got %q", event.Command)
+	}
+	if event.ExitCode != 1 {
+		t.Errorf("expected exit code=1, got %d", event.ExitCode)
+	}
+	if event.DurationMs != 2000 {
+		t.Errorf("expected duration=2000, got %d", event.DurationMs)
+	}
+	if event.CLIVersion == "" {
+		t.Error("expected CLIVersion to be set")
+	}
+	if event.OS == "" {
+		t.Error("expected OS to be set")
+	}
+	if event.Arch == "" {
+		t.Error("expected Arch to be set")
+	}
+}
+
+func TestClient_Reload(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+
+	// Should not panic
+	client.Reload()
+
+	// Should still be disabled after reload (no config)
+	if client.IsEnabled() {
+		t.Error("expected telemetry to remain disabled after reload with no config")
+	}
+}
+
+func TestDefaultEndpoint(t *testing.T) {
+	if DefaultEndpoint != "https://api.stackeye.io/v1/telemetry/cli" {
+		t.Errorf("expected default endpoint to be production URL, got %q", DefaultEndpoint)
+	}
+}
+
+func TestEnvTelemetryConstant(t *testing.T) {
+	if EnvTelemetry != "STACKEYE_TELEMETRY" {
+		t.Errorf("expected env constant to be STACKEYE_TELEMETRY, got %q", EnvTelemetry)
+	}
+}
+
+func TestClient_LoadConfig_NoConfig(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Fresh client with no config should be disabled
+	client := GetClient()
+	if client.IsEnabled() {
+		t.Error("expected telemetry to be disabled when no config exists")
+	}
+}
+
+func TestSanitizeCommand_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "only spaces",
+			input:    "   ",
+			expected: "unknown",
+		},
+		{
+			name:     "command with multiple spaces",
+			input:    "probe  list",
+			expected: "probe list",
+		},
+		{
+			name:     "leading space",
+			input:    " probe list",
+			expected: "probe list",
+		},
+		{
+			name:     "trailing space",
+			input:    "probe list ",
+			expected: "probe list",
+		},
+		{
+			name:     "flag at start",
+			input:    "--help",
+			expected: "unknown",
+		},
+		{
+			name:     "slash at start",
+			input:    "/path/to/file",
+			expected: "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeCommand(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeCommand(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestClient_ConcurrentAccess(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	client.SetEnabled(true)
+	client.SetEndpoint("http://127.0.0.1:1")
+
+	// Run concurrent operations to test thread safety
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(idx int) {
+			client.IsEnabled()
+			client.SetEnabled(idx%2 == 0)
+			client.GetLastEvent()
+			client.Track(context.TODO(), "test", idx, time.Millisecond)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+	// Test passes if no race conditions or panics
+}
+
+func TestLoadConfig_EnvVarDisable(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+	defer os.Unsetenv(EnvTelemetry)
+
+	// Test various disable values
+	disableValues := []string{"0", "false", "no", "off", "FALSE", "NO", "OFF"}
+	for _, val := range disableValues {
+		t.Run("disable_"+val, func(t *testing.T) {
+			ResetClient()
+			os.Setenv(EnvTelemetry, val)
+			client := GetClient()
+			if client.IsEnabled() {
+				t.Errorf("expected telemetry disabled with STACKEYE_TELEMETRY=%s", val)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_EnvVarEnable(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+	defer os.Unsetenv(EnvTelemetry)
+
+	// Test various enable values
+	enableValues := []string{"1", "true", "yes", "on", "TRUE", "YES", "ON"}
+	for _, val := range enableValues {
+		t.Run("enable_"+val, func(t *testing.T) {
+			ResetClient()
+			os.Setenv(EnvTelemetry, val)
+			client := GetClient()
+			if !client.IsEnabled() {
+				t.Errorf("expected telemetry enabled with STACKEYE_TELEMETRY=%s", val)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_EnvVarUnknownValue(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+	defer os.Unsetenv(EnvTelemetry)
+
+	// Unknown env value should fall through to config
+	os.Setenv(EnvTelemetry, "maybe")
+	client := GetClient()
+	// Without config, should be disabled
+	if client.IsEnabled() {
+		t.Error("expected telemetry disabled with unknown env value and no config")
+	}
+}
+
+func TestClient_Reload_ReloadsFromEnv(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+	defer os.Unsetenv(EnvTelemetry)
+
+	client := GetClient()
+
+	// Initially disabled
+	if client.IsEnabled() {
+		t.Error("expected initially disabled")
+	}
+
+	// Set env and reload
+	os.Setenv(EnvTelemetry, "1")
+	client.Reload()
+
+	if !client.IsEnabled() {
+		t.Error("expected enabled after reload with env=1")
+	}
+
+	// Disable via env and reload
+	os.Setenv(EnvTelemetry, "0")
+	client.Reload()
+
+	if client.IsEnabled() {
+		t.Error("expected disabled after reload with env=0")
+	}
+}
+
+func TestClient_Send_Success(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Create a test server that accepts telemetry events
+	var receivedEvent *Event
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.Header.Get("User-Agent") == "" {
+			t.Error("expected User-Agent header")
+		}
+
+		// Decode the event
+		receivedEvent = &Event{}
+		if err := json.NewDecoder(r.Body).Decode(receivedEvent); err != nil {
+			t.Errorf("failed to decode event: %v", err)
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := GetClient()
+	client.SetEndpoint(server.URL)
+
+	event := &Event{
+		CLIVersion: "1.0.0",
+		Command:    "test command",
+		ExitCode:   0,
+		DurationMs: 100,
+		OS:         "linux",
+		Arch:       "amd64",
+	}
+
+	err := client.send(context.Background(), event)
+	if err != nil {
+		t.Fatalf("send failed: %v", err)
+	}
+
+	// Verify event was received
+	if receivedEvent == nil {
+		t.Fatal("expected event to be received")
+	}
+	if receivedEvent.Command != "test command" {
+		t.Errorf("expected command='test command', got %q", receivedEvent.Command)
+	}
+}
+
+func TestClient_Send_ServerError(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Create a test server that returns an error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := GetClient()
+	client.SetEndpoint(server.URL)
+
+	event := &Event{
+		CLIVersion: "1.0.0",
+		Command:    "test",
+		ExitCode:   0,
+	}
+
+	// Send should not return error for server errors (fire and forget)
+	err := client.send(context.Background(), event)
+	if err != nil {
+		t.Fatalf("send should not fail on server error: %v", err)
+	}
+}
+
+func TestClient_Send_InvalidEndpoint(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	client.SetEndpoint("http://127.0.0.1:1") // Invalid port
+
+	event := &Event{
+		CLIVersion: "1.0.0",
+		Command:    "test",
+		ExitCode:   0,
+	}
+
+	// Send should return error for network failure
+	err := client.send(context.Background(), event)
+	if err == nil {
+		t.Error("expected error for invalid endpoint")
+	}
+}
+
+func TestClient_Send_ContextCanceled(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	// Create a slow server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := GetClient()
+	client.SetEndpoint(server.URL)
+
+	event := &Event{
+		CLIVersion: "1.0.0",
+		Command:    "test",
+		ExitCode:   0,
+	}
+
+	// Cancel context immediately
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := client.send(ctx, event)
+	if err == nil {
+		t.Error("expected error for canceled context")
+	}
+}
+
+func TestClient_Track_StoresLastEvent(t *testing.T) {
+	ResetClient()
+	defer ResetClient()
+
+	client := GetClient()
+	client.SetEnabled(true)
+	client.SetEndpoint("http://127.0.0.1:1") // Won't actually connect
+
+	client.Track(context.TODO(), "probe list", 0, 500*time.Millisecond)
+
+	// Give async goroutine time to set lastEvent
+	time.Sleep(20 * time.Millisecond)
+
+	event := client.GetLastEvent()
+	if event == nil {
+		t.Fatal("expected last event to be set")
+	}
+	if event.Command != "probe list" {
+		t.Errorf("expected command='probe list', got %q", event.Command)
 	}
 }
