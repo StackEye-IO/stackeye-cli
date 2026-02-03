@@ -102,16 +102,19 @@ func runBillingUsage(ctx context.Context, flags *billingUsageFlags) error {
 		}
 	}
 
-	// Check output format - use JSON/YAML if requested, otherwise pretty print
+	// Check output format - use JSON/YAML/table if requested, otherwise pretty print
 	cfg := GetConfig()
 	if cfg != nil && cfg.Preferences != nil {
 		switch cfg.Preferences.OutputFormat {
 		case "json", "yaml":
 			return output.Print(usage)
+		case "table", "wide":
+			// Use table formatter for structured output (scripting-friendly)
+			return output.PrintUsage(usage)
 		}
 	}
 
-	// Pretty print for table format (default)
+	// Pretty print boxes for default format (human-friendly)
 	printUsageInfo(usage)
 	return nil
 }

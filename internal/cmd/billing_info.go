@@ -70,16 +70,19 @@ func runBillingInfo(ctx context.Context) error {
 		return fmt.Errorf("failed to get billing info: %w", err)
 	}
 
-	// Check output format - use JSON/YAML if requested, otherwise pretty print
+	// Check output format - use JSON/YAML/table if requested, otherwise pretty print
 	cfg := GetConfig()
 	if cfg != nil && cfg.Preferences != nil {
 		switch cfg.Preferences.OutputFormat {
 		case "json", "yaml":
 			return output.Print(info)
+		case "table", "wide":
+			// Use table formatter for structured output (scripting-friendly)
+			return output.PrintSubscription(info)
 		}
 	}
 
-	// Pretty print for table format (default)
+	// Pretty print boxes for default format (human-friendly)
 	printBillingInfo(info)
 	return nil
 }

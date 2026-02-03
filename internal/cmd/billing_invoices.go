@@ -108,16 +108,19 @@ func runBillingInvoices(ctx context.Context) error {
 		return downloadInvoicePDFs(ctx, response.Invoices, invoicesFlags.outputDir)
 	}
 
-	// Check output format - use JSON/YAML if requested, otherwise pretty print
+	// Check output format - use JSON/YAML/table if requested, otherwise pretty print
 	cfg := GetConfig()
 	if cfg != nil && cfg.Preferences != nil {
 		switch cfg.Preferences.OutputFormat {
 		case "json", "yaml":
 			return output.Print(response)
+		case "table", "wide":
+			// Use table formatter for structured output (scripting-friendly)
+			return output.PrintInvoices(response.Invoices)
 		}
 	}
 
-	// Pretty print for table format (default)
+	// Pretty print boxes for default format (human-friendly)
 	printInvoices(response)
 	return nil
 }
