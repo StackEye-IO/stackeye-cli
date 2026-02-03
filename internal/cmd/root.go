@@ -154,7 +154,7 @@ func loadConfig() error {
 		case "wide":
 			cfg.Preferences.OutputFormat = config.OutputFormatWide
 		default:
-			return fmt.Errorf("invalid output format %q: must be table, json, yaml, or wide", outputFormat)
+			return clierrors.InvalidValueError("--output", outputFormat, clierrors.ValidOutputFormats)
 		}
 	}
 

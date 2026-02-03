@@ -116,7 +116,8 @@ func TestProbeUpdateCmd_InvalidMethod(t *testing.T) {
 		t.Error("Expected error for invalid method, got nil")
 	}
 
-	expectedMsg := "invalid --method"
+	// Error format: invalid value "INVALID" for --method: must be one of: ...
+	expectedMsg := "invalid value"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}
@@ -212,7 +213,8 @@ func TestProbeUpdateCmd_InvalidKeywordCheckType(t *testing.T) {
 		t.Error("Expected error for invalid keyword-check-type, got nil")
 	}
 
-	expectedMsg := "invalid --keyword-check-type"
+	// Error format: invalid value "invalid" for --keyword-check-type: must be one of: ...
+	expectedMsg := "invalid value"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
 	}

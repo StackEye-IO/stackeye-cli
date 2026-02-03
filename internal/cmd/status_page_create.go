@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -296,7 +297,7 @@ func buildStatusPageRequestFromYAML(filePath string) (*client.CreateStatusPageRe
 func validateTheme(theme string) error {
 	themeLower := strings.ToLower(theme)
 	if !slices.Contains(validThemes, themeLower) {
-		return fmt.Errorf("invalid theme %q: must be one of %v", theme, validThemes)
+		return clierrors.InvalidValueError("--theme", theme, clierrors.ValidThemes)
 	}
 	return nil
 }

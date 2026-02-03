@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -74,7 +75,7 @@ func runProbeGet(ctx context.Context, idArg string, flags *probeGetFlags) error 
 		case "24h", "7d", "30d":
 			// Valid period
 		default:
-			return fmt.Errorf("invalid period %q: must be 24h, 7d, or 30d", flags.period)
+			return clierrors.InvalidValueError("--period", flags.period, clierrors.ValidPeriods)
 		}
 	}
 

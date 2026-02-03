@@ -85,22 +85,22 @@ func TestRunDashboard_InvalidPeriod(t *testing.T) {
 		{
 			name:         "invalid period 1h",
 			period:       "1h",
-			wantErrorMsg: `invalid period "1h": must be 24h, 7d, or 30d`,
+			wantErrorMsg: `invalid value "1h" for --period`,
 		},
 		{
 			name:         "invalid period 1d",
 			period:       "1d",
-			wantErrorMsg: `invalid period "1d": must be 24h, 7d, or 30d`,
+			wantErrorMsg: `invalid value "1d" for --period`,
 		},
 		{
 			name:         "invalid period arbitrary",
 			period:       "invalid",
-			wantErrorMsg: `invalid period "invalid": must be 24h, 7d, or 30d`,
+			wantErrorMsg: `invalid value "invalid" for --period`,
 		},
 		{
 			name:         "empty period",
 			period:       "",
-			wantErrorMsg: `invalid period "": must be 24h, 7d, or 30d`,
+			wantErrorMsg: `invalid value "" for --period`,
 		},
 	}
 

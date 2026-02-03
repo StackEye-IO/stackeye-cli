@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -65,7 +66,7 @@ func runDashboard(ctx context.Context, flags *dashboardFlags) error {
 	case "24h", "7d", "30d":
 		// Valid periods
 	default:
-		return fmt.Errorf("invalid period %q: must be 24h, 7d, or 30d", flags.period)
+		return clierrors.InvalidValueError("--period", flags.period, clierrors.ValidPeriods)
 	}
 
 	// Get authenticated API client

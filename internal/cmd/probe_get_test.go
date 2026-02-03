@@ -86,22 +86,22 @@ func TestRunProbeGet_InvalidPeriod(t *testing.T) {
 		{
 			name:    "invalid period value",
 			period:  "invalid",
-			wantErr: "invalid period",
+			wantErr: "invalid value",
 		},
 		{
 			name:    "wrong format",
 			period:  "7days",
-			wantErr: "invalid period",
+			wantErr: "invalid value",
 		},
 		{
 			name:    "numeric only",
 			period:  "7",
-			wantErr: "invalid period",
+			wantErr: "invalid value",
 		},
 		{
 			name:    "unsupported period",
 			period:  "1h",
-			wantErr: "invalid period",
+			wantErr: "invalid value",
 		},
 	}
 
@@ -133,7 +133,7 @@ func TestRunProbeGet_ValidPeriods(t *testing.T) {
 
 			// We expect an API client error since we're not mocking,
 			// but we should NOT get a period validation error
-			if err != nil && contains(err.Error(), "invalid period") {
+			if err != nil && contains(err.Error(), "invalid value") && contains(err.Error(), "--period") {
 				t.Errorf("period %q should be valid, got validation error: %v", period, err)
 			}
 		})
