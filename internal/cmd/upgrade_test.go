@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	sdkupdate "github.com/StackEye-IO/stackeye-go-sdk/update"
@@ -202,4 +203,200 @@ func TestUpgradeCommand_DevBuild(t *testing.T) {
 	w.Close()
 	os.Stdout = oldStdout
 	_, _ = io.ReadAll(r)
+}
+
+func TestReplaceExecutableUnix_Success(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping Unix-specific test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create "old" executable
+	oldPath := filepath.Join(tmpDir, "old_binary")
+	oldContent := []byte("old binary content")
+	if err := os.WriteFile(oldPath, oldContent, 0o755); err != nil {
+		t.Fatalf("failed to create old binary: %v", err)
+	}
+
+	// Create "new" executable
+	newPath := filepath.Join(tmpDir, "new_binary")
+	newContent := []byte("new binary content")
+	if err := os.WriteFile(newPath, newContent, 0o755); err != nil {
+		t.Fatalf("failed to create new binary: %v", err)
+	}
+
+	// Replace
+	if err := replaceExecutableUnix(oldPath, newPath); err != nil {
+		t.Fatalf("replaceExecutableUnix() error = %v", err)
+	}
+
+	// Verify old path now has new content
+	content, err := os.ReadFile(oldPath)
+	if err != nil {
+		t.Fatalf("failed to read replaced binary: %v", err)
+	}
+
+	if !bytes.Equal(content, newContent) {
+		t.Errorf("replaced content doesn't match: got %q, want %q", content, newContent)
+	}
+}
+
+func TestReplaceExecutableUnix_SourceNotFound(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping Unix-specific test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create "old" executable
+	oldPath := filepath.Join(tmpDir, "old_binary")
+	if err := os.WriteFile(oldPath, []byte("old"), 0o755); err != nil {
+		t.Fatalf("failed to create old binary: %v", err)
+	}
+
+	// Try to replace with nonexistent new binary
+	newPath := filepath.Join(tmpDir, "nonexistent")
+	err := replaceExecutableUnix(oldPath, newPath)
+	if err == nil {
+		t.Error("expected error for nonexistent source file")
+	}
+}
+
+func TestReplaceExecutableWindows_Success(t *testing.T) {
+	// This test works on any platform since it tests the logic, not the actual replacement
+	tmpDir := t.TempDir()
+
+	// Create "old" executable
+	oldPath := filepath.Join(tmpDir, "old_binary.exe")
+	oldContent := []byte("old binary content")
+	if err := os.WriteFile(oldPath, oldContent, 0o755); err != nil {
+		t.Fatalf("failed to create old binary: %v", err)
+	}
+
+	// Create "new" executable
+	newPath := filepath.Join(tmpDir, "new_binary.exe")
+	newContent := []byte("new binary content")
+	if err := os.WriteFile(newPath, newContent, 0o755); err != nil {
+		t.Fatalf("failed to create new binary: %v", err)
+	}
+
+	// Replace
+	if err := replaceExecutableWindows(oldPath, newPath); err != nil {
+		t.Fatalf("replaceExecutableWindows() error = %v", err)
+	}
+
+	// Verify old path now has new content
+	content, err := os.ReadFile(oldPath)
+	if err != nil {
+		t.Fatalf("failed to read replaced binary: %v", err)
+	}
+
+	if !bytes.Equal(content, newContent) {
+		t.Errorf("replaced content doesn't match: got %q, want %q", content, newContent)
+	}
+
+	// Verify backup was removed (or still exists if in use)
+	backupPath := oldPath + ".old"
+	if _, err := os.Stat(backupPath); err == nil {
+		// Backup exists - that's OK, it means it couldn't be removed (in-use scenario)
+		t.Log("backup file still exists (expected if running binary)")
+	}
+}
+
+func TestReplaceExecutableWindows_SourceNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create "old" executable
+	oldPath := filepath.Join(tmpDir, "old_binary.exe")
+	if err := os.WriteFile(oldPath, []byte("old"), 0o755); err != nil {
+		t.Fatalf("failed to create old binary: %v", err)
+	}
+
+	// Try to replace with nonexistent new binary
+	newPath := filepath.Join(tmpDir, "nonexistent.exe")
+	err := replaceExecutableWindows(oldPath, newPath)
+	if err == nil {
+		t.Error("expected error for nonexistent source file")
+	}
+
+	// Verify old binary was restored from backup
+	content, err := os.ReadFile(oldPath)
+	if err != nil {
+		t.Fatalf("failed to read old binary after failed replacement: %v", err)
+	}
+	if string(content) != "old" {
+		t.Errorf("old binary not properly restored: got %q, want %q", content, "old")
+	}
+}
+
+func TestReplaceExecutable_PreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission test not applicable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create "old" executable with specific permissions
+	oldPath := filepath.Join(tmpDir, "old_binary")
+	if err := os.WriteFile(oldPath, []byte("old"), 0o755); err != nil {
+		t.Fatalf("failed to create old binary: %v", err)
+	}
+
+	// Create "new" executable with different permissions
+	newPath := filepath.Join(tmpDir, "new_binary")
+	if err := os.WriteFile(newPath, []byte("new"), 0o644); err != nil {
+		t.Fatalf("failed to create new binary: %v", err)
+	}
+
+	// Replace
+	if err := replaceExecutable(oldPath, newPath); err != nil {
+		t.Fatalf("replaceExecutable() error = %v", err)
+	}
+
+	// Verify permissions are preserved from old binary
+	info, err := os.Stat(oldPath)
+	if err != nil {
+		t.Fatalf("failed to stat replaced binary: %v", err)
+	}
+
+	// The permissions should include execute bit
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Error("execute permission was not preserved")
+	}
+}
+
+func TestCheckWritePermission_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a writable file
+	path := filepath.Join(tmpDir, "writable_file")
+	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+
+	// Should succeed
+	if err := checkWritePermission(path); err != nil {
+		t.Errorf("checkWritePermission() error = %v, want nil", err)
+	}
+}
+
+func TestCheckWritePermission_ReadOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only permission test not reliable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a read-only file
+	path := filepath.Join(tmpDir, "readonly_file")
+	if err := os.WriteFile(path, []byte("content"), 0o444); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+
+	// Should fail with permission error
+	err := checkWritePermission(path)
+	if err == nil {
+		t.Error("expected error for read-only file")
+	}
 }
