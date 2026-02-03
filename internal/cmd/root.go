@@ -13,6 +13,7 @@ import (
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	clioutput "github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-cli/internal/telemetry"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -72,6 +73,9 @@ func init() {
 
 	// Wire up the output package to check --no-input for spinner suppression
 	clioutput.SetNoInputGetter(GetNoInput)
+
+	// Wire up the interactive package to check --no-input for prompt bypass
+	cliinteractive.SetNoInputGetter(GetNoInput)
 
 	// Register subcommands
 	rootCmd.AddCommand(NewVersionCmd())
