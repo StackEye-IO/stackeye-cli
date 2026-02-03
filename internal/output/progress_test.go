@@ -616,6 +616,83 @@ func TestRunWithSpinner_DisabledStillReturnsResult(t *testing.T) {
 	}
 }
 
+func TestProgressBar_ConcurrentIncrement(t *testing.T) {
+	const numGoroutines = 200
+	buf := &safeBuffer{}
+	bar := NewProgressBar(numGoroutines, "Concurrent test", WithBarWriter(buf), WithBarDisabled(false))
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			bar.Increment()
+		}()
+	}
+
+	wg.Wait()
+
+	// Verify final count matches expected total
+	bar.mu.Lock()
+	current := bar.current
+	bar.mu.Unlock()
+
+	if current != numGoroutines {
+		t.Errorf("expected current=%d after %d concurrent Increment() calls, got %d",
+			numGoroutines, numGoroutines, current)
+	}
+
+	bar.Complete()
+
+	output := buf.String()
+	expectedCount := fmt.Sprintf("%d/%d", numGoroutines, numGoroutines)
+	if !strings.Contains(output, expectedCount) {
+		t.Errorf("output should contain %q after Complete(), got: %q", expectedCount, output)
+	}
+	if !strings.Contains(output, "100%") {
+		t.Errorf("output should show 100%% after all increments, got: %q", output)
+	}
+}
+
+func TestProgressBar_ConcurrentMixedOperations(t *testing.T) {
+	const numGoroutines = 100
+	buf := &safeBuffer{}
+	bar := NewProgressBar(numGoroutines*2, "Mixed concurrent", WithBarWriter(buf), WithBarDisabled(false))
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines * 2)
+
+	// Half the goroutines call Increment
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			bar.Increment()
+		}()
+	}
+
+	// Other half also call Increment
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			bar.Increment()
+		}()
+	}
+
+	wg.Wait()
+
+	bar.mu.Lock()
+	current := bar.current
+	bar.mu.Unlock()
+
+	if current != numGoroutines*2 {
+		t.Errorf("expected current=%d after %d concurrent Increment() calls, got %d",
+			numGoroutines*2, numGoroutines*2, current)
+	}
+
+	bar.Complete()
+}
+
 func TestSetNoInputGetter(t *testing.T) {
 	origGetter := noInputGetter
 	defer func() { noInputGetter = origGetter }()
