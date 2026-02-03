@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -90,7 +91,7 @@ func validateChannelListFlags(flags *channelListFlags) error {
 		case "email", "slack", "webhook", "pagerduty", "discord", "teams", "sms":
 			// Valid types
 		default:
-			return fmt.Errorf("invalid channel type %q: must be email, slack, webhook, pagerduty, discord, teams, or sms", flags.channelType)
+			return clierrors.InvalidValueError("--type", flags.channelType, clierrors.ValidChannelTypes)
 		}
 	}
 
@@ -99,7 +100,7 @@ func validateChannelListFlags(flags *channelListFlags) error {
 		case "true", "false":
 			// Valid values
 		default:
-			return fmt.Errorf("invalid enabled value %q: must be true or false", flags.enabled)
+			return clierrors.InvalidValueError("--enabled", flags.enabled, clierrors.ValidBoolStrings)
 		}
 	}
 

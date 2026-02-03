@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -204,7 +205,7 @@ func validateMuteScopeType(s client.MuteScopeType) error {
 		client.MuteScopeAlertType:    true,
 	}
 	if !valid[s] {
-		return fmt.Errorf("invalid --scope %q: must be organization, probe, channel, or alert_type", s)
+		return clierrors.InvalidValueError("--scope", string(s), clierrors.ValidMuteScopes)
 	}
 	return nil
 }
@@ -263,7 +264,7 @@ func validateMuteAlertType(t client.AlertType) error {
 		client.AlertTypeSlowResponse: true,
 	}
 	if !valid[t] {
-		return fmt.Errorf("invalid --alert-type %q: must be status_down, ssl_expiry, ssl_invalid, or slow_response", t)
+		return clierrors.InvalidValueError("--alert-type", string(t), clierrors.ValidMuteAlertTypes)
 	}
 	return nil
 }

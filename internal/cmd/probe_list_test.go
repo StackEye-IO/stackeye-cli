@@ -120,14 +120,14 @@ func TestRunProbeList_Validation(t *testing.T) {
 			limit:        20,
 			page:         1,
 			status:       "badstatus",
-			wantErrorMsg: `invalid status "badstatus": must be up, down, degraded, paused, or pending`,
+			wantErrorMsg: `invalid value "badstatus" for --status: must be one of: up, down, degraded, paused, pending`,
 		},
 		{
 			name:         "invalid period",
 			limit:        20,
 			page:         1,
 			period:       "1h",
-			wantErrorMsg: `invalid period "1h": must be 24h, 7d, or 30d`,
+			wantErrorMsg: `invalid value "1h" for --period: must be one of: 24h, 7d, 30d`,
 		},
 	}
 

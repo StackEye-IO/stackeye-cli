@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -107,7 +108,7 @@ func runProbeList(ctx context.Context, flags *probeListFlags) error {
 		case "24h", "7d", "30d":
 			// Valid period
 		default:
-			return fmt.Errorf("invalid period %q: must be 24h, 7d, or 30d", flags.period)
+			return clierrors.InvalidValueError("--period", flags.period, clierrors.ValidPeriods)
 		}
 	}
 
@@ -125,7 +126,7 @@ func runProbeList(ctx context.Context, flags *probeListFlags) error {
 		case "pending":
 			probeStatus = client.ProbeStatusPending
 		default:
-			return fmt.Errorf("invalid status %q: must be up, down, degraded, paused, or pending", flags.status)
+			return clierrors.InvalidValueError("--status", flags.status, clierrors.ValidProbeStatusFilters)
 		}
 	}
 

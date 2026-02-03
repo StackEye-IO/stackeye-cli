@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -102,7 +103,7 @@ func runAlertList(ctx context.Context, flags *alertListFlags) error {
 		case "resolved":
 			alertStatus = client.AlertStatusResolved
 		default:
-			return fmt.Errorf("invalid status %q: must be active, acknowledged, or resolved", flags.status)
+			return clierrors.InvalidValueError("--status", flags.status, clierrors.ValidAlertStatuses)
 		}
 	}
 
@@ -116,7 +117,7 @@ func runAlertList(ctx context.Context, flags *alertListFlags) error {
 		case "info":
 			alertSeverity = client.AlertSeverityInfo
 		default:
-			return fmt.Errorf("invalid severity %q: must be critical, warning, or info", flags.severity)
+			return clierrors.InvalidValueError("--severity", flags.severity, clierrors.ValidSeverities)
 		}
 	}
 

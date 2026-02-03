@@ -129,14 +129,14 @@ func TestRunAlertList_Validation(t *testing.T) {
 			limit:        20,
 			page:         1,
 			status:       "badstatus",
-			wantErrorMsg: `invalid status "badstatus": must be active, acknowledged, or resolved`,
+			wantErrorMsg: `invalid value "badstatus" for --status: must be one of: active, acknowledged, resolved`,
 		},
 		{
 			name:         "invalid severity",
 			limit:        20,
 			page:         1,
 			severity:     "badseverity",
-			wantErrorMsg: `invalid severity "badseverity": must be critical, warning, or info`,
+			wantErrorMsg: `invalid value "badseverity" for --severity: must be one of: critical, warning, info`,
 		},
 		{
 			name:         "invalid probe ID",

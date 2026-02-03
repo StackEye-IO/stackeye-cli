@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -117,7 +118,7 @@ func runIncidentList(cmd *cobra.Command, flags *incidentListFlags) error {
 			"resolved":      true,
 		}
 		if !validStatuses[flags.status] {
-			return fmt.Errorf("invalid status %q: must be investigating, identified, monitoring, or resolved", flags.status)
+			return clierrors.InvalidValueError("--status", flags.status, clierrors.ValidIncidentStatuses)
 		}
 	}
 

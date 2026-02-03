@@ -92,7 +92,7 @@ func TestValidateChannelListFlags(t *testing.T) {
 				limit:       20,
 				channelType: "invalid",
 			},
-			wantErrMsg:  "invalid channel type \"invalid\": must be email, slack, webhook, pagerduty, discord, teams, or sms",
+			wantErrMsg:  `invalid value "invalid" for --type: must be one of: email, slack, webhook, pagerduty, discord, teams, sms`,
 			shouldError: true,
 		},
 		{
@@ -165,7 +165,7 @@ func TestValidateChannelListFlags(t *testing.T) {
 				limit:   20,
 				enabled: "maybe",
 			},
-			wantErrMsg:  "invalid enabled value \"maybe\": must be true or false",
+			wantErrMsg:  `invalid value "maybe" for --enabled: must be one of: true, false`,
 			shouldError: true,
 		},
 		{
@@ -330,14 +330,14 @@ func TestRunChannelList_Validation(t *testing.T) {
 			limit:        20,
 			page:         1,
 			channelType:  "badtype",
-			wantErrorMsg: `invalid channel type "badtype": must be email, slack, webhook, pagerduty, discord, teams, or sms`,
+			wantErrorMsg: `invalid value "badtype" for --type: must be one of: email, slack, webhook, pagerduty, discord, teams, sms`,
 		},
 		{
 			name:         "invalid enabled value",
 			limit:        20,
 			page:         1,
 			enabled:      "maybe",
-			wantErrorMsg: `invalid enabled value "maybe": must be true or false`,
+			wantErrorMsg: `invalid value "maybe" for --enabled: must be one of: true, false`,
 		},
 	}
 

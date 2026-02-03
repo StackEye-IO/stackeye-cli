@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ Note: Removing dependencies may cause alerts that were suppressed to become acti
 func runProbeDepsClearCmd(ctx context.Context, probeIDArg, direction string, skipConfirm bool) error {
 	// Validate direction
 	if direction != "parents" && direction != "children" && direction != "both" {
-		return fmt.Errorf("invalid direction %q: must be 'parents', 'children', or 'both'", direction)
+		return clierrors.InvalidValueError("--direction", direction, clierrors.ValidDependencyDirections)
 	}
 
 	// Get authenticated API client first (needed for name resolution)

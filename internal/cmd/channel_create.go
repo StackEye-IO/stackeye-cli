@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -289,7 +290,7 @@ func validateChannelType(t client.ChannelType) error {
 		client.ChannelTypeSMS:       true,
 	}
 	if !valid[t] {
-		return fmt.Errorf("invalid --type %q: must be email, slack, webhook, pagerduty, discord, teams, or sms", t)
+		return clierrors.InvalidValueError("--type", string(t), clierrors.ValidChannelTypes)
 	}
 	return nil
 }
@@ -483,7 +484,7 @@ func validateWebhookMethod(method string) error {
 		"DELETE": true,
 	}
 	if !valid[method] {
-		return fmt.Errorf("invalid --method %q: must be GET, POST, PUT, PATCH, or DELETE", method)
+		return clierrors.InvalidValueError("--method", method, clierrors.ValidWebhookMethods)
 	}
 	return nil
 }
@@ -497,7 +498,7 @@ func validatePagerDutySeverity(severity string) error {
 		"info":     true,
 	}
 	if !valid[strings.ToLower(severity)] {
-		return fmt.Errorf("invalid --severity %q: must be critical, error, warning, or info", severity)
+		return clierrors.InvalidValueError("--severity", severity, clierrors.ValidPagerDutySeverities)
 	}
 	return nil
 }

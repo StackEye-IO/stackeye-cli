@@ -165,3 +165,39 @@ var ValidPeriods = []string{"24h", "7d", "30d"}
 
 // ValidThemes contains the valid status page themes.
 var ValidThemes = []string{"light", "dark", "system"}
+
+// ValidMuteScopes contains the valid mute scopes.
+var ValidMuteScopes = []string{"organization", "probe", "channel", "alert_type"}
+
+// ValidMuteAlertTypes contains the valid alert types for mutes.
+var ValidMuteAlertTypes = []string{"status_down", "ssl_expiry", "ssl_invalid", "slow_response"}
+
+// ValidChannelTypes contains the valid notification channel types.
+var ValidChannelTypes = []string{"email", "slack", "webhook", "pagerduty", "discord", "teams", "sms"}
+
+// ValidIncidentStatuses contains the valid incident statuses.
+var ValidIncidentStatuses = []string{"investigating", "identified", "monitoring", "resolved"}
+
+// ValidIncidentImpacts contains the valid incident impact levels.
+var ValidIncidentImpacts = []string{"none", "minor", "major", "critical"}
+
+// ValidTeamRoles contains the valid team member roles.
+var ValidTeamRoles = []string{"owner", "admin", "member", "viewer"}
+
+// ValidProbeStatusFilters contains the valid probe status filter values.
+var ValidProbeStatusFilters = []string{"up", "down", "degraded", "paused", "pending"}
+
+// ValidSeverities contains the valid alert severity levels.
+var ValidSeverities = []string{"critical", "warning", "info"}
+
+// ValidDependencyDirections contains the valid probe dependency clear directions.
+var ValidDependencyDirections = []string{"parents", "children", "both"}
+
+// ValidBoolStrings contains valid boolean string values.
+var ValidBoolStrings = []string{"true", "false"}
+
+// ValidPagerDutySeverities contains valid PagerDuty severity levels.
+var ValidPagerDutySeverities = []string{"critical", "error", "warning", "info"}
+
+// ValidWebhookMethods contains valid HTTP methods for webhooks.
+var ValidWebhookMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
