@@ -30,6 +30,20 @@ func IsDumbTerminal() bool {
 	return os.Getenv("TERM") == "dumb"
 }
 
+// isNoInputRequested returns true if the user has requested non-interactive
+// mode via the --no-input flag or the STACKEYE_NO_INPUT environment variable.
+func isNoInputRequested() bool {
+	if noInputGetter != nil && noInputGetter() {
+		return true
+	}
+
+	if v, ok := os.LookupEnv("STACKEYE_NO_INPUT"); ok && v != "0" && v != "" {
+		return true
+	}
+
+	return false
+}
+
 // IsInteractive returns true if the CLI is running in an interactive context
 // where colors, spinners, prompts, and other interactive features are
 // appropriate. It checks (in order):
@@ -53,11 +67,7 @@ func IsInteractive() bool {
 		return false
 	}
 
-	if noInputGetter != nil && noInputGetter() {
-		return false
-	}
-
-	if v, ok := os.LookupEnv("STACKEYE_NO_INPUT"); ok && v != "0" && v != "" {
+	if isNoInputRequested() {
 		return false
 	}
 

@@ -35,11 +35,7 @@ func isSpinnerEnabled() bool {
 		return false
 	}
 
-	if noInputGetter != nil && noInputGetter() {
-		return false
-	}
-
-	if v, ok := os.LookupEnv("STACKEYE_NO_INPUT"); ok && v != "0" && v != "" {
+	if isNoInputRequested() {
 		return false
 	}
 
