@@ -40,6 +40,20 @@ This auto-detects your OS and architecture, downloads the appropriate binary, ve
 
 The script installs to `/usr/local/bin` (with sudo) or `~/.local/bin` (without sudo) by default.
 
+### Installer Script (Windows PowerShell)
+
+```powershell
+iwr -useb https://releases.stackeye.io/install.ps1 | iex
+```
+
+This auto-detects your architecture, downloads the appropriate binary, verifies the checksum, and installs it to `%LOCALAPPDATA%\StackEye\bin`.
+
+**Options:**
+- Install a specific version: `$env:STACKEYE_VERSION = "v1.0.0"; iwr -useb https://releases.stackeye.io/install.ps1 | iex`
+- Install to custom directory: `$env:STACKEYE_INSTALL_DIR = "C:\custom\path"; iwr -useb https://releases.stackeye.io/install.ps1 | iex`
+
+The script automatically adds the install directory to your User PATH.
+
 ### Manual Download
 
 Download pre-built archives from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases/latest). Archives are named `stackeye_<VERSION>_<OS>_<ARCH>.tar.gz`.

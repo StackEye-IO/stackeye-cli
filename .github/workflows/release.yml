@@ -167,6 +167,23 @@ jobs:
           aws s3 sync yum-repo/ "s3://releases.stackeye.io/yum/" \
             --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read --delete
 
+      - name: Upload installer scripts to S3
+        if: always() && hashFiles('dist/checksums.txt') != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-central-1
+        run: |
+          aws s3 cp scripts/install.sh "s3://releases.stackeye.io/install.sh" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com \
+            --acl public-read \
+            --content-type "text/plain"
+
+          aws s3 cp scripts/install.ps1 "s3://releases.stackeye.io/install.ps1" \
+            --endpoint-url https://s3.us-central-1.wasabisys.com \
+            --acl public-read \
+            --content-type "text/plain"
+
       - name: Purge CloudFlare cache
         if: always() && hashFiles('dist/checksums.txt') != ''
         run: |
@@ -174,4 +191,4 @@ jobs:
           curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            --data '{"prefixes":["https://releases.stackeye.io/cli/","https://releases.stackeye.io/dists/","https://releases.stackeye.io/pool/","https://releases.stackeye.io/yum/","https://releases.stackeye.io/gpg-key.asc","https://releases.stackeye.io/apt-key.gpg"]}'
+            --data '{"prefixes":["https://releases.stackeye.io/cli/","https://releases.stackeye.io/dists/","https://releases.stackeye.io/pool/","https://releases.stackeye.io/yum/","https://releases.stackeye.io/gpg-key.asc","https://releases.stackeye.io/apt-key.gpg","https://releases.stackeye.io/install.sh","https://releases.stackeye.io/install.ps1"]}'

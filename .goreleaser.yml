@@ -217,6 +217,9 @@ release:
     scoop bucket add stackeye-io https://github.com/StackEye-IO/scoop-bucket
     scoop install stackeye
 
+    # Windows (PowerShell installer)
+    iwr -useb https://releases.stackeye.io/install.ps1 | iex
+
     # Debian/Ubuntu (APT repository)
     curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null

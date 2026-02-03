@@ -79,7 +79,9 @@ detect_os() {
             ;;
         MINGW*|MSYS*|CYGWIN*)
             error "Windows is not supported by this installer."
-            error "Please download the binary manually from:"
+            error "Use the PowerShell installer instead:"
+            error "  iwr -useb https://releases.stackeye.io/install.ps1 | iex"
+            error "Or download the binary manually from:"
             error "  https://github.com/${GITHUB_REPO}/releases/latest"
             exit 1
             ;;
