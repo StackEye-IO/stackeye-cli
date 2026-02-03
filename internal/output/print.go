@@ -28,14 +28,11 @@ import (
 	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
 )
 
-// configGetter is a function that returns the current CLI configuration.
-// This is set by the cmd package to avoid circular imports.
-var configGetter func() *config.Config
-
 // SetConfigGetter sets the function used to retrieve the current configuration.
 // This should be called once during CLI initialization from the cmd package.
+// The getter is stored atomically and safe for concurrent access.
 func SetConfigGetter(getter func() *config.Config) {
-	configGetter = getter
+	storeConfigGetter(getter)
 }
 
 // Printer wraps an SDK formatter and provides CLI-specific output helpers.
@@ -143,8 +140,8 @@ func (p *Printer) SetErrWriter(w io.Writer) {
 // If no config getter is set or config is nil, returns a default printer.
 func getPrinter() *Printer {
 	var cfg *config.Config
-	if configGetter != nil {
-		cfg = configGetter()
+	if getter := loadConfigGetter(); getter != nil {
+		cfg = getter()
 	}
 	return NewPrinter(cfg)
 }

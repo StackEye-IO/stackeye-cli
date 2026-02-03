@@ -9,10 +9,10 @@ import (
 
 func TestNewColorManager_NoConfig(t *testing.T) {
 	// Save and restore original config getter
-	orig := configGetter
-	defer func() { configGetter = orig }()
+	orig := loadConfigGetter()
+	defer func() { storeConfigGetter(orig) }()
 
-	configGetter = nil
+	storeConfigGetter(nil)
 
 	cm := NewColorManager()
 	if cm == nil {
@@ -24,10 +24,10 @@ func TestNewColorManager_NoConfig(t *testing.T) {
 }
 
 func TestNewColorManager_NilConfig(t *testing.T) {
-	orig := configGetter
-	defer func() { configGetter = orig }()
+	orig := loadConfigGetter()
+	defer func() { storeConfigGetter(orig) }()
 
-	configGetter = func() *config.Config { return nil }
+	storeConfigGetter(func() *config.Config { return nil })
 
 	cm := NewColorManager()
 	if cm == nil {
@@ -39,16 +39,16 @@ func TestNewColorManager_NilConfig(t *testing.T) {
 }
 
 func TestNewColorManager_ColorNever(t *testing.T) {
-	orig := configGetter
-	defer func() { configGetter = orig }()
+	orig := loadConfigGetter()
+	defer func() { storeConfigGetter(orig) }()
 
-	configGetter = func() *config.Config {
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				Color: config.ColorModeNever,
 			},
 		}
-	}
+	})
 
 	cm := NewColorManager()
 	if cm.Enabled() {
@@ -57,16 +57,16 @@ func TestNewColorManager_ColorNever(t *testing.T) {
 }
 
 func TestNewColorManager_ColorAlways(t *testing.T) {
-	orig := configGetter
-	defer func() { configGetter = orig }()
+	orig := loadConfigGetter()
+	defer func() { storeConfigGetter(orig) }()
 
-	configGetter = func() *config.Config {
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				Color: config.ColorModeAlways,
 			},
 		}
-	}
+	})
 
 	cm := NewColorManager()
 	if !cm.Enabled() {
@@ -98,17 +98,17 @@ func TestNewColorManagerFromConfig_Never(t *testing.T) {
 }
 
 func TestNewColorManager_NoColorEnv(t *testing.T) {
-	orig := configGetter
-	defer func() { configGetter = orig }()
+	orig := loadConfigGetter()
+	defer func() { storeConfigGetter(orig) }()
 
 	// Config says auto, but NO_COLOR env should cause SDK to disable colors
-	configGetter = func() *config.Config {
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				Color: config.ColorModeAuto,
 			},
 		}
-	}
+	})
 
 	t.Setenv("NO_COLOR", "1")
 

@@ -15,10 +15,10 @@ func TestIsPiped_InTestEnvironment(t *testing.T) {
 }
 
 func TestIsPiped_OverrideTrue(t *testing.T) {
-	orig := isPipedOverride
-	defer func() { isPipedOverride = orig }()
+	orig := loadIsPipedOverride()
+	defer func() { storeIsPipedOverride(orig) }()
 
-	isPipedOverride = func() bool { return true }
+	storeIsPipedOverride(func() bool { return true })
 
 	if !IsPiped() {
 		t.Error("IsPiped() should return true when override returns true")
@@ -26,10 +26,10 @@ func TestIsPiped_OverrideTrue(t *testing.T) {
 }
 
 func TestIsPiped_OverrideFalse(t *testing.T) {
-	orig := isPipedOverride
-	defer func() { isPipedOverride = orig }()
+	orig := loadIsPipedOverride()
+	defer func() { storeIsPipedOverride(orig) }()
 
-	isPipedOverride = func() bool { return false }
+	storeIsPipedOverride(func() bool { return false })
 
 	if IsPiped() {
 		t.Error("IsPiped() should return false when override returns false")
@@ -37,10 +37,10 @@ func TestIsPiped_OverrideFalse(t *testing.T) {
 }
 
 func TestIsPiped_OverrideNilFallsThrough(t *testing.T) {
-	orig := isPipedOverride
-	defer func() { isPipedOverride = orig }()
+	orig := loadIsPipedOverride()
+	defer func() { storeIsPipedOverride(orig) }()
 
-	isPipedOverride = nil
+	storeIsPipedOverride(nil)
 
 	// With nil override, IsPiped should fall through to OS detection.
 	// Just verify it runs without panic; actual value depends on environment.
@@ -48,8 +48,8 @@ func TestIsPiped_OverrideNilFallsThrough(t *testing.T) {
 }
 
 func TestSetIsPipedOverride(t *testing.T) {
-	orig := isPipedOverride
-	defer func() { isPipedOverride = orig }()
+	orig := loadIsPipedOverride()
+	defer func() { storeIsPipedOverride(orig) }()
 
 	called := false
 	SetIsPipedOverride(func() bool {
@@ -63,22 +63,22 @@ func TestSetIsPipedOverride(t *testing.T) {
 	}
 
 	SetIsPipedOverride(nil)
-	if isPipedOverride != nil {
+	if loadIsPipedOverride() != nil {
 		t.Error("isPipedOverride should be nil after SetIsPipedOverride(nil)")
 	}
 }
 
 func TestIsInteractive_WithPipedOverrideFalse(t *testing.T) {
-	origPiped := isPipedOverride
-	origNoInput := noInputGetter
+	origPiped := loadIsPipedOverride()
+	origNoInput := loadNoInputGetter()
 	defer func() {
-		isPipedOverride = origPiped
-		noInputGetter = origNoInput
+		storeIsPipedOverride(origPiped)
+		storeNoInputGetter(origNoInput)
 	}()
 
 	// Override IsPiped to return false (simulate real TTY)
-	isPipedOverride = func() bool { return false }
-	noInputGetter = nil
+	storeIsPipedOverride(func() bool { return false })
+	storeNoInputGetter(nil)
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("STACKEYE_NO_INPUT", "")
 
@@ -88,11 +88,11 @@ func TestIsInteractive_WithPipedOverrideFalse(t *testing.T) {
 }
 
 func TestIsInteractive_WithPipedOverrideTrue(t *testing.T) {
-	origPiped := isPipedOverride
-	defer func() { isPipedOverride = origPiped }()
+	origPiped := loadIsPipedOverride()
+	defer func() { storeIsPipedOverride(origPiped) }()
 
 	// Override IsPiped to return true (simulate piped output)
-	isPipedOverride = func() bool { return true }
+	storeIsPipedOverride(func() bool { return true })
 
 	if IsInteractive() {
 		t.Error("IsInteractive() should return false when IsPiped override returns true")
@@ -159,10 +159,10 @@ func TestIsInteractive_DumbTerminal(t *testing.T) {
 }
 
 func TestIsInteractive_NoInputFlag(t *testing.T) {
-	origGetter := noInputGetter
-	defer func() { noInputGetter = origGetter }()
+	origGetter := loadNoInputGetter()
+	defer func() { storeNoInputGetter(origGetter) }()
 
-	noInputGetter = func() bool { return true }
+	storeNoInputGetter(func() bool { return true })
 
 	// Even if stdout is a TTY, --no-input should make it non-interactive
 	// Note: in test environments stdout is usually piped anyway, so
@@ -174,9 +174,9 @@ func TestIsInteractive_NoInputFlag(t *testing.T) {
 }
 
 func TestIsInteractive_StackeyeNoInputEnv(t *testing.T) {
-	origGetter := noInputGetter
-	defer func() { noInputGetter = origGetter }()
-	noInputGetter = nil
+	origGetter := loadNoInputGetter()
+	defer func() { storeNoInputGetter(origGetter) }()
+	storeNoInputGetter(nil)
 
 	t.Setenv("STACKEYE_NO_INPUT", "1")
 
@@ -186,9 +186,9 @@ func TestIsInteractive_StackeyeNoInputEnv(t *testing.T) {
 }
 
 func TestIsInteractive_StackeyeNoInputEnvZero(t *testing.T) {
-	origGetter := noInputGetter
-	defer func() { noInputGetter = origGetter }()
-	noInputGetter = nil
+	origGetter := loadNoInputGetter()
+	defer func() { storeNoInputGetter(origGetter) }()
+	storeNoInputGetter(nil)
 
 	// STACKEYE_NO_INPUT=0 should NOT disable interactive mode
 	t.Setenv("STACKEYE_NO_INPUT", "0")
@@ -199,9 +199,9 @@ func TestIsInteractive_StackeyeNoInputEnvZero(t *testing.T) {
 }
 
 func TestIsInteractive_StackeyeNoInputEnvEmpty(t *testing.T) {
-	origGetter := noInputGetter
-	defer func() { noInputGetter = origGetter }()
-	noInputGetter = nil
+	origGetter := loadNoInputGetter()
+	defer func() { storeNoInputGetter(origGetter) }()
+	storeNoInputGetter(nil)
 
 	// Empty STACKEYE_NO_INPUT should NOT disable interactive mode
 	t.Setenv("STACKEYE_NO_INPUT", "")
@@ -210,15 +210,15 @@ func TestIsInteractive_StackeyeNoInputEnvEmpty(t *testing.T) {
 }
 
 func TestIsAnimationEnabled_DumbTerminalDisables(t *testing.T) {
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = nil
-	configGetter = nil
+	storeNoInputGetter(nil)
+	storeConfigGetter(nil)
 	t.Setenv("TERM", "dumb")
 
 	if isAnimationEnabled() {

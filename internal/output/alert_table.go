@@ -238,8 +238,8 @@ func PrintAlerts(alerts []client.Alert) error {
 	isWide := printer.Format() == sdkoutput.FormatWide
 
 	// Get color mode from config if available
-	if configGetter != nil {
-		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+	if getter := loadConfigGetter(); getter != nil {
+		if cfg := getter(); cfg != nil && cfg.Preferences != nil {
 			colorMode = sdkoutput.ColorMode(cfg.Preferences.Color)
 		}
 	}
@@ -256,8 +256,8 @@ func PrintAlert(alert client.Alert) error {
 	colorMode := sdkoutput.ColorAuto
 	isWide := printer.Format() == sdkoutput.FormatWide
 
-	if configGetter != nil {
-		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+	if getter := loadConfigGetter(); getter != nil {
+		if cfg := getter(); cfg != nil && cfg.Preferences != nil {
 			colorMode = sdkoutput.ColorMode(cfg.Preferences.Color)
 		}
 	}

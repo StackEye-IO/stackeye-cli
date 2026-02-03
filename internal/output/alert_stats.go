@@ -103,8 +103,8 @@ func PrintAlertStats(stats *client.AlertStats) error {
 	colorMode := sdkoutput.ColorAuto
 
 	// Get color mode from config if available
-	if configGetter != nil {
-		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+	if getter := loadConfigGetter(); getter != nil {
+		if cfg := getter(); cfg != nil && cfg.Preferences != nil {
 			colorMode = sdkoutput.ColorMode(cfg.Preferences.Color)
 		}
 	}

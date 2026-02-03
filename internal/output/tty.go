@@ -7,29 +7,26 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// isPipedOverride, when non-nil, replaces the OS-level TTY check in IsPiped.
-// This allows tests to control pipe detection without relying on actual
-// terminal state, which varies between local and CI environments.
-var isPipedOverride func() bool
-
-// isStderrPipedOverride, when non-nil, replaces the OS-level TTY check in
-// IsStderrPiped. This allows tests to simulate a TTY stderr so that
-// animation suppression tests can isolate individual disable conditions
-// (--no-input, JSON/YAML format) without the stderr pipe check short-circuiting.
-var isStderrPipedOverride func() bool
-
 // SetIsPipedOverride sets a function that overrides IsPiped's OS detection.
 // Pass nil to restore default behaviour. Intended for testing only.
+// The override is stored atomically and safe for concurrent access.
 func SetIsPipedOverride(fn func() bool) {
-	isPipedOverride = fn
+	storeIsPipedOverride(fn)
+}
+
+// SetIsStderrPipedOverride sets a function that overrides IsStderrPiped's OS
+// detection. Pass nil to restore default behaviour. Intended for testing only.
+// The override is stored atomically and safe for concurrent access.
+func SetIsStderrPipedOverride(fn func() bool) {
+	storeIsStderrPipedOverride(fn)
 }
 
 // IsPiped returns true if stdout is not a terminal (i.e., output is being
 // piped or redirected to a file). When piped, commands should prefer
 // machine-readable output and disable colors.
 func IsPiped() bool {
-	if isPipedOverride != nil {
-		return isPipedOverride()
+	if override := loadIsPipedOverride(); override != nil {
+		return override()
 	}
 	fd := os.Stdout.Fd()
 	return !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd)
@@ -39,8 +36,8 @@ func IsPiped() bool {
 // piped, interactive elements like spinners and progress bars should be
 // disabled since they use ANSI escape sequences that corrupt piped output.
 func IsStderrPiped() bool {
-	if isStderrPipedOverride != nil {
-		return isStderrPipedOverride()
+	if override := loadIsStderrPipedOverride(); override != nil {
+		return override()
 	}
 	fd := os.Stderr.Fd()
 	return !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd)
@@ -56,7 +53,7 @@ func IsDumbTerminal() bool {
 // isNoInputRequested returns true if the user has requested non-interactive
 // mode via the --no-input flag or the STACKEYE_NO_INPUT environment variable.
 func isNoInputRequested() bool {
-	if noInputGetter != nil && noInputGetter() {
+	if getter := loadNoInputGetter(); getter != nil && getter() {
 		return true
 	}
 

@@ -35,8 +35,8 @@ import (
 func NewColorManager() *sdkoutput.ColorManager {
 	mode := sdkoutput.ColorAuto
 
-	if configGetter != nil {
-		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+	if getter := loadConfigGetter(); getter != nil {
+		if cfg := getter(); cfg != nil && cfg.Preferences != nil {
 			mode = sdkoutput.ColorMode(cfg.Preferences.Color)
 		}
 	}

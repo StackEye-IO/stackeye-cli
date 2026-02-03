@@ -476,15 +476,15 @@ func TestSpinner_WithDisabledFalseOverride(t *testing.T) {
 
 func TestSpinner_NoInputDisables(t *testing.T) {
 	// Save and restore
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = func() bool { return true }
-	configGetter = nil
+	storeNoInputGetter(func() bool { return true })
+	storeConfigGetter(nil)
 
 	if isAnimationEnabled() {
 		t.Error("spinner should be disabled when --no-input is set")
@@ -493,21 +493,21 @@ func TestSpinner_NoInputDisables(t *testing.T) {
 
 func TestSpinner_JSONOutputDisables(t *testing.T) {
 	// Save and restore
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = nil
-	configGetter = func() *config.Config {
+	storeNoInputGetter(nil)
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: "json",
 			},
 		}
-	}
+	})
 
 	if isAnimationEnabled() {
 		t.Error("spinner should be disabled for JSON output")
@@ -516,21 +516,21 @@ func TestSpinner_JSONOutputDisables(t *testing.T) {
 
 func TestSpinner_YAMLOutputDisables(t *testing.T) {
 	// Save and restore
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = nil
-	configGetter = func() *config.Config {
+	storeNoInputGetter(nil)
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: "yaml",
 			},
 		}
-	}
+	})
 
 	if isAnimationEnabled() {
 		t.Error("spinner should be disabled for YAML output")
@@ -539,15 +539,15 @@ func TestSpinner_YAMLOutputDisables(t *testing.T) {
 
 func TestSpinner_StackeyeNoInputEnvDisables(t *testing.T) {
 	// Save and restore
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = nil
-	configGetter = nil
+	storeNoInputGetter(nil)
+	storeConfigGetter(nil)
 	t.Setenv("STACKEYE_NO_INPUT", "1")
 
 	if isAnimationEnabled() {
@@ -557,21 +557,21 @@ func TestSpinner_StackeyeNoInputEnvDisables(t *testing.T) {
 
 func TestSpinner_TableOutputAllowed(t *testing.T) {
 	// Save and restore
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
 
-	noInputGetter = func() bool { return false }
-	configGetter = func() *config.Config {
+	storeNoInputGetter(func() bool { return false })
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: "table",
 			},
 		}
-	}
+	})
 
 	// Note: isAnimationEnabled() may still return false due to TTY detection
 	// in test environments, so we test the config/flag path specifically
@@ -595,14 +595,14 @@ func TestRunWithSpinner_DisabledStillReturnsResult(t *testing.T) {
 	// Even when spinner is disabled, RunWithSpinner must still execute the function
 	// and return its result.
 	// Save and force disable
-	origGetter := noInputGetter
-	origConfig := configGetter
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
 	}()
-	noInputGetter = func() bool { return true }
-	configGetter = nil
+	storeNoInputGetter(func() bool { return true })
+	storeConfigGetter(nil)
 
 	result, err := RunWithSpinner("Disabled test", func() (string, error) {
 		return "executed", nil
@@ -735,19 +735,19 @@ func TestProgressBar_AutoDisabledCompleteMethodsNoOutput(t *testing.T) {
 }
 
 func TestProgressBar_NoInputDisablesBar(t *testing.T) {
-	origGetter := noInputGetter
-	origConfig := configGetter
-	origStderr := isStderrPipedOverride
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
+	origStderr := loadIsStderrPipedOverride()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
-		isStderrPipedOverride = origStderr
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
+		storeIsStderrPipedOverride(origStderr)
 	}()
 
 	// Simulate TTY stderr so only --no-input triggers the disable
-	isStderrPipedOverride = func() bool { return false }
-	noInputGetter = func() bool { return true }
-	configGetter = nil
+	storeIsStderrPipedOverride(func() bool { return false })
+	storeNoInputGetter(func() bool { return true })
+	storeConfigGetter(nil)
 	t.Setenv("TERM", "xterm-256color")
 
 	var buf bytes.Buffer
@@ -766,24 +766,24 @@ func TestProgressBar_NoInputDisablesBar(t *testing.T) {
 }
 
 func TestProgressBar_JSONOutputDisablesBar(t *testing.T) {
-	origGetter := noInputGetter
-	origConfig := configGetter
-	origStderr := isStderrPipedOverride
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
+	origStderr := loadIsStderrPipedOverride()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
-		isStderrPipedOverride = origStderr
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
+		storeIsStderrPipedOverride(origStderr)
 	}()
 
-	isStderrPipedOverride = func() bool { return false }
-	noInputGetter = func() bool { return false }
-	configGetter = func() *config.Config {
+	storeIsStderrPipedOverride(func() bool { return false })
+	storeNoInputGetter(func() bool { return false })
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: "json",
 			},
 		}
-	}
+	})
 	t.Setenv("TERM", "xterm-256color")
 
 	var buf bytes.Buffer
@@ -802,24 +802,24 @@ func TestProgressBar_JSONOutputDisablesBar(t *testing.T) {
 }
 
 func TestProgressBar_YAMLOutputDisablesBar(t *testing.T) {
-	origGetter := noInputGetter
-	origConfig := configGetter
-	origStderr := isStderrPipedOverride
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
+	origStderr := loadIsStderrPipedOverride()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
-		isStderrPipedOverride = origStderr
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
+		storeIsStderrPipedOverride(origStderr)
 	}()
 
-	isStderrPipedOverride = func() bool { return false }
-	noInputGetter = func() bool { return false }
-	configGetter = func() *config.Config {
+	storeIsStderrPipedOverride(func() bool { return false })
+	storeNoInputGetter(func() bool { return false })
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: "yaml",
 			},
 		}
-	}
+	})
 	t.Setenv("TERM", "xterm-256color")
 
 	var buf bytes.Buffer
@@ -838,18 +838,18 @@ func TestProgressBar_YAMLOutputDisablesBar(t *testing.T) {
 }
 
 func TestProgressBar_StackeyeNoInputEnvDisablesBar(t *testing.T) {
-	origGetter := noInputGetter
-	origConfig := configGetter
-	origStderr := isStderrPipedOverride
+	origGetter := loadNoInputGetter()
+	origConfig := loadConfigGetter()
+	origStderr := loadIsStderrPipedOverride()
 	defer func() {
-		noInputGetter = origGetter
-		configGetter = origConfig
-		isStderrPipedOverride = origStderr
+		storeNoInputGetter(origGetter)
+		storeConfigGetter(origConfig)
+		storeIsStderrPipedOverride(origStderr)
 	}()
 
-	isStderrPipedOverride = func() bool { return false }
-	noInputGetter = nil
-	configGetter = nil
+	storeIsStderrPipedOverride(func() bool { return false })
+	storeNoInputGetter(nil)
+	storeConfigGetter(nil)
 	t.Setenv("STACKEYE_NO_INPUT", "1")
 	t.Setenv("TERM", "xterm-256color")
 
@@ -889,8 +889,8 @@ func TestProgressBar_RunWithProgressBarDisabledStillExecutes(t *testing.T) {
 }
 
 func TestSetNoInputGetter(t *testing.T) {
-	origGetter := noInputGetter
-	defer func() { noInputGetter = origGetter }()
+	origGetter := loadNoInputGetter()
+	defer func() { storeNoInputGetter(origGetter) }()
 
 	called := false
 	SetNoInputGetter(func() bool {
@@ -898,11 +898,11 @@ func TestSetNoInputGetter(t *testing.T) {
 		return true
 	})
 
-	if noInputGetter == nil {
+	if loadNoInputGetter() == nil {
 		t.Fatal("noInputGetter should be set")
 	}
 
-	noInputGetter()
+	loadNoInputGetter()()
 	if !called {
 		t.Error("noInputGetter was not called after SetNoInputGetter")
 	}

@@ -10,14 +10,11 @@ import (
 	"time"
 )
 
-// noInputGetter returns true if interactive prompts should be disabled.
-// This is set by the cmd package to avoid circular imports.
-var noInputGetter func() bool
-
 // SetNoInputGetter sets the function used to check if --no-input is active.
 // This should be called once during CLI initialization from the cmd package.
+// The getter is stored atomically and safe for concurrent access.
 func SetNoInputGetter(getter func() bool) {
-	noInputGetter = getter
+	storeNoInputGetter(getter)
 }
 
 // isAnimationEnabled checks whether animated progress indicators (spinners,
@@ -42,8 +39,8 @@ func isAnimationEnabled() bool {
 	}
 
 	// Check if output format is machine-readable (JSON/YAML)
-	if configGetter != nil {
-		if cfg := configGetter(); cfg != nil && cfg.Preferences != nil {
+	if getter := loadConfigGetter(); getter != nil {
+		if cfg := getter(); cfg != nil && cfg.Preferences != nil {
 			format := cfg.Preferences.OutputFormat
 			if format == "json" || format == "yaml" {
 				return false

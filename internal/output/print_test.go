@@ -268,18 +268,18 @@ func TestPrinter_PrintEmpty_JSONFormat(t *testing.T) {
 
 func TestPrintIfNotEmpty_WithData(t *testing.T) {
 	// Save and restore global config getter
-	oldGetter := configGetter
-	defer func() { configGetter = oldGetter }()
+	oldGetter := loadConfigGetter()
+	defer func() { storeConfigGetter(oldGetter) }()
 
 	// Set up a config getter that returns JSON format
-	configGetter = func() *config.Config {
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: config.OutputFormatJSON,
 				Color:        config.ColorModeNever,
 			},
 		}
-	}
+	})
 
 	probes := []testProbe{
 		{ID: "p1", Name: "Test", URL: "https://test.com", Status: "up"},
@@ -293,18 +293,18 @@ func TestPrintIfNotEmpty_WithData(t *testing.T) {
 
 func TestPrintIfNotEmpty_EmptySlice(t *testing.T) {
 	// Save and restore global config getter
-	oldGetter := configGetter
-	defer func() { configGetter = oldGetter }()
+	oldGetter := loadConfigGetter()
+	defer func() { storeConfigGetter(oldGetter) }()
 
 	// Set up a config getter
-	configGetter = func() *config.Config {
+	storeConfigGetter(func() *config.Config {
 		return &config.Config{
 			Preferences: &config.Preferences{
 				OutputFormat: config.OutputFormatTable,
 				Color:        config.ColorModeNever,
 			},
 		}
-	}
+	})
 
 	var probes []testProbe
 
@@ -343,11 +343,11 @@ func TestIsEmpty(t *testing.T) {
 
 func TestGlobalFunctions_NoConfigGetter(t *testing.T) {
 	// Save and restore global config getter
-	oldGetter := configGetter
-	defer func() { configGetter = oldGetter }()
+	oldGetter := loadConfigGetter()
+	defer func() { storeConfigGetter(oldGetter) }()
 
 	// Clear config getter to simulate uninitialized state
-	configGetter = nil
+	storeConfigGetter(nil)
 
 	// Global functions should still work with defaults
 	if err := Print(nil); err != nil {
@@ -365,8 +365,8 @@ func TestGlobalFunctions_NoConfigGetter(t *testing.T) {
 
 func TestSetConfigGetter(t *testing.T) {
 	// Save and restore global config getter
-	oldGetter := configGetter
-	defer func() { configGetter = oldGetter }()
+	oldGetter := loadConfigGetter()
+	defer func() { storeConfigGetter(oldGetter) }()
 
 	called := false
 	testGetter := func() *config.Config {
