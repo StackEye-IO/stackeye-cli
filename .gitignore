@@ -46,3 +46,6 @@ __debug_bin*
 
 # Extended coverage files
 coverage_full.out
+
+# Generated man pages
+docs/man/pages/

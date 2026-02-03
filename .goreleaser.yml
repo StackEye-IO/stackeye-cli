@@ -11,6 +11,11 @@ git:
   ignore_tags:
     - nightly
 
+# Generate man pages before build
+before:
+  hooks:
+    - go run ./docs/man/generate.go
+
 # Build configuration
 builds:
   - id: stackeye
@@ -49,6 +54,7 @@ archives:
     files:
       - LICENSE
       - README.md
+      - docs/man/pages/*.1
 
 # Linux package configuration (deb)
 nfpms:
@@ -72,6 +78,8 @@ nfpms:
         dst: /usr/share/doc/stackeye/LICENSE
       - src: README.md
         dst: /usr/share/doc/stackeye/README.md
+      - src: docs/man/pages/*.1
+        dst: /usr/share/man/man1/
 
   # Linux package configuration (rpm)
   - id: stackeye-rpm
@@ -94,6 +102,8 @@ nfpms:
         dst: /usr/share/doc/stackeye/LICENSE
       - src: README.md
         dst: /usr/share/doc/stackeye/README.md
+      - src: docs/man/pages/*.1
+        dst: /usr/share/man/man1/
 
 # Docker image configuration
 dockers:

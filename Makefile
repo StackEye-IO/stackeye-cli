@@ -3,7 +3,7 @@
 
 .PHONY: all build build-all build-darwin-amd64 build-darwin-arm64 build-linux-amd64 build-linux-arm64 build-windows-amd64 \
         build-local install clean test test-verbose test-e2e test-integration coverage coverage-html lint fmt fmt-check vet validate validate-quick tidy \
-        snapshot release-dry-run help
+        man man-clean snapshot release-dry-run help
 
 # Go parameters
 GOCMD=go
@@ -210,6 +210,21 @@ validate-quick: fmt-check vet lint
 	@echo "Quick validation complete"
 
 #==============================================================================
+# Documentation targets
+#==============================================================================
+
+## man: Generate man pages for all CLI commands
+man:
+	@echo "Generating man pages..."
+	@$(GOCMD) run ./docs/man/generate.go
+
+## man-clean: Remove generated man pages
+man-clean:
+	@echo "Removing generated man pages..."
+	@rm -rf docs/man/pages/
+	@echo "Man pages removed"
+
+#==============================================================================
 # Release targets (GoReleaser)
 #==============================================================================
 
@@ -248,6 +263,9 @@ help:
 	@echo ""
 	@echo "Validation targets:"
 	@grep -E '^## validate' $(MAKEFILE_LIST) | sed 's/## /  /'
+	@echo ""
+	@echo "Documentation targets:"
+	@grep -E '^## (man)' $(MAKEFILE_LIST) | sed 's/## /  /'
 	@echo ""
 	@echo "Release targets:"
 	@grep -E '^## (snapshot|release)' $(MAKEFILE_LIST) | sed 's/## /  /'
