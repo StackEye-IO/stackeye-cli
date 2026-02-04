@@ -32,6 +32,7 @@ import (
 	"syscall"
 
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
 )
 
 // Exit codes for CLI operations.
@@ -69,15 +70,30 @@ const (
 
 	// ExitPlanLimit indicates a plan limit was exceeded.
 	ExitPlanLimit = 10
+
+	// ExitSIGINT indicates the process was interrupted by Ctrl+C (128 + signal 2).
+	// This follows POSIX convention for signal-terminated processes.
+	ExitSIGINT = 130
+
+	// ExitSIGTERM indicates the process was terminated by SIGTERM (128 + signal 15).
+	// This follows POSIX convention for signal-terminated processes.
+	ExitSIGTERM = 143
 )
 
 // errWriter is the destination for error messages.
 // Can be overridden for testing.
 var errWriter io.Writer = os.Stderr
 
+// formatter provides color-coded error output. It is initialized lazily
+// and updated when SetErrWriter is called for testing.
+var formatter = NewErrorFormatter()
+
 // SetErrWriter sets the writer for error output. Used for testing.
+// Also reinitializes the formatter to use the new writer with colors disabled,
+// ensuring test output contains plain text for assertion matching.
 func SetErrWriter(w io.Writer) {
 	errWriter = w
+	formatter = NewErrorFormatterWithColorManager(sdkoutput.NewColorManager(sdkoutput.ColorNever), w)
 }
 
 // HandleError processes an error, prints a user-friendly message to stderr,
@@ -135,7 +151,7 @@ func HandleError(err error) int {
 	}
 
 	// Generic error fallback
-	printError(err.Error())
+	formatter.PrintError(err.Error())
 	return ExitError
 }
 
@@ -143,14 +159,9 @@ func HandleError(err error) int {
 func handleAPIError(apiErr *client.APIError) int {
 	switch {
 	case apiErr.IsUnauthorized():
-		msg := "Authentication required."
-		if apiErr.Code == client.ErrorCodeExpiredToken {
-			msg = "Your session has expired."
-		} else if apiErr.Code == client.ErrorCodeInvalidAPIKey {
-			msg = "Invalid API key."
-		}
-		printError(msg)
-		printHint("Run 'stackeye login' to authenticate.")
+		msg := GetUserFriendlyMessage(string(apiErr.Code), "Authentication required.")
+		formatter.PrintError(msg)
+		formatter.PrintHint(GetSuggestion("auth_required"))
 		return ExitAuth
 
 	// Check plan limit BEFORE forbidden since both can have status 403
@@ -159,30 +170,30 @@ func handleAPIError(apiErr *client.APIError) int {
 		if apiErr.Message != "" {
 			msg = apiErr.Message
 		}
-		printError(msg)
-		printHint("Upgrade your plan at https://stackeye.io/billing")
+		formatter.PrintError(msg)
+		formatter.PrintHint(GetSuggestion("plan_limit"))
 		return ExitPlanLimit
 
 	case apiErr.IsForbidden():
-		msg := "Permission denied."
+		msg := GetUserFriendlyMessage(string(apiErr.Code), "Permission denied.")
 		if apiErr.Message != "" {
 			msg = fmt.Sprintf("Permission denied: %s", apiErr.Message)
 		}
-		printError(msg)
-		printHint("You may not have access to this resource or organization.")
+		formatter.PrintError(msg)
+		formatter.PrintHint(GetSuggestion("forbidden"))
 		return ExitForbidden
 
 	case apiErr.IsNotFound():
-		msg := "Resource not found."
+		msg := GetUserFriendlyMessage(string(apiErr.Code), "Resource not found.")
 		if apiErr.Message != "" {
 			msg = apiErr.Message
 		}
-		printError(msg)
+		formatter.PrintError(msg)
 		return ExitNotFound
 
 	case apiErr.IsRateLimited():
-		printError("Rate limit exceeded.")
-		printHint("Please wait a moment and try again.")
+		formatter.PrintError(GetUserFriendlyMessage(string(apiErr.Code), "Rate limit exceeded."))
+		formatter.PrintHint(GetSuggestion("rate_limited"))
 		return ExitRateLimited
 
 	case apiErr.IsValidationError():
@@ -190,38 +201,29 @@ func handleAPIError(apiErr *client.APIError) int {
 		return ExitMisuse
 
 	case apiErr.IsServerError():
-		printError("Server error occurred.")
-		if apiErr.RequestID != "" {
-			printHint(fmt.Sprintf("Request ID: %s (include this when contacting support)", apiErr.RequestID))
-		}
-		printHint("If this persists, check https://status.stackeye.io")
+		formatter.PrintError(GetUserFriendlyMessage(string(apiErr.Code), "Server error occurred."))
+		formatter.PrintRequestID(apiErr.RequestID)
+		formatter.PrintHint(GetSuggestion("server_error"))
 		return ExitServerError
 
 	default:
 		// Unknown API error
-		msg := apiErr.Message
-		if msg == "" {
-			msg = "An unexpected error occurred"
-		}
-		printError(msg)
-		if apiErr.RequestID != "" {
-			printHint(fmt.Sprintf("Request ID: %s", apiErr.RequestID))
-		}
+		msg := GetUserFriendlyMessage(string(apiErr.Code), apiErr.Message)
+		formatter.PrintError(msg)
+		formatter.PrintRequestID(apiErr.RequestID)
 		return ExitError
 	}
 }
 
 // printValidationError formats and prints validation errors with field details.
 func printValidationError(apiErr *client.APIError) {
-	printError("Invalid request.")
+	formatter.PrintError("Invalid request.")
 
 	// Print field-level validation errors if available
 	if fields := apiErr.ValidationErrors(); len(fields) > 0 {
-		for field, msg := range fields {
-			fmt.Fprintf(errWriter, "  %s: %s\n", field, msg)
-		}
+		formatter.PrintValidationErrors(fields)
 	} else if apiErr.Message != "" {
-		fmt.Fprintf(errWriter, "  %s\n", apiErr.Message)
+		formatter.PrintHint(apiErr.Message)
 	}
 }
 
@@ -235,8 +237,8 @@ func handleNetworkError(err error) int {
 	// Check for timeout interface first (highest priority)
 	var te netTimeout
 	if errors.As(err, &te) && te.Timeout() {
-		printError("Connection timed out.")
-		printHint("The server took too long to respond. Try again later.")
+		formatter.PrintError("Connection timed out.")
+		formatter.PrintHint("The server took too long to respond. Try again later.")
 		return ExitTimeout
 	}
 
@@ -263,22 +265,22 @@ func handleNetworkError(err error) int {
 	// Check for DNS errors
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
-		printError(fmt.Sprintf("DNS lookup failed: %s", dnsErr.Name))
-		printHint("Check your network connection and DNS settings.")
+		formatter.PrintError(fmt.Sprintf("DNS lookup failed: %s", dnsErr.Name))
+		formatter.PrintHint(GetSuggestion("dns_failure"))
 		return ExitNetwork
 	}
 
 	// Check for connection refused
 	if errors.Is(err, syscall.ECONNREFUSED) {
-		printError("Connection refused.")
-		printHint("The server may be down or unreachable. Check your network connection.")
+		formatter.PrintError("Connection refused.")
+		formatter.PrintHint(GetSuggestion("connection_refused"))
 		return ExitNetwork
 	}
 
 	// Check for connection reset
 	if errors.Is(err, syscall.ECONNRESET) {
-		printError("Connection reset by server.")
-		printHint("Try again. If this persists, check https://status.stackeye.io")
+		formatter.PrintError("Connection reset by server.")
+		formatter.PrintHint(GetSuggestion("connection_reset"))
 		return ExitNetwork
 	}
 
@@ -286,8 +288,8 @@ func handleNetworkError(err error) int {
 	// to prevent misclassifying authentication failures as network errors.
 	errStr := err.Error()
 	if containsNetworkError(errStr) && !containsHTTPError(errStr) {
-		printError("Network error occurred.")
-		printHint("Check your internet connection and try again.")
+		formatter.PrintError("Network error occurred.")
+		formatter.PrintHint(GetSuggestion("network_error"))
 		return ExitNetwork
 	}
 
@@ -298,13 +300,13 @@ func handleNetworkError(err error) int {
 func handleNetOpError(netErr *net.OpError) int {
 	switch {
 	case netErr.Timeout():
-		printError("Connection timed out.")
-		printHint("The server took too long to respond. Try again later.")
+		formatter.PrintError("Connection timed out.")
+		formatter.PrintHint("The server took too long to respond. Try again later.")
 		return ExitTimeout
 
 	case netErr.Temporary():
-		printError("Temporary network error.")
-		printHint("Try again in a moment.")
+		formatter.PrintError("Temporary network error.")
+		formatter.PrintHint("Try again in a moment.")
 		return ExitNetwork
 
 	default:
@@ -314,8 +316,8 @@ func handleNetOpError(netErr *net.OpError) int {
 				return code
 			}
 		}
-		printError("Network error occurred.")
-		printHint("Check your internet connection and try again.")
+		formatter.PrintError("Network error occurred.")
+		formatter.PrintHint(GetSuggestion("network_error"))
 		return ExitNetwork
 	}
 }
@@ -323,8 +325,8 @@ func handleNetOpError(netErr *net.OpError) int {
 // handleContextError checks for context-related errors.
 func handleContextError(err error) int {
 	if errors.Is(err, context.DeadlineExceeded) {
-		printError("Operation timed out.")
-		printHint("The request took too long. Try again or check your connection.")
+		formatter.PrintError("Operation timed out.")
+		formatter.PrintHint(GetSuggestion("timeout"))
 		return ExitTimeout
 	}
 
@@ -420,19 +422,19 @@ func detectHTTPStatusCode(errStr string) int {
 func handleHTTPStatusCode(code int) int {
 	switch {
 	case code == 401:
-		printError("Authentication failed.")
-		printHint("Your API key may be invalid or expired. Run 'stackeye login' to authenticate.")
+		formatter.PrintError("Authentication failed.")
+		formatter.PrintHint(GetSuggestion("auth_required"))
 		return ExitAuth
 	case code == 403:
-		printError("Access denied.")
-		printHint("You don't have permission to perform this action.")
+		formatter.PrintError("Access denied.")
+		formatter.PrintHint(GetSuggestion("permission_denied"))
 		return ExitForbidden
 	case code == 404:
-		printError("Resource not found.")
+		formatter.PrintError("Resource not found.")
 		return ExitNotFound
 	case code >= 500:
-		printError("Server error occurred.")
-		printHint("The StackEye API is experiencing issues. Try again later.")
+		formatter.PrintError("Server error occurred.")
+		formatter.PrintHint(GetSuggestion("server_error"))
 		return ExitServerError
 	default:
 		return ExitError
@@ -464,16 +466,6 @@ func containsHTTPError(errStr string) bool {
 	return false
 }
 
-// printError prints an error message to stderr.
-func printError(msg string) {
-	fmt.Fprintf(errWriter, "Error: %s\n", msg)
-}
-
-// printHint prints a hint message to stderr (indented for clarity).
-func printHint(msg string) {
-	fmt.Fprintf(errWriter, "  %s\n", msg)
-}
-
 // ExitCodeName returns a human-readable name for an exit code.
 // Useful for logging and debugging.
 func ExitCodeName(code int) string {
@@ -500,6 +492,10 @@ func ExitCodeName(code int) string {
 		return "timeout"
 	case ExitPlanLimit:
 		return "plan_limit"
+	case ExitSIGINT:
+		return "sigint"
+	case ExitSIGTERM:
+		return "sigterm"
 	default:
 		return fmt.Sprintf("unknown(%d)", code)
 	}
