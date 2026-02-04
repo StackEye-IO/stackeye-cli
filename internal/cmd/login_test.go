@@ -262,7 +262,7 @@ func TestCompleteLogin_ContextNameDeduplication(t *testing.T) {
 	cfg := config.NewConfig()
 	cfg.SetContext("acme-corp", &config.Context{
 		APIURL:           "https://api.stackeye.io",
-		APIKey:           "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+		APIKey:           "se_b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2",
 		OrganizationID:   "org-old",
 		OrganizationName: "Acme Corp",
 	})
@@ -372,7 +372,7 @@ func TestCheckExistingAuth_NoInputMode(t *testing.T) {
 	cfg := config.NewConfig()
 	cfg.SetContext("existing", &config.Context{
 		APIURL: "https://api.stackeye.io",
-		APIKey: "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+		APIKey: "se_b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2",
 	})
 	cfg.CurrentContext = "existing"
 	if err := cfg.Save(); err != nil {
@@ -393,7 +393,7 @@ func TestCheckExistingAuth_DifferentURL(t *testing.T) {
 	cfg := config.NewConfig()
 	cfg.SetContext("other", &config.Context{
 		APIURL: "https://api.dev.stackeye.io",
-		APIKey: "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+		APIKey: "se_b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2d3e4f5a6b1c2",
 	})
 	cfg.CurrentContext = "other"
 	if err := cfg.Save(); err != nil {
