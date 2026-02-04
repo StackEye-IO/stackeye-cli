@@ -77,6 +77,10 @@ func NewTestEnvWithMultipleContexts(t *testing.T) *TestEnv {
 func NewLiveTestEnv(t *testing.T) *TestEnv {
 	t.Helper()
 
+	if !IsLiveTestEnabled() {
+		t.Skip("skipping live integration test: set STACKEYE_E2E_LIVE=true to run")
+	}
+
 	// Get the user's actual config path
 	configPath := config.ConfigPath()
 	require.NotEmpty(t, configPath, "failed to determine config path - home directory unavailable")
