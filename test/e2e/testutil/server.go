@@ -152,6 +152,26 @@ func (ms *MockServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // Register adds a new route handler to the mock server.
+//
+// # Route Pattern Behavior (Task #8216)
+//
+// Routes use regex patterns to match URL paths. The common pattern `[a-f0-9-]+`
+// is used to match UUIDs (e.g., "550e8400-e29b-41d4-a716-446655440000").
+//
+// WARNING: This pattern can match unintended paths that contain only hex
+// characters and hyphens. English words that would falsely match include:
+//
+//   - "feed", "dead", "cafe", "bead", "beef", "face", "fade", "deaf"
+//   - "decade", "facade", "effaced", "defaced"
+//
+// If you add a route like "/v1/probes/feed" (hypothetical probe aggregation
+// feed endpoint), it could be matched by `/v1/probes/([a-f0-9-]+)` instead.
+//
+// MITIGATION: When adding new routes with potential hex-only names:
+//  1. Register specific literal routes BEFORE wildcard UUID routes, as the
+//     mock server uses first-match semantics
+//  2. Or use more restrictive patterns that require the full UUID structure:
+//     `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
 func (ms *MockServer) Register(method, pattern string, handler RouteHandler) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
