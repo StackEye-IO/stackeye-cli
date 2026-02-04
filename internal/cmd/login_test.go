@@ -553,4 +553,3 @@ func TestRunLogin_DebugMode(t *testing.T) {
 		t.Error("expected authenticator.Login to be called")
 	}
 }
-
