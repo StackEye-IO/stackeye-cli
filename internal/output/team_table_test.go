@@ -2,11 +2,13 @@
 package output
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
+	"gopkg.in/yaml.v3"
 )
 
 // TestNewTeamMemberTableFormatter verifies the formatter constructor.
@@ -277,5 +279,101 @@ func TestPrintRoleUpdated_ResponseFields(t *testing.T) {
 	}
 	if result.Message == "" {
 		t.Error("expected Message to be set")
+	}
+}
+
+// TestPrintMemberRemoved_ResponseFields verifies the member removed response fields are handled.
+func TestPrintMemberRemoved_ResponseFields(t *testing.T) {
+	// This test verifies the MemberRemovedResponse structure is compatible
+	// with the PrintMemberRemoved function. The actual printing is tested via
+	// integration tests since it depends on the printer configuration.
+	result := &MemberRemovedResponse{
+		MemberID: 42,
+		Email:    "alice@example.com",
+		Removed:  true,
+	}
+
+	// Verify the response fields are accessible
+	if result.MemberID != 42 {
+		t.Errorf("expected MemberID 42, got %d", result.MemberID)
+	}
+	if result.Email != "alice@example.com" {
+		t.Errorf("expected Email 'alice@example.com', got %q", result.Email)
+	}
+	if !result.Removed {
+		t.Error("expected Removed to be true")
+	}
+}
+
+// TestMemberRemovedResponse_JSONMarshal verifies JSON field names are correct.
+func TestMemberRemovedResponse_JSONMarshal(t *testing.T) {
+	result := &MemberRemovedResponse{
+		MemberID: 99,
+		Email:    "bob@example.com",
+		Removed:  true,
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal JSON: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	if _, ok := parsed["member_id"]; !ok {
+		t.Error("expected JSON field 'member_id' to be present")
+	}
+	if _, ok := parsed["email"]; !ok {
+		t.Error("expected JSON field 'email' to be present")
+	}
+	if _, ok := parsed["removed"]; !ok {
+		t.Error("expected JSON field 'removed' to be present")
+	}
+}
+
+// TestMemberRemovedResponse_YAMLMarshal verifies YAML field names are correct.
+func TestMemberRemovedResponse_YAMLMarshal(t *testing.T) {
+	result := &MemberRemovedResponse{
+		MemberID: 99,
+		Email:    "bob@example.com",
+		Removed:  true,
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal YAML: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal YAML: %v", err)
+	}
+
+	if _, ok := parsed["member_id"]; !ok {
+		t.Error("expected YAML field 'member_id' to be present")
+	}
+	if _, ok := parsed["email"]; !ok {
+		t.Error("expected YAML field 'email' to be present")
+	}
+	if _, ok := parsed["removed"]; !ok {
+		t.Error("expected YAML field 'removed' to be present")
+	}
+}
+
+// TestMemberRemovedResponse_DefaultValues verifies default values when fields are empty.
+func TestMemberRemovedResponse_DefaultValues(t *testing.T) {
+	result := &MemberRemovedResponse{}
+
+	if result.MemberID != 0 {
+		t.Errorf("expected default MemberID 0, got %d", result.MemberID)
+	}
+	if result.Email != "" {
+		t.Errorf("expected default Email empty, got %q", result.Email)
+	}
+	if result.Removed {
+		t.Error("expected default Removed to be false")
 	}
 }
