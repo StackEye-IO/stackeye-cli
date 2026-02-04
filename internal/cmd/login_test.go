@@ -2,10 +2,47 @@
 package cmd
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
+
+// setupTestConfigDir sets XDG_CONFIG_HOME to a temp directory so config.Load()
+// and config.Save() operate on an isolated config file. Returns a cleanup function.
+func setupTestConfigDir(t *testing.T) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+}
+
+// newMockVerifyServer creates an httptest.Server that responds to GET /v1/cli-auth/verify
+// with the provided CLIVerifyResponse (or an error status).
+func newMockVerifyServer(t *testing.T, resp *client.CLIVerifyResponse, statusCode int) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/cli-auth/verify" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET request, got %s", r.Method)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		if resp != nil {
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
 
 func TestGenerateContextName(t *testing.T) {
 	tests := []struct {
@@ -131,5 +168,225 @@ func TestNewLoginCmd(t *testing.T) {
 		t.Error("expected --api-url flag to exist")
 	} else if flag.DefValue != auth.DefaultAPIURL {
 		t.Errorf("unexpected default for --api-url: got %v want %v", flag.DefValue, auth.DefaultAPIURL)
+	}
+}
+
+func TestCompleteLogin_Success(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	server := newMockVerifyServer(t, &client.CLIVerifyResponse{
+		Valid:            true,
+		OrganizationID:   "org-123",
+		OrganizationName: "Test Org",
+		AuthType:         "api_key",
+	}, http.StatusOK)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+	err := completeLogin(server.URL, apiKey, "org-123", "Test Org", false)
+	if err != nil {
+		t.Fatalf("completeLogin() unexpected error: %v", err)
+	}
+
+	// Verify config was saved correctly
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() failed: %v", err)
+	}
+
+	if cfg.CurrentContext != "test-org" {
+		t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "test-org")
+	}
+
+	ctx, err := cfg.GetContext("test-org")
+	if err != nil {
+		t.Fatalf("GetContext(\"test-org\") failed: %v", err)
+	}
+	if ctx.APIKey != apiKey {
+		t.Errorf("APIKey = %q, want %q", ctx.APIKey, apiKey)
+	}
+	if ctx.APIURL != server.URL {
+		t.Errorf("APIURL = %q, want %q", ctx.APIURL, server.URL)
+	}
+	if ctx.OrganizationID != "org-123" {
+		t.Errorf("OrganizationID = %q, want %q", ctx.OrganizationID, "org-123")
+	}
+	if ctx.OrganizationName != "Test Org" {
+		t.Errorf("OrganizationName = %q, want %q", ctx.OrganizationName, "Test Org")
+	}
+}
+
+func TestCompleteLogin_VerifyFailure(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	server := newMockVerifyServer(t, nil, http.StatusUnauthorized)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+	err := completeLogin(server.URL, apiKey, "org-123", "Test Org", false)
+	if err == nil {
+		t.Fatal("completeLogin() expected error for 401 response, got nil")
+	}
+}
+
+func TestCompleteLogin_ContextNameDeduplication(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	server := newMockVerifyServer(t, &client.CLIVerifyResponse{
+		Valid:            true,
+		OrganizationID:   "org-123",
+		OrganizationName: "Acme Corp",
+		AuthType:         "api_key",
+	}, http.StatusOK)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	// Pre-populate config with an existing "acme-corp" context
+	cfg := config.NewConfig()
+	cfg.SetContext("acme-corp", &config.Context{
+		APIURL:           "https://api.stackeye.io",
+		APIKey:           "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+		OrganizationID:   "org-old",
+		OrganizationName: "Acme Corp",
+	})
+	cfg.CurrentContext = "acme-corp"
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("failed to pre-populate config: %v", err)
+	}
+
+	// Login again with same org name - should get "acme-corp-2"
+	err := completeLogin(server.URL, apiKey, "org-123", "Acme Corp", false)
+	if err != nil {
+		t.Fatalf("completeLogin() unexpected error: %v", err)
+	}
+
+	cfg, err = config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() failed: %v", err)
+	}
+
+	if cfg.CurrentContext != "acme-corp-2" {
+		t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "acme-corp-2")
+	}
+
+	// Both contexts should exist
+	if _, err := cfg.GetContext("acme-corp"); err != nil {
+		t.Error("original context 'acme-corp' should still exist")
+	}
+	if _, err := cfg.GetContext("acme-corp-2"); err != nil {
+		t.Error("new context 'acme-corp-2' should exist")
+	}
+}
+
+func TestCompleteLogin_OrgNameFallback(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	server := newMockVerifyServer(t, &client.CLIVerifyResponse{
+		Valid:            true,
+		OrganizationID:   "org-456",
+		OrganizationName: "From Verify",
+		AuthType:         "api_key",
+	}, http.StatusOK)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	// Pass empty org name and org ID - should fall back to verify response values
+	err := completeLogin(server.URL, apiKey, "", "", false)
+	if err != nil {
+		t.Fatalf("completeLogin() unexpected error: %v", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() failed: %v", err)
+	}
+
+	ctx, err := cfg.GetContext(cfg.CurrentContext)
+	if err != nil {
+		t.Fatalf("GetContext(%q) failed: %v", cfg.CurrentContext, err)
+	}
+
+	if ctx.OrganizationName != "From Verify" {
+		t.Errorf("OrganizationName = %q, want %q", ctx.OrganizationName, "From Verify")
+	}
+	if ctx.OrganizationID != "org-456" {
+		t.Errorf("OrganizationID = %q, want %q", ctx.OrganizationID, "org-456")
+	}
+}
+
+func TestCompleteLogin_DebugMode(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	server := newMockVerifyServer(t, &client.CLIVerifyResponse{
+		Valid:            true,
+		OrganizationID:   "org-789",
+		OrganizationName: "Debug Org",
+		AuthType:         "api_key",
+	}, http.StatusOK)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	// Should not panic or error in debug mode
+	err := completeLogin(server.URL, apiKey, "org-789", "Debug Org", true)
+	if err != nil {
+		t.Fatalf("completeLogin() with debug=true unexpected error: %v", err)
+	}
+}
+
+func TestCheckExistingAuth_NoConfig(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// No config file exists - should return nil (proceed with login)
+	err := checkExistingAuth("https://api.stackeye.io")
+	if err != nil {
+		t.Fatalf("checkExistingAuth() unexpected error: %v", err)
+	}
+}
+
+func TestCheckExistingAuth_NoInputMode(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+	noInput = true
+
+	// Create config with existing auth for this URL
+	cfg := config.NewConfig()
+	cfg.SetContext("existing", &config.Context{
+		APIURL: "https://api.stackeye.io",
+		APIKey: "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+	})
+	cfg.CurrentContext = "existing"
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("failed to pre-populate config: %v", err)
+	}
+
+	err := checkExistingAuth("https://api.stackeye.io")
+	if err == nil {
+		t.Fatal("checkExistingAuth() expected error in no-input mode with existing auth, got nil")
+	}
+}
+
+func TestCheckExistingAuth_DifferentURL(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// Create config with auth for a different URL
+	cfg := config.NewConfig()
+	cfg.SetContext("other", &config.Context{
+		APIURL: "https://api.dev.stackeye.io",
+		APIKey: "se_existing_key_placeholder_placeholder_placeholder_placeholder_xx",
+	})
+	cfg.CurrentContext = "other"
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("failed to pre-populate config: %v", err)
+	}
+
+	// Checking a different URL - should return nil (no existing auth for this URL)
+	err := checkExistingAuth("https://api.stackeye.io")
+	if err != nil {
+		t.Fatalf("checkExistingAuth() unexpected error: %v", err)
 	}
 }
