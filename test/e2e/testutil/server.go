@@ -369,6 +369,11 @@ func (ms *MockServer) RegisterDefaultRoutes() {
 func (ms *MockServer) RegisterAllRoutes() {
 	ms.RegisterDefaultRoutes()
 
+	// --- CLI Auth Verify ---
+	ms.Register("GET", "/v1/cli-auth/verify", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, CLIVerifyFixture())
+	})
+
 	// --- Alert Stats ---
 	ms.Register("GET", "/v1/alerts/stats", func(w http.ResponseWriter, r *http.Request, _ []string) {
 		RespondWithJSON(w, http.StatusOK, AlertStatsFixture())

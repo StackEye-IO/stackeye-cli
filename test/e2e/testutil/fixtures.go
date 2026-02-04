@@ -718,6 +718,20 @@ func UserProfileFixture() map[string]interface{} {
 	}
 }
 
+// CLIVerifyFixture returns a CLI credential verification response.
+// Matches the CLIVerifyResponse struct in stackeye-go-sdk/client/cli_auth.go.
+func CLIVerifyFixture() map[string]interface{} {
+	return map[string]interface{}{
+		"valid":             true,
+		"organization_id":   OrganizationID,
+		"organization_name": "Test Organization",
+		"auth_type":         "api_key",
+		"user_email":        "admin@example.com",
+		"user_name":         "Admin User",
+		"is_platform_admin": false,
+	}
+}
+
 // UserOrganizationListFixture returns a list of organizations the user belongs to.
 func UserOrganizationListFixture() []map[string]interface{} {
 	return []map[string]interface{}{
