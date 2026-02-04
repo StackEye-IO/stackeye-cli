@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -145,6 +146,14 @@ func runChannelUpdate(cmd *cobra.Command, idArg string, flags *channelUpdateFlag
 	channelID, err := uuid.Parse(idArg)
 	if err != nil {
 		return fmt.Errorf("invalid channel ID %q: must be a valid UUID", idArg)
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("update", "channel",
+			"ID", channelID.String(),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client/admin"
 	"github.com/spf13/cobra"
@@ -50,6 +51,14 @@ Examples:
 
 // runAdminM2MKeyRotate executes the m2m-key rotate command logic.
 func runAdminM2MKeyRotate(ctx context.Context, keyID string) error {
+	// Dry-run check: after flag parsing (cobra validates required flags), before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("rotate", "M2M key",
+			"ID", keyID,
+		)
+		return nil
+	}
+
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {

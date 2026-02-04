@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -135,6 +136,21 @@ func runTeamUpdateRole(ctx context.Context, flags *teamUpdateRoleFlags) error {
 
 	// Normalize role to lowercase
 	role := strings.ToLower(flags.role)
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{
+			"Role", role,
+		}
+		if flags.memberID != 0 {
+			details = append(details, "Member ID", fmt.Sprintf("%d", flags.memberID))
+		}
+		if flags.email != "" {
+			details = append(details, "Email", flags.email)
+		}
+		dryrun.PrintAction("update role for", "team member", details...)
+		return nil
+	}
 
 	// Get authenticated API client (after validation passes)
 	apiClient, err := api.GetClient()

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -183,6 +184,15 @@ func runChannelCreate(ctx context.Context, flags *channelCreateFlags) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Dry-run check: after validation/request building, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("create", "channel",
+			"Name", req.Name,
+			"Type", string(req.Type),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

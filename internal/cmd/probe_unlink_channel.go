@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -57,6 +58,15 @@ func runProbeUnlinkChannel(cmd *cobra.Command, probeIDArg, channelIDArg string) 
 	channelID, err := uuid.Parse(channelIDArg)
 	if err != nil {
 		return fmt.Errorf("invalid channel ID %q: must be a valid UUID", channelIDArg)
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("unlink channel from", "probe",
+			"Probe", probeIDArg,
+			"Channel", channelIDArg,
+		)
+		return nil
 	}
 
 	// Get authenticated API client

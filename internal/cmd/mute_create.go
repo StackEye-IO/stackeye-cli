@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -127,6 +128,15 @@ func runMuteCreate(ctx context.Context, flags *muteCreateFlags) error {
 	req, err := buildMuteRequestFromFlags(flags)
 	if err != nil {
 		return err
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("create", "mute",
+			"Scope", string(req.ScopeType),
+			"Duration", fmt.Sprintf("%d minutes", req.DurationMinutes),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

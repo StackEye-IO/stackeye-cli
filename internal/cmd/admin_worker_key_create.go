@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client/admin"
 	"github.com/spf13/cobra"
@@ -64,6 +65,18 @@ Examples:
 
 // runAdminWorkerKeyCreate executes the worker-key create command logic.
 func runAdminWorkerKeyCreate(ctx context.Context) error {
+	// Dry-run check: after flag parsing (cobra validates required flags), before API calls
+	if GetDryRun() {
+		details := []string{
+			"Region", workerKeyCreateRegion,
+		}
+		if workerKeyCreateName != "" {
+			details = append(details, "Name", workerKeyCreateName)
+		}
+		dryrun.PrintAction("create", "worker key", details...)
+		return nil
+	}
+
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {

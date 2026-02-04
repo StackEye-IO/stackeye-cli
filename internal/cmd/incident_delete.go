@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
 )
@@ -80,6 +81,15 @@ use 'stackeye incident resolve' instead.`,
 
 // runIncidentDelete executes the incident delete command logic.
 func runIncidentDelete(ctx context.Context, flags *incidentDeleteFlags) error {
+	// Dry-run check: after flag parsing (cobra validates required flags), before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("delete", "incident",
+			"Status Page ID", fmt.Sprintf("%d", flags.statusPageID),
+			"Incident ID", fmt.Sprintf("%d", flags.incidentID),
+		)
+		return nil
+	}
+
 	// Prompt for confirmation unless --force is specified
 	if !flags.force {
 		fmt.Printf("WARNING: This will permanently delete incident %d from status page %d.\n", flags.incidentID, flags.statusPageID)

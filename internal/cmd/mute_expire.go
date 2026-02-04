@@ -3,14 +3,14 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
-	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
@@ -70,6 +70,14 @@ func runMuteExpire(ctx context.Context, idArg string, flags *muteExpireFlags) er
 		return fmt.Errorf("invalid mute ID %q: must be a valid UUID", idArg)
 	}
 
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("expire", "mute",
+			"ID", muteID.String(),
+		)
+		return nil
+	}
+
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {
@@ -95,24 +103,15 @@ func runMuteExpire(ctx context.Context, idArg string, flags *muteExpireFlags) er
 	}
 
 	// Prompt for confirmation unless --yes flag is set or --no-input is enabled
-	if !flags.yes && !GetNoInput() {
-		message := fmt.Sprintf("Are you sure you want to expire mute %s (%s scope)?", muteID, mute.ScopeType)
+	message := fmt.Sprintf("Are you sure you want to expire mute %s (%s scope)?", muteID, mute.ScopeType)
 
-		confirmed, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: message,
-			Default: false,
-		})
-		if err != nil {
-			if errors.Is(err, interactive.ErrPromptCancelled) {
-				return fmt.Errorf("operation cancelled by user")
-			}
-			return fmt.Errorf("failed to prompt for confirmation: %w", err)
-		}
-
-		if !confirmed {
-			fmt.Println("Expire cancelled.")
-			return nil
-		}
+	confirmed, err := cliinteractive.Confirm(message, cliinteractive.WithYesFlag(flags.yes))
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Expire cancelled.")
+		return nil
 	}
 
 	// Expire the mute

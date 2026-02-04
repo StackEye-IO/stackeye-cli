@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -77,6 +78,14 @@ func runChannelTest(ctx context.Context, idArg string) error {
 	channelID, err := uuid.Parse(idArg)
 	if err != nil {
 		return fmt.Errorf("invalid channel ID %q: must be a valid UUID", idArg)
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("send test notification to", "channel",
+			"Channel ID", channelID.String(),
+		)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

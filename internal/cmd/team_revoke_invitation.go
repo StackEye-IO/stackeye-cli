@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -107,6 +108,19 @@ func runTeamRevokeInvitation(ctx context.Context, flags *teamRevokeInvitationFla
 	// Validate all flags before making any API calls
 	if err := validateRevokeInvitationFlags(flags); err != nil {
 		return err
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{}
+		if flags.id != "" {
+			details = append(details, "Invitation ID", flags.id)
+		}
+		if flags.email != "" {
+			details = append(details, "Email", flags.email)
+		}
+		dryrun.PrintAction("revoke", "invitation", details...)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

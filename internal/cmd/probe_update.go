@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -274,6 +275,28 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 	// Require at least one update flag
 	if !hasUpdates {
 		return fmt.Errorf("no update flags specified; use --help to see available options")
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		details := []string{"Probe", idArg}
+		if cmd.Flags().Changed("name") {
+			details = append(details, "Name", *flags.name)
+		}
+		if cmd.Flags().Changed("url") {
+			details = append(details, "URL", *flags.url)
+		}
+		if cmd.Flags().Changed("interval") {
+			details = append(details, "Interval", fmt.Sprintf("%ds", *flags.intervalSeconds))
+		}
+		if cmd.Flags().Changed("timeout") {
+			details = append(details, "Timeout", fmt.Sprintf("%ds", *flags.timeoutSeconds))
+		}
+		if flags.regionsSet {
+			details = append(details, "Regions", strings.Join(flags.regions, ", "))
+		}
+		dryrun.PrintAction("update", "probe", details...)
+		return nil
 	}
 
 	// Get authenticated API client

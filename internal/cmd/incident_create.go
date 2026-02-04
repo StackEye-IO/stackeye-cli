@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -67,7 +68,7 @@ Optional Flags:
   --from-file        Create incident from YAML file
 
 Incident Status Workflow:
-  investigating → identified → monitoring → resolved
+  investigating -> identified -> monitoring -> resolved
 
 Impact Levels:
   none     - No impact to services (informational)
@@ -148,6 +149,16 @@ func runIncidentCreate(ctx context.Context, flags *incidentCreateFlags) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Dry-run check: after validation/request building, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("create", "incident",
+			"Title", req.Title,
+			"Impact", req.Impact,
+			"Status", req.Status,
+		)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

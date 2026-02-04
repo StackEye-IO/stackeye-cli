@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -101,6 +102,16 @@ func runAlertAck(ctx context.Context, idArgs []string, flags *alertAckFlags) err
 			return fmt.Errorf("invalid alert ID %q: must be a valid UUID", idArg)
 		}
 		alertIDs = append(alertIDs, alertID)
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		ids := make([]string, len(alertIDs))
+		for i, id := range alertIDs {
+			ids[i] = id.String()
+		}
+		dryrun.PrintBatchAction("acknowledge", "alert", ids)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

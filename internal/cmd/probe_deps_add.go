@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
 )
@@ -66,6 +67,15 @@ Common dependency patterns:
 
 // runProbeDepsAddCmd executes the probe deps add command logic.
 func runProbeDepsAddCmd(ctx context.Context, probeIDArg, parentIDArg string, force bool) error {
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("add dependency to", "probe",
+			"Probe", probeIDArg,
+			"Parent", parentIDArg,
+		)
+		return nil
+	}
+
 	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {

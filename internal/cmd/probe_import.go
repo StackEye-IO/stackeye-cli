@@ -109,7 +109,8 @@ func runProbeImport(ctx context.Context, flags *probeImportFlags) error {
 	}
 
 	// In dry-run mode, show what would be imported and exit
-	if flags.dryRun {
+	// Check both the local --dry-run flag and the global --dry-run persistent flag
+	if flags.dryRun || GetDryRun() {
 		return printDryRunSummary(configs)
 	}
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-go-sdk/client/admin"
 	"github.com/spf13/cobra"
 )
@@ -58,6 +59,14 @@ Examples:
 
 // runAdminWorkerKeyDelete executes the worker-key delete command logic.
 func runAdminWorkerKeyDelete(ctx context.Context, keyID string) error {
+	// Dry-run check: after arg parsing, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("delete", "worker key",
+			"ID", keyID,
+		)
+		return nil
+	}
+
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {

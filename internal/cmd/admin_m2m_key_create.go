@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client/admin"
 	"github.com/spf13/cobra"
@@ -68,6 +69,18 @@ func runAdminM2MKeyCreate(ctx context.Context, region string, global bool) error
 	}
 	if region != "" && global {
 		return fmt.Errorf("cannot specify both --region and --global")
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		keyType := "global"
+		if region != "" {
+			keyType = fmt.Sprintf("regional (%s)", region)
+		}
+		dryrun.PrintAction("create", "M2M key",
+			"Type", keyType,
+		)
+		return nil
 	}
 
 	// Get authenticated API client

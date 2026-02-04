@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ Optional Flags:
   --message          Resolution message explaining what was fixed
 
 Incident Status Workflow:
-  investigating → identified → monitoring → resolved
+  investigating -> identified -> monitoring -> resolved
 
 When you resolve an incident:
   - Status is set to 'resolved'
@@ -84,6 +85,19 @@ Note: Resolved incidents remain visible on the status page history. Use
 
 // runIncidentResolve executes the incident resolve command logic.
 func runIncidentResolve(ctx context.Context, flags *incidentResolveFlags) error {
+	// Dry-run check: after flag parsing (cobra validates required flags), before API calls
+	if GetDryRun() {
+		details := []string{
+			"Status Page ID", fmt.Sprintf("%d", flags.statusPageID),
+			"Incident ID", fmt.Sprintf("%d", flags.incidentID),
+		}
+		if flags.message != "" {
+			details = append(details, "Message", flags.message)
+		}
+		dryrun.PrintAction("resolve", "incident", details...)
+		return nil
+	}
+
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
 	if err != nil {

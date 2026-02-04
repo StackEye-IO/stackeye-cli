@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
@@ -107,6 +108,20 @@ func runMaintenanceCreate(ctx context.Context, flags *maintenanceCreateFlags) er
 	req, err := buildMaintenanceRequest(flags)
 	if err != nil {
 		return err
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		scope := "organization"
+		if flags.probeID != "" {
+			scope = "probe"
+		}
+		dryrun.PrintAction("create", "maintenance window",
+			"Name", flags.name,
+			"Scope", scope,
+			"Duration", fmt.Sprintf("%d minutes", flags.duration),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

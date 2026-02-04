@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -85,6 +86,19 @@ func runStatusPageAddProbe(ctx context.Context, idArg string, flags *statusPageA
 	parsedUUID, err := uuid.Parse(flags.probeID)
 	if err != nil {
 		return fmt.Errorf("invalid probe ID %q: must be a valid UUID", flags.probeID)
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{
+			"Status Page ID", idArg,
+			"Probe ID", parsedUUID.String(),
+		}
+		if flags.displayName != "" {
+			details = append(details, "Display Name", flags.displayName)
+		}
+		dryrun.PrintAction("add probe to", "status page", details...)
+		return nil
 	}
 
 	// Get authenticated API client

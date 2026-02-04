@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -100,6 +101,19 @@ func runStatusPageReorderProbes(ctx context.Context, idArg string, flags *status
 
 	if len(orders) == 0 {
 		return fmt.Errorf("--probe-ids must contain at least one valid probe UUID")
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		ids := make([]string, len(orders))
+		for i, o := range orders {
+			ids[i] = o.ProbeID
+		}
+		dryrun.PrintAction("reorder probes on", "status page",
+			"Status Page ID", idArg,
+			"Probe Count", fmt.Sprintf("%d", len(orders)),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

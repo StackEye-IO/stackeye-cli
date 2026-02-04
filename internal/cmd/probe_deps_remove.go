@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -64,6 +65,15 @@ the alert will become active after the dependency is removed.`,
 
 // runProbeDepsRemoveCmd executes the probe deps remove command logic.
 func runProbeDepsRemoveCmd(ctx context.Context, probeIDArg, parentIDArg string, skipConfirm bool) error {
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("remove dependency from", "probe",
+			"Probe", probeIDArg,
+			"Parent", parentIDArg,
+		)
+		return nil
+	}
+
 	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {

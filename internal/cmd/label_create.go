@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -85,6 +86,21 @@ func runLabelCreate(ctx context.Context, key, displayName, description, color st
 		if err := validateHexColor(color); err != nil {
 			return err
 		}
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{
+			"Key", key,
+		}
+		if displayName != "" {
+			details = append(details, "Display Name", displayName)
+		}
+		if color != "" {
+			details = append(details, "Color", color)
+		}
+		dryrun.PrintAction("create", "label key", details...)
+		return nil
 	}
 
 	// Get API client

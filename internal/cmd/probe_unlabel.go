@@ -5,9 +5,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -54,6 +56,15 @@ Examples:
 func runProbeUnlabel(ctx context.Context, probeIDArg string, keys []string) error {
 	if len(keys) == 0 {
 		return fmt.Errorf("at least one label key is required")
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("remove labels from", "probe",
+			"Probe", probeIDArg,
+			"Label Keys", strings.Join(keys, ", "),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

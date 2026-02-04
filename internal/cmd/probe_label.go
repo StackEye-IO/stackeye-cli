@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -68,6 +69,23 @@ func runProbeLabel(ctx context.Context, probeIDArg string, labelArgs []string) e
 	labels, err := parseLabelArgs(labelArgs)
 	if err != nil {
 		return err
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		labelStrs := make([]string, len(labels))
+		for i, l := range labels {
+			if l.Value != nil {
+				labelStrs[i] = fmt.Sprintf("%s=%s", l.Key, *l.Value)
+			} else {
+				labelStrs[i] = l.Key
+			}
+		}
+		dryrun.PrintAction("add labels to", "probe",
+			"Probe", probeIDArg,
+			"Labels", strings.Join(labelStrs, ", "),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

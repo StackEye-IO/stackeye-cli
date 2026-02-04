@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -62,7 +63,7 @@ Optional Flags (at least one required):
   --from-file        Update incident from YAML file
 
 Incident Status Workflow:
-  investigating → identified → monitoring → resolved
+  investigating -> identified -> monitoring -> resolved
 
 Impact Levels:
   none     - No impact to services (informational)
@@ -141,6 +142,25 @@ func runIncidentUpdate(ctx context.Context, flags *incidentUpdateFlags) error {
 	// Verify at least one field is being updated
 	if req.Title == nil && req.Message == nil && req.Status == nil && req.Impact == nil {
 		return fmt.Errorf("at least one update field is required: --title, --message, --status, --impact, or --from-file")
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{
+			"Status Page ID", fmt.Sprintf("%d", flags.statusPageID),
+			"Incident ID", fmt.Sprintf("%d", flags.incidentID),
+		}
+		if req.Title != nil {
+			details = append(details, "Title", *req.Title)
+		}
+		if req.Status != nil {
+			details = append(details, "Status", *req.Status)
+		}
+		if req.Impact != nil {
+			details = append(details, "Impact", *req.Impact)
+		}
+		dryrun.PrintAction("update", "incident", details...)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

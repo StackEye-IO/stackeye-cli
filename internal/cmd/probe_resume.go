@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -74,6 +75,12 @@ Examples:
 
 // runProbeResume executes the probe resume command logic.
 func runProbeResume(ctx context.Context, idArgs []string, flags *probeResumeFlags) error {
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintBatchAction("resume", "probe", idArgs)
+		return nil
+	}
+
 	// Get authenticated API client first (needed for name resolution)
 	apiClient, err := api.GetClient()
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -73,6 +74,15 @@ func runProbeDepsClearCmd(ctx context.Context, probeIDArg, direction string, ski
 	// Validate direction
 	if direction != "parents" && direction != "children" && direction != "both" {
 		return clierrors.InvalidValueError("--direction", direction, clierrors.ValidDependencyDirections)
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("clear dependencies from", "probe",
+			"Probe", probeIDArg,
+			"Direction", direction,
+		)
+		return nil
 	}
 
 	// Get authenticated API client first (needed for name resolution)

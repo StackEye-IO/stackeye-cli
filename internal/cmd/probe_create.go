@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -202,6 +203,19 @@ func runProbeCreate(ctx context.Context, flags *probeCreateFlags) error {
 	expectedCodes, err := parseStatusCodes(flags.expectedStatusCodes)
 	if err != nil {
 		return fmt.Errorf("invalid --expected-status-codes: %w", err)
+	}
+
+	// Dry-run check: print what would happen and exit without making API calls
+	if GetDryRun() {
+		dryrun.PrintAction("create", "probe",
+			"Name", flags.name,
+			"URL", flags.url,
+			"Check Type", flags.checkType,
+			"Method", flags.method,
+			"Interval", fmt.Sprintf("%ds", flags.intervalSeconds),
+			"Timeout", fmt.Sprintf("%ds", flags.timeoutSeconds),
+		)
+		return nil
 	}
 
 	// Get authenticated API client

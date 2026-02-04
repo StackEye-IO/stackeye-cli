@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
@@ -98,6 +99,21 @@ func runAPIKeyCreate(ctx context.Context, flags *apiKeyCreateFlags) error {
 		}
 		expiresAt := time.Now().Add(duration)
 		req.ExpiresAt = &expiresAt
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{
+			"Name", flags.name,
+		}
+		if flags.permissions != "" {
+			details = append(details, "Permissions", flags.permissions)
+		}
+		if flags.expiresIn != "" {
+			details = append(details, "Expires In", flags.expiresIn)
+		}
+		dryrun.PrintAction("create", "API key", details...)
+		return nil
 	}
 
 	// Get authenticated API client

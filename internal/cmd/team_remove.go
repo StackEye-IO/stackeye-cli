@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -107,6 +108,19 @@ func runTeamRemove(ctx context.Context, flags *teamRemoveFlags) error {
 	// Validate all flags before making any API calls
 	if err := validateTeamRemoveFlags(flags); err != nil {
 		return err
+	}
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		details := []string{}
+		if flags.memberID != 0 {
+			details = append(details, "Member ID", fmt.Sprintf("%d", flags.memberID))
+		}
+		if flags.email != "" {
+			details = append(details, "Email", flags.email)
+		}
+		dryrun.PrintAction("remove", "team member", details...)
+		return nil
 	}
 
 	// Get authenticated API client (after validation passes)

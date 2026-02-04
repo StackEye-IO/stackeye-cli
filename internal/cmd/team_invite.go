@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	clierrors "github.com/StackEye-IO/stackeye-cli/internal/errors"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
@@ -117,6 +118,15 @@ func runTeamInvite(ctx context.Context, flags *teamInviteFlags) error {
 
 	// Normalize role to lowercase
 	role := strings.ToLower(flags.role)
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("invite", "team member",
+			"Email", flags.email,
+			"Role", role,
+		)
+		return nil
+	}
 
 	// Get authenticated API client (after validation passes)
 	apiClient, err := api.GetClient()

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	"github.com/StackEye-IO/stackeye-cli/internal/dryrun"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/spf13/cobra"
@@ -155,6 +156,14 @@ func runStatusPageUpdate(cmd *cobra.Command, idArg string, flags *statusPageUpda
 		return fmt.Errorf("invalid status page ID %q: must be a positive integer", idArg)
 	}
 	statusPageID := uint(id)
+
+	// Dry-run check: after validation, before API calls
+	if GetDryRun() {
+		dryrun.PrintAction("update", "status page",
+			"ID", idArg,
+		)
+		return nil
+	}
 
 	// Get authenticated API client
 	apiClient, err := api.GetClient()
