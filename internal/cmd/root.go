@@ -30,7 +30,8 @@ var (
 	configFile      string
 	contextOverride string
 	debugFlag       bool
-	verbosity       int // kubectl-style verbosity level (0-10)
+	verboseFlag     bool // boolean alias for -v=5
+	verbosity       int  // kubectl-style verbosity level (0-10)
 	outputFormat    string
 	noColor         bool
 	noInput         bool
@@ -121,6 +122,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&contextOverride, "context", "", "override current context from config")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "enable debug output (shorthand for --v=6)")
+	rootCmd.PersistentFlags().BoolVar(&verboseFlag, "verbose", false, "show HTTP requests and config details (shorthand for --v=5)")
 	rootCmd.PersistentFlags().IntVarP(&verbosity, "v", "v", 0, "verbosity level (0-10): 5=requests, 6=responses, 7+=headers, 9+=bodies")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "output format: table, json, yaml, wide")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
@@ -165,13 +167,19 @@ func loadConfig() error {
 	}
 
 	// --debug flag is shorthand for --v=6
-	// Only apply if --v wasn't explicitly set
-	if debugFlag && verbosity == 0 {
-		verbosity = 6
+	// --verbose flag is shorthand for --v=5
+	// --v flag takes highest precedence (explicit numeric level)
+	// --debug takes precedence over --verbose (higher level)
+	if verbosity == 0 {
+		if debugFlag {
+			verbosity = 6
+		} else if verboseFlag {
+			verbosity = 5
+		}
 	}
 
-	// --debug flag overrides config preference
-	if debugFlag || verbosity > 0 {
+	// --debug / --verbose flags override config preference
+	if debugFlag || verboseFlag || verbosity > 0 {
 		cfg.Preferences.Debug = true
 	}
 

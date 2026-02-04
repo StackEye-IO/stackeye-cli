@@ -15,10 +15,14 @@ func resetGlobalState() {
 	configFile = ""
 	contextOverride = ""
 	debugFlag = false
+	verboseFlag = false
+	verbosity = 0
 	outputFormat = ""
 	noColor = false
 	noInput = false
 	dryRun = false
+	timeoutSeconds = 0
+	noUpdateCheck = false
 }
 
 func TestLoadConfig_DefaultPath(t *testing.T) {
@@ -213,5 +217,72 @@ func TestRootCmd(t *testing.T) {
 	}
 	if cmd.Use != "stackeye" {
 		t.Errorf("Expected Use='stackeye', got %q", cmd.Use)
+	}
+}
+
+func TestLoadConfig_VerboseFlag(t *testing.T) {
+	resetGlobalState()
+	verboseFlag = true
+
+	err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	if verbosity != 5 {
+		t.Errorf("Expected verbosity=5 with --verbose, got %d", verbosity)
+	}
+
+	cfg := GetConfig()
+	if !cfg.Preferences.Debug {
+		t.Error("Expected Debug=true with --verbose flag")
+	}
+}
+
+func TestLoadConfig_VerboseAndDebug(t *testing.T) {
+	resetGlobalState()
+	verboseFlag = true
+	debugFlag = true
+
+	err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	// --debug (level 6) should take precedence over --verbose (level 5)
+	if verbosity != 6 {
+		t.Errorf("Expected verbosity=6 with --debug+--verbose, got %d", verbosity)
+	}
+}
+
+func TestLoadConfig_VerboseWithExplicitV(t *testing.T) {
+	resetGlobalState()
+	verboseFlag = true
+	verbosity = 3
+
+	err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	// Explicit --v=3 should take precedence over --verbose
+	if verbosity != 3 {
+		t.Errorf("Expected verbosity=3 with explicit --v=3, got %d", verbosity)
+	}
+}
+
+func TestLoadConfig_DebugWithExplicitV(t *testing.T) {
+	resetGlobalState()
+	debugFlag = true
+	verbosity = 3
+
+	err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	// Explicit --v=3 should take precedence over --debug
+	if verbosity != 3 {
+		t.Errorf("Expected verbosity=3 with explicit --v=3, got %d", verbosity)
 	}
 }
