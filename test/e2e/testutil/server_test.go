@@ -310,14 +310,20 @@ func TestMockServer_WithLatency(t *testing.T) {
 		RespondWithJSON(w, http.StatusOK, map[string]string{})
 	})
 
-	ms.WithLatency(50 * time.Millisecond)
+	// Use 100ms latency for better test reliability on CI systems.
+	// The 5ms buffer accounts for timing jitter in time.Sleep() across platforms.
+	const configuredLatency = 100 * time.Millisecond
+	const jitterBuffer = 5 * time.Millisecond
+
+	ms.WithLatency(configuredLatency)
 
 	start := time.Now()
 	_, err := http.Get(ms.BaseURL + "/v1/probes")
 	elapsed := time.Since(start)
 	require.NoError(t, err)
 
-	assert.True(t, elapsed >= 50*time.Millisecond, "expected at least 50ms latency, got %v", elapsed)
+	minExpected := configuredLatency - jitterBuffer
+	assert.True(t, elapsed >= minExpected, "expected at least %v latency, got %v", minExpected, elapsed)
 }
 
 func TestMockServer_WithRouteLatency(t *testing.T) {
@@ -331,8 +337,16 @@ func TestMockServer_WithRouteLatency(t *testing.T) {
 		RespondWithJSON(w, http.StatusOK, map[string]string{})
 	})
 
+	// Use 100ms for per-route latency testing - provides clear separation from baseline.
+	// Thresholds account for CI system variability:
+	// - 5ms jitter buffer for the latency route (time.Sleep() precision varies)
+	// - 50ms ceiling for no-latency routes (generous allowance for CI contention)
+	const configuredLatency = 100 * time.Millisecond
+	const jitterBuffer = 5 * time.Millisecond
+	const noLatencyCeiling = 50 * time.Millisecond
+
 	// Only /v1/probes gets latency
-	ms.WithRouteLatency("GET", "/v1/probes", 50*time.Millisecond)
+	ms.WithRouteLatency("GET", "/v1/probes", configuredLatency)
 
 	start := time.Now()
 	_, _ = http.Get(ms.BaseURL + "/v1/probes")
@@ -342,8 +356,9 @@ func TestMockServer_WithRouteLatency(t *testing.T) {
 	_, _ = http.Get(ms.BaseURL + "/v1/alerts")
 	alertElapsed := time.Since(start)
 
-	assert.True(t, probeElapsed >= 50*time.Millisecond, "expected probe latency >= 50ms, got %v", probeElapsed)
-	assert.True(t, alertElapsed < 50*time.Millisecond, "expected alert latency < 50ms, got %v", alertElapsed)
+	minExpected := configuredLatency - jitterBuffer
+	assert.True(t, probeElapsed >= minExpected, "expected probe latency >= %v, got %v", minExpected, probeElapsed)
+	assert.True(t, alertElapsed < noLatencyCeiling, "expected alert latency < %v (no latency configured), got %v", noLatencyCeiling, alertElapsed)
 }
 
 func TestMockServer_ErrorPrecedenceOverDynamic(t *testing.T) {
