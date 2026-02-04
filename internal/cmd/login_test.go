@@ -3,14 +3,30 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
 )
+
+// mockAuthenticator is a test fake that implements the Authenticator interface.
+type mockAuthenticator struct {
+	result *auth.Result
+	err    error
+	called bool
+	opts   auth.Options
+}
+
+func (m *mockAuthenticator) Login(opts auth.Options) (*auth.Result, error) {
+	m.called = true
+	m.opts = opts
+	return m.result, m.err
+}
 
 // setupTestConfigDir sets XDG_CONFIG_HOME to a temp directory so config.Load()
 // and config.Save() operate on an isolated config file. Returns a cleanup function.
@@ -390,3 +406,151 @@ func TestCheckExistingAuth_DifferentURL(t *testing.T) {
 		t.Fatalf("checkExistingAuth() unexpected error: %v", err)
 	}
 }
+
+func TestRunLogin_Success(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// Set up mock verify server
+	server := newMockVerifyServer(t, &client.CLIVerifyResponse{
+		Valid:            true,
+		OrganizationID:   "org-mock-1",
+		OrganizationName: "Mock Org",
+		AuthType:         "api_key",
+	}, http.StatusOK)
+
+	apiKey := "se_" + "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+	// Inject mock authenticator that returns a successful result
+	mock := &mockAuthenticator{
+		result: &auth.Result{
+			APIKey:  apiKey,
+			OrgID:   "org-mock-1",
+			OrgName: "Mock Org",
+		},
+	}
+	defaultAuthenticator = mock
+
+	flags := &loginFlags{
+		apiURL: server.URL,
+		debug:  false,
+	}
+
+	err := runLogin(flags)
+	if err != nil {
+		t.Fatalf("runLogin() unexpected error: %v", err)
+	}
+
+	// Verify the authenticator was called
+	if !mock.called {
+		t.Error("expected authenticator.Login to be called")
+	}
+
+	// Verify the authenticator received the correct API URL
+	if mock.opts.APIURL != server.URL {
+		t.Errorf("authenticator received APIURL = %q, want %q", mock.opts.APIURL, server.URL)
+	}
+
+	// Verify config was saved correctly
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() failed: %v", err)
+	}
+
+	if cfg.CurrentContext != "mock-org" {
+		t.Errorf("CurrentContext = %q, want %q", cfg.CurrentContext, "mock-org")
+	}
+
+	ctx, err := cfg.GetContext("mock-org")
+	if err != nil {
+		t.Fatalf("GetContext(\"mock-org\") failed: %v", err)
+	}
+	if ctx.APIKey != apiKey {
+		t.Errorf("APIKey = %q, want %q", ctx.APIKey, apiKey)
+	}
+	if ctx.OrganizationID != "org-mock-1" {
+		t.Errorf("OrganizationID = %q, want %q", ctx.OrganizationID, "org-mock-1")
+	}
+}
+
+func TestRunLogin_AuthenticatorError(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// Inject mock authenticator that returns a timeout error
+	mock := &mockAuthenticator{
+		err: fmt.Errorf("connection refused: dial tcp 127.0.0.1:0: connect: connection refused"),
+	}
+	defaultAuthenticator = mock
+
+	flags := &loginFlags{
+		apiURL: "https://api.unreachable.example.com",
+		debug:  false,
+	}
+
+	err := runLogin(flags)
+	if err == nil {
+		t.Fatal("runLogin() expected error for authenticator failure, got nil")
+	}
+
+	// Verify the error is wrapped with "login failed:"
+	want := "login failed:"
+	if got := err.Error(); !strings.Contains(got, want) {
+		t.Errorf("error = %q, want to contain %q", got, want)
+	}
+
+	if !mock.called {
+		t.Error("expected authenticator.Login to be called")
+	}
+}
+
+func TestRunLogin_DefaultAPIURL(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// Inject mock authenticator to capture the options
+	mock := &mockAuthenticator{
+		err: fmt.Errorf("intentional error to stop flow"),
+	}
+	defaultAuthenticator = mock
+
+	// Pass empty apiURL - should default to auth.DefaultAPIURL
+	flags := &loginFlags{
+		apiURL: "",
+		debug:  false,
+	}
+
+	_ = runLogin(flags)
+
+	if !mock.called {
+		t.Fatal("expected authenticator.Login to be called")
+	}
+
+	if mock.opts.APIURL != auth.DefaultAPIURL {
+		t.Errorf("authenticator received APIURL = %q, want %q", mock.opts.APIURL, auth.DefaultAPIURL)
+	}
+}
+
+func TestRunLogin_DebugMode(t *testing.T) {
+	resetGlobalState()
+	setupTestConfigDir(t)
+
+	// Inject mock authenticator
+	mock := &mockAuthenticator{
+		err: fmt.Errorf("intentional error"),
+	}
+	defaultAuthenticator = mock
+
+	flags := &loginFlags{
+		apiURL: "https://api.test.example.com",
+		debug:  true,
+	}
+
+	// Should not panic in debug mode even if authenticator fails
+	_ = runLogin(flags)
+
+	if !mock.called {
+		t.Error("expected authenticator.Login to be called")
+	}
+}
+

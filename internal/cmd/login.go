@@ -17,6 +17,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Authenticator abstracts the browser-based login so tests can inject fakes.
+type Authenticator interface {
+	Login(opts auth.Options) (*auth.Result, error)
+}
+
+// browserAuthenticator is the real implementation that calls auth.BrowserLogin.
+type browserAuthenticator struct{}
+
+func (browserAuthenticator) Login(opts auth.Options) (*auth.Result, error) {
+	return auth.BrowserLogin(opts)
+}
+
+// defaultAuthenticator is the authenticator used by runLogin.
+// Tests can replace this with a mock implementation.
+var defaultAuthenticator Authenticator = browserAuthenticator{}
+
 // loginFlags holds the command flags for the login command.
 type loginFlags struct {
 	apiURL string
@@ -83,8 +99,8 @@ func runLogin(flags *loginFlags) error {
 		return err
 	}
 
-	// Perform browser-based login using the auth package
-	result, err := auth.BrowserLogin(auth.Options{
+	// Perform browser-based login using the authenticator
+	result, err := defaultAuthenticator.Login(auth.Options{
 		APIURL:  apiURL,
 		Timeout: auth.DefaultTimeout,
 		OnBrowserOpen: func(url string) {

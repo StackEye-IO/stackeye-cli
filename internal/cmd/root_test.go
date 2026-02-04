@@ -23,6 +23,7 @@ func resetGlobalState() {
 	dryRun = false
 	timeoutSeconds = 0
 	noUpdateCheck = false
+	defaultAuthenticator = browserAuthenticator{}
 }
 
 func TestLoadConfig_DefaultPath(t *testing.T) {
