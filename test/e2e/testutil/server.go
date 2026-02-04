@@ -3,11 +3,13 @@ package testutil
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 // APIResponse represents a standardized API response.
@@ -37,6 +39,12 @@ type Route struct {
 	Handler RouteHandler
 }
 
+// ErrorConfig configures an error response for a specific route.
+type ErrorConfig struct {
+	StatusCode int
+	Message    string
+}
+
 // MockServer provides a mock HTTP server for E2E testing.
 type MockServer struct {
 	Server  *httptest.Server
@@ -44,6 +52,15 @@ type MockServer struct {
 	routes  []Route
 	mu      sync.RWMutex
 	calls   []RecordedCall
+
+	// latency adds a delay before responding to simulate network latency.
+	latency time.Duration
+	// routeLatencies maps "METHOD /path" to per-route latency overrides.
+	routeLatencies map[string]time.Duration
+	// routeErrors maps "METHOD /path-pattern" to forced error responses.
+	routeErrors map[string]ErrorConfig
+	// dynamicResponses maps "METHOD /path-pattern" to custom response data.
+	dynamicResponses map[string]interface{}
 }
 
 // RecordedCall records details of an API call made to the mock server.
@@ -51,13 +68,17 @@ type RecordedCall struct {
 	Method string
 	Path   string
 	Body   string
+	Query  string
 }
 
 // NewMockServer creates a new mock API server with default routes.
 func NewMockServer() *MockServer {
 	ms := &MockServer{
-		routes: []Route{},
-		calls:  []RecordedCall{},
+		routes:           []Route{},
+		calls:            []RecordedCall{},
+		routeLatencies:   make(map[string]time.Duration),
+		routeErrors:      make(map[string]ErrorConfig),
+		dynamicResponses: make(map[string]interface{}),
 	}
 
 	ms.Server = httptest.NewServer(http.HandlerFunc(ms.handleRequest))
@@ -68,15 +89,48 @@ func NewMockServer() *MockServer {
 
 // handleRequest routes incoming requests to registered handlers.
 func (ms *MockServer) handleRequest(w http.ResponseWriter, r *http.Request) {
+	// Read request body for recording
+	var bodyStr string
+	if r.Body != nil {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		bodyStr = string(bodyBytes)
+		r.Body.Close()
+		// Restore body so handlers can read it
+		r.Body = io.NopCloser(strings.NewReader(bodyStr))
+	}
+
 	ms.mu.Lock()
 	ms.calls = append(ms.calls, RecordedCall{
 		Method: r.Method,
 		Path:   r.URL.Path,
+		Body:   bodyStr,
+		Query:  r.URL.RawQuery,
 	})
 	ms.mu.Unlock()
 
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+
+	routeKey := r.Method + " " + r.URL.Path
+
+	// Apply global or per-route latency
+	if delay, ok := ms.routeLatencies[routeKey]; ok {
+		time.Sleep(delay)
+	} else if ms.latency > 0 {
+		time.Sleep(ms.latency)
+	}
+
+	// Check for forced error responses
+	if errCfg, ok := ms.routeErrors[routeKey]; ok {
+		RespondWithError(w, errCfg.StatusCode, errCfg.Message)
+		return
+	}
+
+	// Check for dynamic response override
+	if resp, ok := ms.dynamicResponses[routeKey]; ok {
+		RespondWithJSON(w, http.StatusOK, resp)
+		return
+	}
 
 	for _, route := range ms.routes {
 		if r.Method != route.Method {
@@ -93,7 +147,7 @@ func (ms *MockServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	_ = json.NewEncoder(w).Encode(APIResponse{
 		Status: "error",
-		Error:  "endpoint not found",
+		Error:  "endpoint not found: " + r.Method + " " + r.URL.Path,
 	})
 }
 
@@ -309,9 +363,368 @@ func (ms *MockServer) RegisterDefaultRoutes() {
 	})
 }
 
+// RegisterAllRoutes registers all API routes including extended endpoints
+// for team, billing, status pages, alert stats/history, probe history/stats,
+// API keys, dashboard, alert mutes, labels, and probe dependencies.
+func (ms *MockServer) RegisterAllRoutes() {
+	ms.RegisterDefaultRoutes()
+
+	// --- Alert Stats ---
+	ms.Register("GET", "/v1/alerts/stats", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, AlertStatsFixture())
+	})
+
+	// --- Alert Timeline ---
+	ms.Register("GET", `/v1/alerts/([a-f0-9-]+)/timeline`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"timeline": AlertHistoryFixture(),
+		})
+	})
+
+	// --- Alert Mutes ---
+	ms.Register("GET", "/v1/alerts/mutes", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		mutes := AlertMuteListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"mutes": mutes,
+			"total": len(mutes),
+		})
+	})
+
+	ms.Register("POST", "/v1/alerts/mutes", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"mute": NewAlertMuteFixture(),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/alerts/mutes/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	ms.Register("POST", `/v1/alerts/mutes/([a-f0-9-]+)/expire`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		mute := NewAlertMuteFixture()
+		mute["status"] = "expired"
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"mute": mute,
+		})
+	})
+
+	// --- Probe History/Results ---
+	ms.Register("GET", `/v1/probes/([a-f0-9-]+)/results`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		results := ProbeHistoryFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"results": results,
+			"total":   len(results),
+			"page":    1,
+			"limit":   20,
+		})
+	})
+
+	// --- Probe Stats ---
+	ms.Register("GET", `/v1/probes/([a-f0-9-]+)/stats`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		RespondWithJSON(w, http.StatusOK, ProbeStatsFixture())
+	})
+
+	// --- Probe Labels ---
+	ms.Register("GET", `/v1/probes/([a-f0-9-]+)/labels`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"labels": LabelListFixture(),
+		})
+	})
+
+	ms.Register("POST", `/v1/probes/([a-f0-9-]+)/labels`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"label": NewLabelFixture(),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/probes/([a-f0-9-]+)/labels/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Label Keys ---
+	ms.Register("GET", "/v1/label-keys", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"label_keys": LabelKeyListFixture(),
+		})
+	})
+
+	ms.Register("POST", "/v1/label-keys", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"label_key": NewLabelKeyFixture(),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/label-keys/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Probe Dependencies ---
+	ms.Register("GET", `/v1/probes/([a-f0-9-]+)/dependencies`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"dependencies": ProbeDependencyListFixture(),
+		})
+	})
+
+	ms.Register("POST", `/v1/probes/([a-f0-9-]+)/dependencies`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"dependency": NewProbeDependencyFixture(),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/probes/([a-f0-9-]+)/dependencies/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Dependency Tree ---
+	ms.Register("GET", `/v1/organizations/([a-f0-9-]+)/dependency-tree`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"tree": DependencyTreeFixture(),
+		})
+	})
+
+	// --- Team Members ---
+	ms.Register("GET", "/v1/team/members", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		members := TeamMemberListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"members": members,
+			"total":   len(members),
+		})
+	})
+
+	ms.Register("POST", "/v1/team/members", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"member": NewTeamMemberFixture(),
+		})
+	})
+
+	ms.Register("PUT", `/v1/team/members/([a-f0-9-]+)`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		member := NewTeamMemberFixture()
+		member["id"] = matches[1]
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"member": member,
+		})
+	})
+
+	ms.Register("DELETE", `/v1/team/members/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Team Invitations ---
+	ms.Register("GET", "/v1/team/invitations", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		invitations := TeamInvitationListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"invitations": invitations,
+			"total":       len(invitations),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/team/invitations/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Status Pages ---
+	ms.Register("GET", "/v1/status-pages", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		pages := StatusPageListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"status_pages": pages,
+			"total":        len(pages),
+		})
+	})
+
+	ms.Register("GET", `/v1/status-pages/([a-f0-9-]+)`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		page := StatusPageFixture(matches[1])
+		if page == nil {
+			RespondWithError(w, http.StatusNotFound, "status page not found")
+			return
+		}
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"status_page": page,
+		})
+	})
+
+	ms.Register("POST", "/v1/status-pages", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"status_page": NewStatusPageFixture(),
+		})
+	})
+
+	ms.Register("PUT", `/v1/status-pages/([a-f0-9-]+)`, func(w http.ResponseWriter, r *http.Request, matches []string) {
+		page := StatusPageFixture(matches[1])
+		if page == nil {
+			RespondWithError(w, http.StatusNotFound, "status page not found")
+			return
+		}
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"status_page": page,
+		})
+	})
+
+	ms.Register("DELETE", `/v1/status-pages/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- Status Page Incidents ---
+	ms.Register("GET", `/v1/status-pages/([a-f0-9-]+)/incidents`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		incidents := StatusPageIncidentListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"incidents": incidents,
+			"total":     len(incidents),
+		})
+	})
+
+	ms.Register("POST", `/v1/status-pages/([a-f0-9-]+)/incidents`, func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"incident": NewStatusPageIncidentFixture(),
+		})
+	})
+
+	ms.Register("POST", `/v1/status-pages/([a-f0-9-]+)/incidents/([a-f0-9-]+)/resolve`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		incident := NewStatusPageIncidentFixture()
+		incident["status"] = "resolved"
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"incident": incident,
+		})
+	})
+
+	// --- Dashboard ---
+	ms.Register("GET", "/v1/dashboard", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, DashboardStatsFixture())
+	})
+
+	// --- Billing ---
+	ms.Register("GET", "/v1/billing", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, BillingInfoFixture())
+	})
+
+	ms.Register("GET", "/v1/billing/status", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, BillingStatusFixture())
+	})
+
+	ms.Register("GET", "/v1/billing/usage", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, BillingUsageFixture())
+	})
+
+	ms.Register("GET", "/v1/billing/usage/history", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"usage_history": []map[string]interface{}{BillingUsageFixture()},
+		})
+	})
+
+	ms.Register("POST", "/v1/billing/checkout", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"checkout_url": "https://checkout.stripe.com/test_session",
+		})
+	})
+
+	ms.Register("POST", "/v1/billing/portal", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"portal_url": "https://billing.stripe.com/test_portal",
+		})
+	})
+
+	// --- API Keys ---
+	ms.Register("GET", "/v1/api-keys", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		keys := APIKeyListFixture()
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"api_keys": keys,
+			"total":    len(keys),
+		})
+	})
+
+	ms.Register("POST", "/v1/api-keys", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+			"api_key": NewAPIKeyFixture(),
+		})
+	})
+
+	ms.Register("DELETE", `/v1/api-keys/([a-f0-9-]+)`, func(w http.ResponseWriter, _ *http.Request, _ []string) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- User ---
+	ms.Register("GET", "/v1/user/me", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, UserProfileFixture())
+	})
+
+	ms.Register("PUT", "/v1/user/me", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, UserProfileFixture())
+	})
+
+	ms.Register("GET", "/v1/user/organizations", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"organizations": UserOrganizationListFixture(),
+		})
+	})
+
+	ms.Register("POST", "/v1/user/switch-organization", func(w http.ResponseWriter, r *http.Request, _ []string) {
+		RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"status": "success",
+		})
+	})
+}
+
 // Close shuts down the mock server.
 func (ms *MockServer) Close() {
 	ms.Server.Close()
+}
+
+// WithLatency sets a global latency for all responses.
+func (ms *MockServer) WithLatency(d time.Duration) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.latency = d
+}
+
+// WithRouteLatency sets latency for a specific route (e.g., "GET /v1/probes").
+func (ms *MockServer) WithRouteLatency(method, path string, d time.Duration) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.routeLatencies[method+" "+path] = d
+}
+
+// WithError forces a specific route to return an error response.
+func (ms *MockServer) WithError(method, path string, statusCode int, message string) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.routeErrors[method+" "+path] = ErrorConfig{
+		StatusCode: statusCode,
+		Message:    message,
+	}
+}
+
+// ClearError removes a forced error for a specific route.
+func (ms *MockServer) ClearError(method, path string) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	delete(ms.routeErrors, method+" "+path)
+}
+
+// ClearAllErrors removes all forced errors.
+func (ms *MockServer) ClearAllErrors() {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.routeErrors = make(map[string]ErrorConfig)
+}
+
+// SetDynamicResponse overrides the response for a specific route with custom data.
+func (ms *MockServer) SetDynamicResponse(method, path string, data interface{}) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.dynamicResponses[method+" "+path] = data
+}
+
+// ClearDynamicResponse removes a dynamic response override.
+func (ms *MockServer) ClearDynamicResponse(method, path string) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	delete(ms.dynamicResponses, method+" "+path)
+}
+
+// ClearAllDynamicResponses removes all dynamic response overrides.
+func (ms *MockServer) ClearAllDynamicResponses() {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.dynamicResponses = make(map[string]interface{})
 }
 
 // GetCalls returns all recorded API calls.
@@ -319,6 +732,19 @@ func (ms *MockServer) GetCalls() []RecordedCall {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return append([]RecordedCall{}, ms.calls...)
+}
+
+// GetCallsForPath returns recorded calls matching a path prefix.
+func (ms *MockServer) GetCallsForPath(method, pathPrefix string) []RecordedCall {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	var matched []RecordedCall
+	for _, call := range ms.calls {
+		if call.Method == method && strings.HasPrefix(call.Path, pathPrefix) {
+			matched = append(matched, call)
+		}
+	}
+	return matched
 }
 
 // ClearCalls clears the recorded API calls.
@@ -338,6 +764,19 @@ func (ms *MockServer) HasCall(method, pathPrefix string) bool {
 		}
 	}
 	return false
+}
+
+// CallCount returns the number of calls matching the given method and path prefix.
+func (ms *MockServer) CallCount(method, pathPrefix string) int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	count := 0
+	for _, call := range ms.calls {
+		if call.Method == method && strings.HasPrefix(call.Path, pathPrefix) {
+			count++
+		}
+	}
+	return count
 }
 
 // RespondWithJSON writes a JSON response.
