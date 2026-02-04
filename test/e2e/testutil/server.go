@@ -108,17 +108,24 @@ func (ms *MockServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	})
 	ms.mu.Unlock()
 
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
 	routeKey := r.Method + " " + r.URL.Path
 
-	// Apply global or per-route latency
-	if delay, ok := ms.routeLatencies[routeKey]; ok {
+	// Read latency config under short-lived RLock to avoid blocking writers during sleep.
+	// See Task #8218: RLock held during time.Sleep() blocks concurrent write locks.
+	ms.mu.RLock()
+	delay, hasRouteDelay := ms.routeLatencies[routeKey]
+	globalLatency := ms.latency
+	ms.mu.RUnlock()
+
+	// Apply latency without holding any lock
+	if hasRouteDelay {
 		time.Sleep(delay)
-	} else if ms.latency > 0 {
-		time.Sleep(ms.latency)
+	} else if globalLatency > 0 {
+		time.Sleep(globalLatency)
 	}
+
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 
 	// Check for forced error responses
 	if errCfg, ok := ms.routeErrors[routeKey]; ok {
