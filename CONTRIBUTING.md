@@ -91,6 +91,10 @@ Examples:
 3. Keep the PR focused. Large changes should be broken into smaller PRs when possible.
 4. A maintainer will review your PR. Address feedback and push updates to the same branch.
 
+## Security Vulnerabilities
+
+If you discover a security vulnerability, **do not open a public issue**. Instead, follow the process in [SECURITY.md](SECURITY.md).
+
 ## Reporting Issues
 
 Open an issue on [GitHub Issues](https://github.com/StackEye-IO/stackeye-cli/issues) with:
