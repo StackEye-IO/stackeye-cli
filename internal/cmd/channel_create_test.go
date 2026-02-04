@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -652,4 +654,394 @@ func TestBuildRequestFromFlags_Validation(t *testing.T) {
 			t.Errorf("expected type email, got %q", req.Type)
 		}
 	})
+}
+
+// writeYAMLFile is a test helper that writes YAML content to a temp file and returns the path.
+func writeYAMLFile(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "channel.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write temp YAML file: %v", err)
+	}
+	return path
+}
+
+func TestBuildRequestFromYAML_Email(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Ops Email
+type: email
+config:
+  address: ops@stackeye.io
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Name != "Ops Email" {
+		t.Errorf("expected name 'Ops Email', got %q", req.Name)
+	}
+	if req.Type != client.ChannelTypeEmail {
+		t.Errorf("expected type email, got %q", req.Type)
+	}
+	if !strings.Contains(string(req.Config), `"address":"ops@stackeye.io"`) {
+		t.Errorf("expected config to contain address, got: %s", string(req.Config))
+	}
+	if req.Enabled != nil {
+		t.Errorf("expected Enabled to be nil when omitted, got %v", *req.Enabled)
+	}
+}
+
+func TestBuildRequestFromYAML_Slack(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Slack Alerts
+type: slack
+config:
+  webhook_url: https://hooks.slack.com/services/T00/B00/xxx
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeSlack {
+		t.Errorf("expected type slack, got %q", req.Type)
+	}
+	if !strings.Contains(string(req.Config), `"webhook_url"`) {
+		t.Errorf("expected config to contain webhook_url, got: %s", string(req.Config))
+	}
+}
+
+func TestBuildRequestFromYAML_Webhook(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Custom Webhook
+type: webhook
+config:
+  url: https://api.example.com/hook
+  method: PUT
+  headers:
+    Authorization: Bearer token123
+    Content-Type: application/json
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeWebhook {
+		t.Errorf("expected type webhook, got %q", req.Type)
+	}
+	configStr := string(req.Config)
+	if !strings.Contains(configStr, `"url":"https://api.example.com/hook"`) {
+		t.Errorf("expected config to contain url, got: %s", configStr)
+	}
+	if !strings.Contains(configStr, `"method":"PUT"`) {
+		t.Errorf("expected config to contain method PUT, got: %s", configStr)
+	}
+	if !strings.Contains(configStr, `"headers"`) {
+		t.Errorf("expected config to contain headers, got: %s", configStr)
+	}
+}
+
+func TestBuildRequestFromYAML_WebhookDefaultMethod(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Webhook No Method
+type: webhook
+config:
+  url: https://api.example.com/hook
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(req.Config), `"method":"POST"`) {
+		t.Errorf("expected default method POST, got: %s", string(req.Config))
+	}
+}
+
+func TestBuildRequestFromYAML_PagerDuty(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: On-Call PD
+type: pagerduty
+config:
+  routing_key: abc123def456
+  severity: warning
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypePagerDuty {
+		t.Errorf("expected type pagerduty, got %q", req.Type)
+	}
+	configStr := string(req.Config)
+	if !strings.Contains(configStr, `"routing_key":"abc123def456"`) {
+		t.Errorf("expected config to contain routing_key, got: %s", configStr)
+	}
+	if !strings.Contains(configStr, `"severity":"warning"`) {
+		t.Errorf("expected config to contain severity, got: %s", configStr)
+	}
+}
+
+func TestBuildRequestFromYAML_Discord(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Discord Alerts
+type: discord
+config:
+  webhook_url: https://discord.com/api/webhooks/xxx/yyy
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeDiscord {
+		t.Errorf("expected type discord, got %q", req.Type)
+	}
+}
+
+func TestBuildRequestFromYAML_Teams(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Teams Alerts
+type: teams
+config:
+  webhook_url: https://outlook.office.com/webhook/xxx
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeTeams {
+		t.Errorf("expected type teams, got %q", req.Type)
+	}
+}
+
+func TestBuildRequestFromYAML_SMS(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Emergency SMS
+type: sms
+config:
+  phone_number: "+15551234567"
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeSMS {
+		t.Errorf("expected type sms, got %q", req.Type)
+	}
+	if !strings.Contains(string(req.Config), `"phone_number":"+15551234567"`) {
+		t.Errorf("expected config to contain phone_number, got: %s", string(req.Config))
+	}
+}
+
+func TestBuildRequestFromYAML_MissingName(t *testing.T) {
+	path := writeYAMLFile(t, `
+type: email
+config:
+  address: ops@stackeye.io
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for missing name")
+	}
+	if !strings.Contains(err.Error(), "missing required field: name") {
+		t.Errorf("expected error about missing name, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_MissingType(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Test Channel
+config:
+  address: ops@stackeye.io
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for missing type")
+	}
+	if !strings.Contains(err.Error(), "missing required field: type") {
+		t.Errorf("expected error about missing type, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_InvalidType(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad Channel
+type: carrier_pigeon
+config: {}
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for invalid channel type")
+	}
+	if !strings.Contains(err.Error(), "for --type") {
+		t.Errorf("expected error mentioning invalid type, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_MalformedYAML(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: "unterminated
+  [this is not valid yaml
+  !!!
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for malformed YAML")
+	}
+	if !strings.Contains(err.Error(), "failed to parse YAML") {
+		t.Errorf("expected YAML parse error, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_FileNotFound(t *testing.T) {
+	_, err := buildRequestFromYAML("/nonexistent/path/channel.yaml")
+	if err == nil {
+		t.Fatal("expected error for non-existent file")
+	}
+	if !strings.Contains(err.Error(), "failed to read file") {
+		t.Errorf("expected file read error, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_EmptyFile(t *testing.T) {
+	path := writeYAMLFile(t, "")
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for empty file")
+	}
+	if !strings.Contains(err.Error(), "missing required field") {
+		t.Errorf("expected missing field error, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_EnabledExplicit(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Disabled Channel
+type: email
+enabled: false
+config:
+  address: ops@stackeye.io
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Enabled == nil {
+		t.Fatal("expected Enabled to be non-nil when explicitly set")
+	}
+	if *req.Enabled != false {
+		t.Errorf("expected Enabled to be false, got %v", *req.Enabled)
+	}
+}
+
+func TestBuildRequestFromYAML_EnabledTrue(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Enabled Channel
+type: email
+enabled: true
+config:
+  address: ops@stackeye.io
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Enabled == nil {
+		t.Fatal("expected Enabled to be non-nil when explicitly set")
+	}
+	if *req.Enabled != true {
+		t.Errorf("expected Enabled to be true, got %v", *req.Enabled)
+	}
+}
+
+func TestBuildRequestFromYAML_TypeCaseInsensitive(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Upper Case Type
+type: EMAIL
+config:
+  address: ops@stackeye.io
+`)
+	req, err := buildRequestFromYAML(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Type != client.ChannelTypeEmail {
+		t.Errorf("expected type email, got %q", req.Type)
+	}
+}
+
+func TestBuildRequestFromYAML_WebhookMissingURL(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad Webhook
+type: webhook
+config:
+  method: POST
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for webhook missing URL")
+	}
+	if !strings.Contains(err.Error(), "config.url is required") {
+		t.Errorf("expected error about required URL, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_EmailMissingAddress(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad Email
+type: email
+config: {}
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for email missing address")
+	}
+	if !strings.Contains(err.Error(), "--email is required") {
+		t.Errorf("expected error about required email, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_SlackMissingWebhookURL(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad Slack
+type: slack
+config: {}
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for slack missing webhook URL")
+	}
+	if !strings.Contains(err.Error(), "--webhook-url is required") {
+		t.Errorf("expected error about required webhook URL, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_PagerDutyMissingRoutingKey(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad PD
+type: pagerduty
+config:
+  severity: critical
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for pagerduty missing routing key")
+	}
+	if !strings.Contains(err.Error(), "--routing-key is required") {
+		t.Errorf("expected error about required routing key, got: %v", err)
+	}
+}
+
+func TestBuildRequestFromYAML_SMSMissingPhoneNumber(t *testing.T) {
+	path := writeYAMLFile(t, `
+name: Bad SMS
+type: sms
+config: {}
+`)
+	_, err := buildRequestFromYAML(path)
+	if err == nil {
+		t.Fatal("expected error for sms missing phone number")
+	}
+	if !strings.Contains(err.Error(), "--phone-number is required") {
+		t.Errorf("expected error about required phone number, got: %v", err)
+	}
 }
