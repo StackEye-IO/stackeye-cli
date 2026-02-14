@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to the StackEye CLI. This guide covers the development workflow, coding standards, and process for submitting changes.
 
+Please review and follow our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in this project.
+
 ## Prerequisites
 
 - **Go 1.25** or later

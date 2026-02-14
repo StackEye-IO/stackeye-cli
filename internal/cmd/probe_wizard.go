@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
@@ -296,10 +297,10 @@ func stepHTTPSettings(ctx context.Context, wiz *interactive.Wizard) error {
 	wiz.SetData("statusCodes", statusCodes)
 
 	// Follow redirects
-	followRedirects, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Follow HTTP redirects?",
-		Default: true,
-	})
+	followRedirects, err := cliinteractive.Confirm(
+		"Follow HTTP redirects?",
+		cliinteractive.WithDefault(true),
+	)
 	if err != nil {
 		return err
 	}
@@ -344,11 +345,11 @@ func stepProbeRegions(ctx context.Context, wiz *interactive.Wizard) error {
 	}
 
 	// Ask for selection
-	useAll, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Monitor from all available regions?",
-		Default: true,
-		Help:    "Monitoring from multiple regions provides better coverage and detects regional outages",
-	})
+	useAll, err := cliinteractive.Confirm(
+		"Monitor from all available regions?",
+		cliinteractive.WithDefault(true),
+		cliinteractive.WithHelp("Monitoring from multiple regions provides better coverage and detects regional outages"),
+	)
 	if err != nil {
 		return err
 	}
@@ -454,11 +455,11 @@ func stepProbeInterval(ctx context.Context, wiz *interactive.Wizard) error {
 
 // stepSSLMonitoring handles SSL certificate monitoring configuration.
 func stepSSLMonitoring(ctx context.Context, wiz *interactive.Wizard) error {
-	enableSSL, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Enable SSL certificate monitoring?",
-		Default: true,
-		Help:    "Monitor SSL certificate expiration and get alerts before it expires",
-	})
+	enableSSL, err := cliinteractive.Confirm(
+		"Enable SSL certificate monitoring?",
+		cliinteractive.WithDefault(true),
+		cliinteractive.WithHelp("Monitor SSL certificate expiration and get alerts before it expires"),
+	)
 	if err != nil {
 		return err
 	}
@@ -509,11 +510,10 @@ func stepSSLMonitoring(ctx context.Context, wiz *interactive.Wizard) error {
 
 // stepContentValidation handles optional content validation.
 func stepContentValidation(ctx context.Context, wiz *interactive.Wizard) error {
-	enableValidation, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Add content validation?",
-		Default: false,
-		Help:    "Verify the response contains specific content or matches a JSONPath expression",
-	})
+	enableValidation, err := cliinteractive.Confirm(
+		"Add content validation?",
+		cliinteractive.WithHelp("Verify the response contains specific content or matches a JSONPath expression"),
+	)
 	if err != nil {
 		return err
 	}
@@ -633,11 +633,11 @@ func stepProbeName(ctx context.Context, wiz *interactive.Wizard) error {
 
 // stepTestProbe offers to test the probe configuration before creating.
 func stepTestProbe(ctx context.Context, wiz *interactive.Wizard) error {
-	runTest, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Test the probe configuration before creating?",
-		Default: true,
-		Help:    "Run an ad-hoc test to verify the configuration works",
-	})
+	runTest, err := cliinteractive.Confirm(
+		"Test the probe configuration before creating?",
+		cliinteractive.WithDefault(true),
+		cliinteractive.WithHelp("Run an ad-hoc test to verify the configuration works"),
+	)
 	if err != nil {
 		return err
 	}
@@ -665,10 +665,7 @@ func stepTestProbe(ctx context.Context, wiz *interactive.Wizard) error {
 		fmt.Printf("  Error: %v\n", err)
 
 		// Ask if user wants to continue anyway
-		continueAnyway, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: "Test failed. Continue creating the probe anyway?",
-			Default: false,
-		})
+		continueAnyway, err := cliinteractive.Confirm("Test failed. Continue creating the probe anyway?")
 		if err != nil {
 			return err
 		}
@@ -698,10 +695,7 @@ func stepTestProbe(ctx context.Context, wiz *interactive.Wizard) error {
 			fmt.Printf("  Error: %s\n", *result.ErrorMessage)
 		}
 
-		continueAnyway, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-			Message: "Test did not return 'up' status. Continue creating the probe?",
-			Default: false,
-		})
+		continueAnyway, err := cliinteractive.Confirm("Test did not return 'up' status. Continue creating the probe?")
 		if err != nil {
 			return err
 		}
@@ -743,10 +737,10 @@ func stepCreateProbe(ctx context.Context, wiz *interactive.Wizard) error {
 	fmt.Println()
 
 	// Confirm creation
-	confirm, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Create this probe?",
-		Default: true,
-	})
+	confirm, err := cliinteractive.Confirm(
+		"Create this probe?",
+		cliinteractive.WithDefault(true),
+	)
 	if err != nil {
 		return err
 	}

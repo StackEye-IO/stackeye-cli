@@ -1,0 +1,65 @@
+{
+  "status": "success",
+  "data": {
+    "north_america": [
+      {
+        "id": "nyc3",
+        "name": "New York 3",
+        "display_name": "New York",
+        "country_code": "US"
+      },
+      {
+        "id": "sfo3",
+        "name": "San Francisco 3",
+        "display_name": "San Francisco",
+        "country_code": "US"
+      },
+      {
+        "id": "tor1",
+        "name": "Toronto 1",
+        "display_name": "Toronto",
+        "country_code": "CA"
+      }
+    ],
+    "europe": [
+      {
+        "id": "lon1",
+        "name": "London 1",
+        "display_name": "London",
+        "country_code": "GB"
+      },
+      {
+        "id": "fra1",
+        "name": "Frankfurt 1",
+        "display_name": "Frankfurt",
+        "country_code": "DE"
+      },
+      {
+        "id": "ams3",
+        "name": "Amsterdam 3",
+        "display_name": "Amsterdam",
+        "country_code": "NL"
+      }
+    ],
+    "asia_pacific": [
+      {
+        "id": "sgp1",
+        "name": "Singapore 1",
+        "display_name": "Singapore",
+        "country_code": "SG"
+      },
+      {
+        "id": "blr1",
+        "name": "Bangalore 1",
+        "display_name": "Bangalore",
+        "country_code": "IN"
+      },
+      {
+        "id": "syd1",
+        "name": "Sydney 1",
+        "display_name": "Sydney",
+        "country_code": "AU"
+      }
+    ]
+  }
+}

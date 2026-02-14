@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-go-sdk/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -265,7 +266,7 @@ func getAPIKey(args []string) (string, error) {
 		},
 	})
 	if err != nil {
-		if err == interactive.ErrPromptCancelled {
+		if err == cliinteractive.ErrCancelled {
 			return "", fmt.Errorf("cancelled")
 		}
 		return "", fmt.Errorf("failed to read API key: %w", err)

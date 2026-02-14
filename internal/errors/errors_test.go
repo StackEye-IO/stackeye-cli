@@ -373,6 +373,8 @@ func TestExitCodeName(t *testing.T) {
 		{ExitNetwork, "network_error"},
 		{ExitTimeout, "timeout"},
 		{ExitPlanLimit, "plan_limit"},
+		{ExitSIGINT, "sigint"},
+		{ExitSIGTERM, "sigterm"},
 		{99, "unknown(99)"},
 	}
 

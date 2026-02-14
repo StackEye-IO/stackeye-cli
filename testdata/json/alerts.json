@@ -1,0 +1,68 @@
+{
+  "alerts": [
+    {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "probe_id": "11111111-1111-1111-1111-111111111111",
+      "organization_id": "00000000-0000-0000-0000-000000000001",
+      "status": "active",
+      "severity": "critical",
+      "alert_type": "status_down",
+      "message": "Probe has been down for 5 minutes",
+      "triggered_at": "2024-01-15T09:30:00Z",
+      "notified_channels": ["Slack #alerts", "Email: team@example.com"],
+      "created_at": "2024-01-15T09:30:00Z",
+      "updated_at": "2024-01-15T09:30:00Z",
+      "probe": {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "API Health Check",
+        "url": "https://api.example.com/health",
+        "check_type": "http"
+      }
+    },
+    {
+      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "probe_id": "11111111-1111-1111-1111-111111111111",
+      "organization_id": "00000000-0000-0000-0000-000000000001",
+      "status": "acknowledged",
+      "severity": "warning",
+      "alert_type": "ssl_expiry",
+      "message": "SSL certificate expires in 7 days",
+      "triggered_at": "2024-01-15T09:30:00Z",
+      "acknowledged_at": "2024-01-15T10:00:00Z",
+      "acknowledged_by": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "notified_channels": ["Email: security@example.com"],
+      "created_at": "2024-01-15T09:30:00Z",
+      "updated_at": "2024-01-15T10:00:00Z",
+      "probe": {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "API Health Check",
+        "url": "https://api.example.com/health",
+        "check_type": "http"
+      }
+    },
+    {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "probe_id": "22222222-2222-2222-2222-222222222222",
+      "organization_id": "00000000-0000-0000-0000-000000000001",
+      "status": "resolved",
+      "severity": "info",
+      "alert_type": "slow_response",
+      "message": "Response time exceeded threshold",
+      "triggered_at": "2024-01-14T10:30:00Z",
+      "acknowledged_at": "2024-01-14T10:40:00Z",
+      "acknowledged_by": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "resolved_at": "2024-01-14T11:15:00Z",
+      "duration_seconds": 2700,
+      "notified_channels": ["Slack #alerts"],
+      "created_at": "2024-01-14T10:30:00Z",
+      "updated_at": "2024-01-14T11:15:00Z",
+      "probe": {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "name": "Database Server Ping",
+        "url": "db.internal.example.com",
+        "check_type": "ping"
+      }
+    }
+  ],
+  "total": 3
+}

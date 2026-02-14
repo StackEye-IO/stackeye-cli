@@ -19,12 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-)
 
-// POSIX exit codes for signal termination: 128 + signal number.
-const (
-	ExitSIGINT  = 130 // 128 + 2
-	ExitSIGTERM = 143 // 128 + 15
+	"github.com/StackEye-IO/stackeye-cli/internal/errors"
 )
 
 // Handler manages signal interception and cleanup coordination.
@@ -109,9 +105,9 @@ func (h *Handler) ExitCode(cmdExitCode int) int {
 	}
 	switch sig {
 	case syscall.SIGINT:
-		return ExitSIGINT
+		return errors.ExitSIGINT
 	case syscall.SIGTERM:
-		return ExitSIGTERM
+		return errors.ExitSIGTERM
 	default:
 		return cmdExitCode
 	}

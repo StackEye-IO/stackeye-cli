@@ -4,6 +4,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/StackEye-IO/stackeye-cli/internal/errors"
 )
 
 func TestSetup_ReturnsNonNilContextAndHandler(t *testing.T) {
@@ -52,8 +54,8 @@ func TestHandler_ExitCodeSIGINT(t *testing.T) {
 	if !h.Signaled() {
 		t.Error("expected Signaled() == true after SIGINT")
 	}
-	if got := h.ExitCode(0); got != ExitSIGINT {
-		t.Errorf("ExitCode(0) = %d; want %d", got, ExitSIGINT)
+	if got := h.ExitCode(0); got != errors.ExitSIGINT {
+		t.Errorf("ExitCode(0) = %d; want %d", got, errors.ExitSIGINT)
 	}
 }
 
@@ -66,8 +68,8 @@ func TestHandler_ExitCodeSIGTERM(t *testing.T) {
 	if !h.Signaled() {
 		t.Error("expected Signaled() == true after SIGTERM")
 	}
-	if got := h.ExitCode(0); got != ExitSIGTERM {
-		t.Errorf("ExitCode(0) = %d; want %d", got, ExitSIGTERM)
+	if got := h.ExitCode(0); got != errors.ExitSIGTERM {
+		t.Errorf("ExitCode(0) = %d; want %d", got, errors.ExitSIGTERM)
 	}
 }
 
@@ -131,10 +133,10 @@ func TestHandler_ContextCanceledOnSignal(t *testing.T) {
 }
 
 func TestExitCodeConstants(t *testing.T) {
-	if ExitSIGINT != 130 {
-		t.Errorf("ExitSIGINT = %d; want 130", ExitSIGINT)
+	if errors.ExitSIGINT != 130 {
+		t.Errorf("errors.ExitSIGINT = %d; want 130", errors.ExitSIGINT)
 	}
-	if ExitSIGTERM != 143 {
-		t.Errorf("ExitSIGTERM = %d; want 143", ExitSIGTERM)
+	if errors.ExitSIGTERM != 143 {
+		t.Errorf("errors.ExitSIGTERM = %d; want 143", errors.ExitSIGTERM)
 	}
 }

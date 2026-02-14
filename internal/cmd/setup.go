@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/auth"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	sdkauth "github.com/StackEye-IO/stackeye-go-sdk/auth"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/config"
@@ -670,10 +671,10 @@ func skipIfSingleOrg(wiz *interactive.Wizard) bool {
 // stepFirstProbe handles optional first probe creation.
 func stepFirstProbe(ctx context.Context, wiz *interactive.Wizard) error {
 	// Ask if user wants to create a probe
-	createProbe, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Would you like to create your first monitoring probe?",
-		Default: true,
-	})
+	createProbe, err := cliinteractive.Confirm(
+		"Would you like to create your first monitoring probe?",
+		cliinteractive.WithDefault(true),
+	)
 	if err != nil {
 		return err
 	}

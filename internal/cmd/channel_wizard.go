@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/StackEye-IO/stackeye-cli/internal/api"
+	cliinteractive "github.com/StackEye-IO/stackeye-cli/internal/interactive"
 	"github.com/StackEye-IO/stackeye-cli/internal/output"
 	"github.com/StackEye-IO/stackeye-go-sdk/client"
 	"github.com/StackEye-IO/stackeye-go-sdk/interactive"
@@ -336,11 +337,10 @@ func stepWebhookConfig(_ context.Context, w *interactive.Wizard) error {
 	w.SetData("webhook_method", method)
 
 	// Ask if custom headers are needed
-	addHeaders, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Do you want to add custom HTTP headers?",
-		Default: false,
-		Help:    "Add custom headers like Authorization tokens",
-	})
+	addHeaders, err := cliinteractive.Confirm(
+		"Do you want to add custom HTTP headers?",
+		cliinteractive.WithHelp("Add custom headers like Authorization tokens"),
+	)
 	if err != nil {
 		return err
 	}
@@ -501,11 +501,11 @@ func stepCreateChannel(ctx context.Context, w *interactive.Wizard) error {
 
 // stepTestChannel offers to send a test notification.
 func stepTestChannel(ctx context.Context, w *interactive.Wizard) error {
-	sendTest, err := interactive.AskConfirm(&interactive.ConfirmPromptOptions{
-		Message: "Would you like to send a test notification?",
-		Default: true,
-		Help:    "This will send a test message to verify your channel is configured correctly",
-	})
+	sendTest, err := cliinteractive.Confirm(
+		"Would you like to send a test notification?",
+		cliinteractive.WithDefault(true),
+		cliinteractive.WithHelp("This will send a test message to verify your channel is configured correctly"),
+	)
 	if err != nil {
 		return err
 	}
