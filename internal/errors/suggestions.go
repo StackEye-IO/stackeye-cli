@@ -170,7 +170,7 @@ var ValidThemes = []string{"light", "dark", "system"}
 var ValidMuteScopes = []string{"organization", "probe", "channel", "alert_type"}
 
 // ValidMuteAlertTypes contains the valid alert types for mutes.
-var ValidMuteAlertTypes = []string{"status_down", "ssl_expiry", "ssl_invalid", "slow_response"}
+var ValidMuteAlertTypes = []string{"status_down", "ssl_expiry", "ssl_invalid", "slow_response", "domain_expiry", "dns_record_missing", "dns_record_mismatch", "security_headers", "cert_transparency"}
 
 // ValidChannelTypes contains the valid notification channel types.
 var ValidChannelTypes = []string{"email", "slack", "webhook", "pagerduty", "discord", "teams", "sms"}

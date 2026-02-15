@@ -53,10 +53,15 @@ Mutes can target different scopes:
   alert_type    Silence alerts of a specific type (requires --alert-type)
 
 Alert Types (for --alert-type):
-  status_down    Service is down/unreachable
-  ssl_expiry     SSL certificate is expiring soon
-  ssl_invalid    SSL certificate is invalid
-  slow_response  Response time exceeded threshold
+  status_down         Service is down/unreachable
+  ssl_expiry          SSL certificate is expiring soon
+  ssl_invalid         SSL certificate is invalid
+  slow_response       Response time exceeded threshold
+  domain_expiry       Domain registration is expiring soon
+  dns_record_missing  Expected DNS record not found
+  dns_record_mismatch DNS record value doesn't match expected
+  security_headers    Missing or misconfigured security headers
+  cert_transparency   Certificate transparency log anomaly detected
 
 Required Flags:
   --scope       The scope of the mute (organization, probe, channel, alert_type)
@@ -107,7 +112,7 @@ Examples:
 	// Scope-specific flags
 	cmd.Flags().StringVar(&flags.probeID, "probe-id", "", "probe UUID (required for scope=probe)")
 	cmd.Flags().StringVar(&flags.channelID, "channel-id", "", "channel UUID (required for scope=channel)")
-	cmd.Flags().StringVar(&flags.alertType, "alert-type", "", "alert type: status_down, ssl_expiry, ssl_invalid, slow_response (required for scope=alert_type)")
+	cmd.Flags().StringVar(&flags.alertType, "alert-type", "", "alert type: status_down, ssl_expiry, ssl_invalid, slow_response, domain_expiry, dns_record_missing, dns_record_mismatch, security_headers, cert_transparency (required for scope=alert_type)")
 
 	// Optional flags
 	cmd.Flags().StringVar(&flags.reason, "reason", "", "reason for the mute")
@@ -268,10 +273,15 @@ func setMuteScopeFields(req *client.CreateMuteRequest, scopeType client.MuteScop
 // validateMuteAlertType validates the alert type value.
 func validateMuteAlertType(t client.AlertType) error {
 	valid := map[client.AlertType]bool{
-		client.AlertTypeStatusDown:   true,
-		client.AlertTypeSSLExpiry:    true,
-		client.AlertTypeSSLInvalid:   true,
-		client.AlertTypeSlowResponse: true,
+		client.AlertTypeStatusDown:        true,
+		client.AlertTypeSSLExpiry:         true,
+		client.AlertTypeSSLInvalid:        true,
+		client.AlertTypeSlowResponse:      true,
+		client.AlertTypeDomainExpiry:      true,
+		client.AlertTypeDNSRecordMissing:  true,
+		client.AlertTypeDNSRecordMismatch: true,
+		client.AlertTypeSecurityHeaders:   true,
+		client.AlertTypeCertTransparency:  true,
 	}
 	if !valid[t] {
 		return clierrors.InvalidValueError("--alert-type", string(t), clierrors.ValidMuteAlertTypes)
