@@ -170,6 +170,11 @@ func TestFormatAlertType(t *testing.T) {
 		{client.AlertTypeSSLExpiry, "SSL Expiry"},
 		{client.AlertTypeSSLInvalid, "SSL Invalid"},
 		{client.AlertTypeSlowResponse, "Slow Response"},
+		{client.AlertTypeDomainExpiry, "Domain Expiry"},
+		{client.AlertTypeDNSRecordMissing, "DNS Missing"},
+		{client.AlertTypeDNSRecordMismatch, "DNS Mismatch"},
+		{client.AlertTypeSecurityHeaders, "Security Headers"},
+		{client.AlertTypeCertTransparency, "Cert Transparency"},
 		{client.AlertType("unknown"), "unknown"},
 	}
 

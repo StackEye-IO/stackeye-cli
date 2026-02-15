@@ -123,6 +123,16 @@ func formatAlertType(alertType client.AlertType) string {
 		return "SSL Invalid"
 	case client.AlertTypeSlowResponse:
 		return "Slow Response"
+	case client.AlertTypeDomainExpiry:
+		return "Domain Expiry"
+	case client.AlertTypeDNSRecordMissing:
+		return "DNS Missing"
+	case client.AlertTypeDNSRecordMismatch:
+		return "DNS Mismatch"
+	case client.AlertTypeSecurityHeaders:
+		return "Security Headers"
+	case client.AlertTypeCertTransparency:
+		return "Cert Transparency"
 	default:
 		return string(alertType)
 	}
