@@ -71,7 +71,7 @@ Examples:
 	cmd.Flags().StringVarP(&displayName, "display-name", "n", "", "Human-readable display name (1-50 chars) (required)")
 	cmd.Flags().StringVarP(&continent, "continent", "C", "", "Geographic continent (e.g., \"North America\") (required)")
 	cmd.Flags().StringVarP(&countryCode, "country-code", "c", "", "ISO 3166-1 alpha-2 country code (e.g., US) (required)")
-	cmd.Flags().StringVarP(&city, "city", "", "", "Optional city name")
+	cmd.Flags().StringVar(&city, "city", "", "Optional city name")
 
 	_ = cmd.MarkFlagRequired("slug")
 	_ = cmd.MarkFlagRequired("display-name")
