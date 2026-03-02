@@ -60,7 +60,7 @@ Examples:
   stackeye login
 
   # Login to a specific environment
-  stackeye login --api-url https://api.dev.stackeye.io`,
+  stackeye login --api-url https://api-dev.stackeye.io`,
 		// Override PersistentPreRunE to skip config loading.
 		// The login command should work without a valid configuration.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -172,6 +172,28 @@ func extractEnvironment(apiURL string) string {
 	}
 
 	host := u.Host
+	env := ""
+
+	// Hyphen style: api-dev.stackeye.io, api-staging.stackeye.io
+	if strings.HasPrefix(host, "api-") && strings.HasSuffix(host, ".stackeye.io") {
+		env = strings.TrimPrefix(host, "api-")
+		env = strings.TrimSuffix(env, ".stackeye.io")
+	}
+
+	// Dotted style: api.dev.stackeye.io, api.staging.stackeye.io
+	if env == "" && strings.HasPrefix(host, "api.") && strings.HasSuffix(host, ".stackeye.io") {
+		env = strings.TrimPrefix(host, "api.")
+		env = strings.TrimSuffix(env, ".stackeye.io")
+	}
+
+	switch env {
+	case "dev", "development":
+		return "dev"
+	case "stg", "staging":
+		return "stg"
+	case "prod", "production":
+		return ""
+	}
 
 	// Check for common environment patterns
 	if strings.Contains(host, ".dev.") || strings.HasPrefix(host, "dev.") {

@@ -390,6 +390,23 @@ jobs:
 | `stackeye probe history <id>` | View probe check history |
 | `stackeye probe stats <id>` | View probe statistics |
 
+### Probe Group Management
+
+| Command | Description |
+|---------|-------------|
+| `stackeye probe group create --name "<name>"` | Create a new probe group |
+| `stackeye probe group list` | List probe groups |
+| `stackeye probe group get <group-id>` | Get probe group details |
+| `stackeye probe group update <group-id>` | Update group metadata |
+| `stackeye probe group delete <group-id>` | Delete a probe group |
+| `stackeye probe group add-probe <group-id> <probe-id-or-name>` | Add a probe to a group |
+| `stackeye probe group remove-probe <group-id> <probe-id-or-name>` | Remove a probe from a group |
+| `stackeye probe group list-probes <group-id>` | List probes in a group |
+
+Examples:
+- `stackeye probe group create --name "Cluster fruition-infra-doks-sfo3"`
+- `stackeye probe group add-probe <group-id> <probe-id>`
+
 ### Alert Management
 
 | Command | Description |
@@ -436,7 +453,7 @@ Authenticate with StackEye via browser-based OAuth flow:
 stackeye login
 
 # Login to a specific environment
-stackeye login --api-url https://api.dev.stackeye.io
+stackeye login --api-url https://api-dev.stackeye.io
 ```
 
 #### `stackeye logout`
@@ -498,7 +515,7 @@ stackeye context list
 # Output:
 #    NAME                 ORGANIZATION              API URL
 # *  {context_name}       {org_name}                https://api.stackeye.io
-#    {context_name_dev}   {org_name}                https://api.dev.stackeye.io
+#    {context_name_dev}   {org_name}                https://api-dev.stackeye.io
 ```
 
 #### `stackeye context use`
@@ -515,6 +532,38 @@ Display the active context:
 
 ```bash
 stackeye context current
+```
+
+### Test Org Across `dev/stg/prd`
+
+Bootstrap local contexts for the same test organization in all environments:
+
+```bash
+stackeye login --api-url https://api-dev.stackeye.io      # creates/updates dev context
+stackeye login --api-url https://api-staging.stackeye.io  # creates/updates staging context
+stackeye login --api-url https://api.stackeye.io          # creates/updates prod context
+```
+
+Recommended local mapping:
+
+- `dev` -> context `dev`
+- `stg` -> context `staging`
+- `prd` -> context `prod`
+
+Verify each environment:
+
+```bash
+stackeye --context dev whoami
+stackeye --context staging whoami
+stackeye --context prod whoami
+```
+
+Optional convenience wrapper (from source tree):
+
+```bash
+./scripts/stackeye-env dev whoami
+./scripts/stackeye-env stg org list
+./scripts/stackeye-env prd probe list
 ```
 
 ## Configuration
@@ -535,7 +584,7 @@ contexts:
     organization_id: {org_id}
     organization_name: {org_name}
   {context_name_dev}:
-    api_url: https://api.dev.stackeye.io
+    api_url: https://api-dev.stackeye.io
     api_key: se_{api_key_suffix_dev}
     organization_name: {org_name}
 
@@ -553,6 +602,7 @@ preferences:
 | `STACKEYE_API_URL` | Override API URL | `https://api.stackeye.io` |
 | `STACKEYE_API_KEY` | Override API key | (from config) |
 | `STACKEYE_CONFIG` | Custom config file path | `~/.config/stackeye/config.yaml` |
+| `STACKEYE_CONTEXT` | Override active context | (from config) |
 | `NO_COLOR` | Disable colored output | (unset) |
 
 ## Global Flags

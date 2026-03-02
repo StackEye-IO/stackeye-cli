@@ -24,6 +24,9 @@ type probeListFlags struct {
 	limit  int
 	period string
 	labels string // Task #8070: Comma-separated label filters
+	// paginationSet tracks whether user explicitly passed --page/--limit.
+	// If not set, list defaults to returning all probes across pages.
+	paginationSet bool
 }
 
 // NewProbeListCmd creates and returns the probe list subcommand.
@@ -36,7 +39,8 @@ func NewProbeListCmd() *cobra.Command {
 		Long: `List all monitoring probes in your organization.
 
 Displays probe status, name, target URL, check interval, and last check time.
-Results are paginated and can be filtered by status or labels.
+By default, returns all probes and can be filtered by status or labels.
+Use --page/--limit for manual pagination.
 
 Status Values:
   up        Probe is healthy and responding
@@ -78,6 +82,7 @@ Examples:
   stackeye probe list --page 2 --limit 50`,
 		Aliases: []string{"ls"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			flags.paginationSet = cmd.Flags().Changed("page") || cmd.Flags().Changed("limit")
 			return runProbeList(cmd.Context(), flags)
 		},
 	}
@@ -142,26 +147,35 @@ func runProbeList(ctx context.Context, flags *probeListFlags) error {
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
-	// Build list options from validated flags
-	opts := &client.ListProbesOptions{
-		Page:   flags.page,
-		Limit:  flags.limit,
-		Period: flags.period,
-		Status: probeStatus,
-		Labels: labelFilters,
-	}
-
 	// Call SDK to list probes with timeout
 	reqCtx, cancel := context.WithTimeout(ctx, probeListTimeout)
 	defer cancel()
 
-	result, err := client.ListProbes(reqCtx, apiClient, opts)
-	if err != nil {
-		return fmt.Errorf("failed to list probes: %w", err)
+	var probes []client.Probe
+	if flags.paginationSet {
+		// Respect explicit pagination flags and fetch only one page.
+		opts := &client.ListProbesOptions{
+			Page:   flags.page,
+			Limit:  flags.limit,
+			Period: flags.period,
+			Status: probeStatus,
+			Labels: labelFilters,
+		}
+		result, err := client.ListProbes(reqCtx, apiClient, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list probes: %w", err)
+		}
+		probes = result.Probes
+	} else {
+		// Default behavior: fetch all pages so "probe list" actually lists all probes.
+		probes, err = fetchAllProbesForList(reqCtx, apiClient, probeStatus, flags.period, labelFilters)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Handle empty results
-	if len(result.Probes) == 0 {
+	if len(probes) == 0 {
 		if len(labelFilters) > 0 {
 			return output.PrintEmpty(fmt.Sprintf("No probes found with labels: %s", flags.labels))
 		}
@@ -170,11 +184,48 @@ func runProbeList(ctx context.Context, flags *probeListFlags) error {
 
 	// Task #8070: Show count message when label filters are applied
 	if len(labelFilters) > 0 {
-		fmt.Printf("Showing %d probes with labels: %s\n\n", len(result.Probes), flags.labels)
+		fmt.Printf("Showing %d probes with labels: %s\n\n", len(probes), flags.labels)
 	}
 
 	// Print the probes using the configured output format
-	return output.PrintProbes(result.Probes)
+	return output.PrintProbes(probes)
+}
+
+// fetchAllProbesForList fetches all probes across pages.
+func fetchAllProbesForList(
+	ctx context.Context,
+	apiClient *client.Client,
+	status client.ProbeStatus,
+	period string,
+	labels map[string]string,
+) ([]client.Probe, error) {
+	var allProbes []client.Probe
+	page := 1
+	limit := 100
+
+	for {
+		opts := &client.ListProbesOptions{
+			Page:   page,
+			Limit:  limit,
+			Period: period,
+			Status: status,
+			Labels: labels,
+		}
+
+		result, err := client.ListProbes(ctx, apiClient, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list probes: %w", err)
+		}
+
+		allProbes = append(allProbes, result.Probes...)
+
+		if len(result.Probes) < limit {
+			break
+		}
+		page++
+	}
+
+	return allProbes, nil
 }
 
 // parseLabelFilters parses a comma-separated label filter string into a map.

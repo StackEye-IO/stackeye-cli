@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 2 ]]; then
+  echo "Usage: $(basename "$0") <dev|stg|prd> <stackeye args...>"
+  echo "Example: $(basename "$0") dev whoami"
+  exit 1
+fi
+
+env_name="$1"
+shift
+
+case "$env_name" in
+  dev)
+    context="dev"
+    ;;
+  stg)
+    # Local context is commonly named "staging"
+    context="staging"
+    ;;
+  prd)
+    context="prod"
+    ;;
+  *)
+    echo "Error: invalid env '$env_name' (expected dev|stg|prd)"
+    exit 1
+    ;;
+esac
+
+exec stackeye --context "$context" "$@"

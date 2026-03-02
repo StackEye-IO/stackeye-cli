@@ -42,6 +42,7 @@ Label Management:
 
 Dependency Management:
   deps             Manage probe dependencies for hierarchical alerting
+  group            Manage probe groups and membership
 
 Examples:
   # List all probes
@@ -85,6 +86,7 @@ For more information about a specific command:
 	cmd.AddCommand(NewProbeLinkChannelCmd())
 	cmd.AddCommand(NewProbeUnlinkChannelCmd()) // Task #7074
 	cmd.AddCommand(NewProbeDepsCmd())
+	cmd.AddCommand(NewProbeGroupCmd())
 	cmd.AddCommand(NewProbeLabelCmd())   // Task #8068
 	cmd.AddCommand(NewProbeUnlabelCmd()) // Task #8069
 	cmd.AddCommand(NewProbeWatchCmd())   // Task #7109

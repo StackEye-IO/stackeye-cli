@@ -152,8 +152,10 @@ func TestExtractEnvironment(t *testing.T) {
 	}{
 		{"https://api.stackeye.io", ""},
 		{"https://api.dev.stackeye.io", "dev"},
+		{"https://api-dev.stackeye.io", "dev"},
 		{"https://api.stg.stackeye.io", "stg"},
 		{"https://api.staging.stackeye.io", "stg"},
+		{"https://api-staging.stackeye.io", "stg"},
 		{"http://localhost:8080", ""},
 		{"invalid-url", ""},
 	}

@@ -58,6 +58,8 @@ func BuildWebUIURL(apiURL, callbackURL string) (string, error) {
 //   - api.stackeye.io -> app.stackeye.io (production)
 //   - api-dev.stackeye.io -> app-dev.stackeye.io
 //   - api-staging.stackeye.io -> app-staging.stackeye.io
+//   - api.dev.stackeye.io -> app-dev.stackeye.io
+//   - api.staging.stackeye.io -> app-staging.stackeye.io
 //
 // For non-standard URLs (e.g., localhost, custom domains), returns unchanged.
 func APIURLToWebURL(apiURL string) (string, error) {
@@ -86,6 +88,16 @@ func APIURLToWebURL(apiURL string) (string, error) {
 
 		host = "app-" + env + ".stackeye.io"
 		debugf("APIURLToWebURL: env transformation: %s -> %s", originalHost, host)
+	} else if strings.HasPrefix(host, "api.") && strings.HasSuffix(host, ".stackeye.io") {
+		// Backward compatibility for dotted hostnames.
+		// api.dev.stackeye.io -> app-dev.stackeye.io
+		// api.staging.stackeye.io -> app-staging.stackeye.io
+		env := strings.TrimPrefix(host, "api.")
+		env = strings.TrimSuffix(env, ".stackeye.io")
+		debugf("APIURLToWebURL: extracted dotted environment=%s", env)
+
+		host = "app-" + env + ".stackeye.io"
+		debugf("APIURLToWebURL: dotted env transformation: %s -> %s", originalHost, host)
 	} else {
 		// For non-standard URLs (localhost, custom domains), return unchanged
 		debugf("APIURLToWebURL: non-standard URL, returning unchanged: %s", apiURL)

@@ -33,6 +33,13 @@ func TestBuildWebUIURL(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name:        "dev API dotted style",
+			apiURL:      "https://api.dev.stackeye.io",
+			callbackURL: "http://127.0.0.1:54321/callback",
+			want:        "https://app-dev.stackeye.io/cli-auth?callback=http%3A%2F%2F127.0.0.1%3A54321%2Fcallback",
+			wantErr:     false,
+		},
+		{
 			name:        "staging API",
 			apiURL:      "https://api-staging.stackeye.io",
 			callbackURL: "http://127.0.0.1:8080/callback",
@@ -78,6 +85,12 @@ func TestAPIURLToWebURL(t *testing.T) {
 		{
 			name:    "dev environment",
 			apiURL:  "https://api-dev.stackeye.io",
+			want:    "https://app-dev.stackeye.io",
+			wantErr: false,
+		},
+		{
+			name:    "dev environment dotted style",
+			apiURL:  "https://api.dev.stackeye.io",
 			want:    "https://app-dev.stackeye.io",
 			wantErr: false,
 		},

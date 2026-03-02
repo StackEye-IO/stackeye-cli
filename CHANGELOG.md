@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CONTRIBUTING.md guide (Task #7150)
 - RELEASING.md documentation (Task #7156)
 - Dependabot configuration for Go modules and Actions (Task #7154)
+- Probe group management commands under `stackeye probe group` (`create`, `list`, `get`, `update`, `delete`, `add-probe`, `remove-probe`, `list-probes`) with SDK group API support
 
 ### Changed
 
