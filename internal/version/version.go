@@ -59,12 +59,12 @@ func GetInfo() Info {
 // String returns a formatted multi-line version string.
 func (i Info) String() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("stackeye version %s\n", i.Version))
-	b.WriteString(fmt.Sprintf("  Commit:     %s\n", i.Commit))
-	b.WriteString(fmt.Sprintf("  Built:      %s\n", i.Date))
-	b.WriteString(fmt.Sprintf("  Built by:   %s\n", i.BuiltBy))
-	b.WriteString(fmt.Sprintf("  Go version: %s\n", i.GoVersion))
-	b.WriteString(fmt.Sprintf("  Platform:   %s", i.Platform))
+	fmt.Fprintf(&b, "stackeye version %s\n", i.Version)
+	fmt.Fprintf(&b, "  Commit:     %s\n", i.Commit)
+	fmt.Fprintf(&b, "  Built:      %s\n", i.Date)
+	fmt.Fprintf(&b, "  Built by:   %s\n", i.BuiltBy)
+	fmt.Fprintf(&b, "  Go version: %s\n", i.GoVersion)
+	fmt.Fprintf(&b, "  Platform:   %s", i.Platform)
 	return b.String()
 }
 
