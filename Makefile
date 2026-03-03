@@ -42,7 +42,7 @@ COVERAGE_FILE=coverage.out
 COVERAGE_HTML=coverage.html
 
 # Tools (install if missing)
-GOLINT=$(shell which golangci-lint 2>/dev/null || echo "go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+GOLINT=$(shell which golangci-lint 2>/dev/null || echo "go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest")
 GORELEASER=$(shell which goreleaser 2>/dev/null || echo "go run github.com/goreleaser/goreleaser/v2@latest")
 
 # Packages
