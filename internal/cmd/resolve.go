@@ -102,7 +102,7 @@ func resolveProbeByName(ctx context.Context, c *client.Client, name string) (*cl
 // formatAmbiguousError creates a user-friendly error message for ambiguous probe names.
 func formatAmbiguousError(name string, matches []client.Probe) error {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("ambiguous probe name %q: found %d matches\n", name, len(matches)))
+	fmt.Fprintf(&sb, "ambiguous probe name %q: found %d matches\n", name, len(matches))
 
 	// Show up to 5 matches with their IDs
 	limit := 5
@@ -112,11 +112,11 @@ func formatAmbiguousError(name string, matches []client.Probe) error {
 
 	for i := 0; i < limit; i++ {
 		p := matches[i]
-		sb.WriteString(fmt.Sprintf("  - %s (%s)\n", p.Name, p.ID))
+		fmt.Fprintf(&sb, "  - %s (%s)\n", p.Name, p.ID)
 	}
 
 	if len(matches) > 5 {
-		sb.WriteString(fmt.Sprintf("  ... and %d more\n", len(matches)-5))
+		fmt.Fprintf(&sb, "  ... and %d more\n", len(matches)-5)
 	}
 
 	sb.WriteString("Use the full UUID to specify the exact probe")
