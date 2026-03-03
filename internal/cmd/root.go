@@ -118,6 +118,7 @@ func init() {
 	rootCmd.AddCommand(NewEnvCmd())
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(NewPrivateRegionCmd())
+	rootCmd.AddCommand(NewAgentCmd()) // Task #10547: Agent lifecycle commands (F-841)
 
 	// Register persistent flags available to all commands
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (default: ~/.config/stackeye/config.yaml)")
