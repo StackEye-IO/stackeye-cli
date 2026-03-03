@@ -22,8 +22,9 @@ func NewPrivateRegionRotateCmd() *cobra.Command {
 	var displayName string
 
 	cmd := &cobra.Command{
-		Use:   "rotate",
-		Short: "Rotate the bootstrap key for a private region",
+		Use:     "rotate-key",
+		Aliases: []string{"rotate"},
+		Short:   "Rotate the bootstrap key for a private region",
 		Long: `Rotate all active bootstrap keys for a private monitoring region.
 
 All existing active keys are revoked atomically and a new bootstrap key
@@ -36,16 +37,16 @@ interrupted.
 
 Examples:
   # Rotate keys for a private region
-  stackeye private-region rotate --id prv-nyc-office
+  stackeye private-region rotate-key --id prv-nyc-office
 
   # Rotate and label the new key
-  stackeye private-region rotate --id prv-nyc-office --display-name "Rotated 2026-03"
+  stackeye private-region rotate-key --id prv-nyc-office --display-name "Rotated 2026-03"
 
   # Preview without rotating
-  stackeye private-region rotate --id prv-nyc-office --dry-run
+  stackeye private-region rotate-key --id prv-nyc-office --dry-run
 
   # Output in JSON format
-  stackeye private-region rotate --id prv-nyc-office -o json`,
+  stackeye private-region rotate-key --id prv-nyc-office -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var displayNamePtr *string
 			if cmd.Flags().Changed("display-name") {

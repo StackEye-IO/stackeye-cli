@@ -2,6 +2,9 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -12,8 +15,8 @@ import (
 func TestNewPrivateRegionRotateCmd(t *testing.T) {
 	cmd := NewPrivateRegionRotateCmd()
 
-	if cmd.Use != "rotate" {
-		t.Errorf("expected Use='rotate', got %q", cmd.Use)
+	if cmd.Use != "rotate-key" {
+		t.Errorf("expected Use='rotate-key', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")
@@ -39,7 +42,7 @@ func TestNewPrivateRegionRotateCmd_FlagsExist(t *testing.T) {
 func TestNewPrivateRegionRotateCmd_Long(t *testing.T) {
 	cmd := NewPrivateRegionRotateCmd()
 
-	if !strings.Contains(cmd.Long, "stackeye private-region rotate") {
+	if !strings.Contains(cmd.Long, "stackeye private-region rotate-key") {
 		t.Error("expected Long description to contain example commands")
 	}
 	if !strings.Contains(strings.ToLower(cmd.Long), "plaintext") {
@@ -124,5 +127,61 @@ func TestPrintPrivateRegionRotated_DoesNotPanic(t *testing.T) {
 			}()
 			printPrivateRegionRotated(tt.response)
 		})
+	}
+}
+
+// TestRunPrivateRegionRotate_PlanTierRequired verifies that a 402 response
+// from the API is surfaced as an error (plan tier gate enforcement).
+func TestRunPrivateRegionRotate_PlanTierRequired(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusPaymentRequired)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "PLAN_LIMIT_EXCEEDED",
+			"message": "Private regions require a Team plan or higher",
+		})
+	})
+
+	_, cleanup := setupMockAPIServer(t, handler)
+	defer cleanup()
+
+	err := runPrivateRegionRotate(context.Background(), "prv-nyc-office", nil)
+	if err == nil {
+		t.Fatal("expected error for plan_tier_required (402), got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to rotate bootstrap key") {
+		t.Errorf("expected error to contain 'failed to rotate bootstrap key', got: %v", err)
+	}
+}
+
+// TestRunPrivateRegionRotate_Unauthorized verifies that a 401 response
+// from the API is surfaced as an error (missing or invalid API key).
+func TestRunPrivateRegionRotate_Unauthorized(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "UNAUTHORIZED",
+			"message": "Invalid or missing API key",
+		})
+	})
+
+	_, cleanup := setupMockAPIServer(t, handler)
+	defer cleanup()
+
+	err := runPrivateRegionRotate(context.Background(), "prv-nyc-office", nil)
+	if err == nil {
+		t.Fatal("expected error for unauthorized (401), got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to rotate bootstrap key") {
+		t.Errorf("expected error to contain 'failed to rotate bootstrap key', got: %v", err)
 	}
 }

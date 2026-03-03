@@ -29,7 +29,7 @@ The appliance using this key will lose connectivity immediately.
 This is useful for rotating out a single compromised key without
 disturbing other keys.
 
-To replace all keys at once, use 'rotate' instead.
+To replace all keys at once, use 'rotate-key' instead.
 
 Examples:
   # Revoke a specific key

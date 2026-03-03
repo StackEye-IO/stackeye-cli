@@ -20,9 +20,9 @@ self-hosted appliance and authenticates with a bootstrap key.
 Commands:
   list    List all private regions
   get     Get details of a specific private region
-  create  Create a new private region
-  rotate  Rotate the bootstrap key for a private region
-  revoke  Revoke a single bootstrap key
+  create      Create a new private region
+  rotate-key  Rotate the bootstrap key for a private region
+  revoke      Revoke a single bootstrap key
 
 Examples:
   # List all private regions
@@ -36,7 +36,7 @@ Examples:
   stackeye private-region get --id prv-nyc-office
 
   # Rotate bootstrap keys for a region
-  stackeye private-region rotate --id prv-nyc-office
+  stackeye private-region rotate-key --id prv-nyc-office
 
   # Revoke a single bootstrap key
   stackeye private-region revoke --region-id prv-nyc-office --key-id <uuid>`,

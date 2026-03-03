@@ -143,7 +143,7 @@ func printPrivateRegionCreated(r *client.PrivateRegion) {
 	fmt.Printf("  Status:       %s\n", r.Status)
 	fmt.Println()
 	fmt.Println("  Next steps:")
-	fmt.Printf("    Generate a bootstrap key: stackeye private-region rotate --id %s\n", r.ID)
+	fmt.Printf("    Generate a bootstrap key: stackeye private-region rotate-key --id %s\n", r.ID)
 	fmt.Println("    Install the key on your appliance before it can connect.")
 	fmt.Println()
 }

@@ -2,6 +2,9 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -63,5 +66,61 @@ func TestNewPrivateRegionRevokeCmd_Long(t *testing.T) {
 	}
 	if !strings.Contains(cmd.Long, "--dry-run") {
 		t.Error("expected Long description to mention --dry-run")
+	}
+}
+
+// TestRunPrivateRegionRevoke_PlanTierRequired verifies that a 402 response
+// from the API is surfaced as an error (plan tier gate enforcement).
+func TestRunPrivateRegionRevoke_PlanTierRequired(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusPaymentRequired)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "PLAN_LIMIT_EXCEEDED",
+			"message": "Private regions require a Team plan or higher",
+		})
+	})
+
+	_, cleanup := setupMockAPIServer(t, handler)
+	defer cleanup()
+
+	err := runPrivateRegionRevoke(context.Background(), "prv-nyc-office", "key-uuid-123")
+	if err == nil {
+		t.Fatal("expected error for plan_tier_required (402), got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to revoke bootstrap key") {
+		t.Errorf("expected error to contain 'failed to revoke bootstrap key', got: %v", err)
+	}
+}
+
+// TestRunPrivateRegionRevoke_Unauthorized verifies that a 401 response
+// from the API is surfaced as an error (missing or invalid API key).
+func TestRunPrivateRegionRevoke_Unauthorized(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "UNAUTHORIZED",
+			"message": "Invalid or missing API key",
+		})
+	})
+
+	_, cleanup := setupMockAPIServer(t, handler)
+	defer cleanup()
+
+	err := runPrivateRegionRevoke(context.Background(), "prv-nyc-office", "key-uuid-123")
+	if err == nil {
+		t.Fatal("expected error for unauthorized (401), got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to revoke bootstrap key") {
+		t.Errorf("expected error to contain 'failed to revoke bootstrap key', got: %v", err)
 	}
 }

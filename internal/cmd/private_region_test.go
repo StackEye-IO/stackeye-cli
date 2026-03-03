@@ -25,7 +25,7 @@ func TestNewPrivateRegionCmd(t *testing.T) {
 func TestNewPrivateRegionCmd_SubcommandsRegistered(t *testing.T) {
 	cmd := NewPrivateRegionCmd()
 
-	want := []string{"list", "get", "create", "rotate", "revoke"}
+	want := []string{"list", "get", "create", "rotate-key", "revoke"}
 	for _, name := range want {
 		found := false
 		for _, sub := range cmd.Commands() {
