@@ -108,6 +108,7 @@ func TestFormatAgentDate(t *testing.T) {
 func TestAgentStatus(t *testing.T) {
 	recentTime := time.Now().Add(-1 * time.Minute).Format(time.RFC3339)
 	staleTime := time.Now().Add(-10 * time.Minute).Format(time.RFC3339)
+	malformedTime := "not-a-valid-timestamp"
 
 	tests := []struct {
 		name     string
@@ -133,6 +134,11 @@ func TestAgentStatus(t *testing.T) {
 			name:     "offline agent (stale heartbeat)",
 			agent:    client.Agent{IsActive: true, LastSeenAt: &staleTime},
 			expected: "offline",
+		},
+		{
+			name:     "unknown status (malformed timestamp)",
+			agent:    client.Agent{IsActive: true, LastSeenAt: &malformedTime},
+			expected: "unknown",
 		},
 	}
 
