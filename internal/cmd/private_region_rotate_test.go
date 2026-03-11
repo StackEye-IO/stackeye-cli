@@ -134,7 +134,7 @@ func TestPrintPrivateRegionRotated_DoesNotPanic(t *testing.T) {
 // from the API is surfaced as an error (plan tier gate enforcement).
 func TestRunPrivateRegionRotate_PlanTierRequired(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		if r.URL.Path != "/v1/private-regions/prv-nyc-office/rotate-key" || r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}
@@ -162,7 +162,7 @@ func TestRunPrivateRegionRotate_PlanTierRequired(t *testing.T) {
 // from the API is surfaced as an error (missing or invalid API key).
 func TestRunPrivateRegionRotate_Unauthorized(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		if r.URL.Path != "/v1/private-regions/prv-nyc-office/rotate-key" || r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}

@@ -73,7 +73,7 @@ func TestNewPrivateRegionRevokeCmd_Long(t *testing.T) {
 // from the API is surfaced as an error (plan tier gate enforcement).
 func TestRunPrivateRegionRevoke_PlanTierRequired(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		if r.URL.Path != "/v1/private-regions/prv-nyc-office/keys/key-uuid-123/revoke" || r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}
@@ -101,7 +101,7 @@ func TestRunPrivateRegionRevoke_PlanTierRequired(t *testing.T) {
 // from the API is surfaced as an error (missing or invalid API key).
 func TestRunPrivateRegionRevoke_Unauthorized(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		if r.URL.Path != "/v1/private-regions/prv-nyc-office/keys/key-uuid-123/revoke" || r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}
