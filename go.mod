@@ -1,6 +1,6 @@
 module github.com/StackEye-IO/stackeye-cli
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/StackEye-IO/stackeye-go-sdk v0.0.0
@@ -8,7 +8,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/text v0.4.0
+	golang.org/x/text v0.36.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
