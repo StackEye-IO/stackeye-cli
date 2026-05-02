@@ -30,6 +30,7 @@ jobs:
           clean: true
 
       - name: Checkout SDK
+        if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@v4
         with:
           repository: StackEye-IO/stackeye-go-sdk
@@ -43,6 +44,7 @@ jobs:
           cache: true
 
       - name: Update replace directive for CI
+        if: github.actor != 'dependabot[bot]'
         run: |
           # Update the replace directive to use the locally checked out SDK
           sed -i 's|replace github.com/StackEye-IO/stackeye-go-sdk => .*|replace github.com/StackEye-IO/stackeye-go-sdk => ./.sdk|' go.mod
