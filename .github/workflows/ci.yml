@@ -50,24 +50,31 @@ jobs:
           sed -i 's|replace github.com/StackEye-IO/stackeye-go-sdk => .*|replace github.com/StackEye-IO/stackeye-go-sdk => ./.sdk|' go.mod
 
       - name: Download dependencies
+        if: github.actor != 'dependabot[bot]'
         run: go mod download
 
       - name: Run format check
+        if: github.actor != 'dependabot[bot]'
         run: make fmt-check
 
       - name: Run go vet
+        if: github.actor != 'dependabot[bot]'
         run: make vet
 
       - name: Run linter
+        if: github.actor != 'dependabot[bot]'
         run: make lint
 
       - name: Build binary
+        if: github.actor != 'dependabot[bot]'
         run: make build
 
       - name: Run tests with coverage
+        if: github.actor != 'dependabot[bot]'
         run: make coverage-html
 
       - name: Upload coverage artifact
+        if: github.actor != 'dependabot[bot]'
         uses: actions/upload-artifact@v7
         with:
           name: coverage
@@ -77,4 +84,5 @@ jobs:
           retention-days: 7
 
       - name: Build cross-platform binaries
+        if: github.actor != 'dependabot[bot]'
         run: make build-all
