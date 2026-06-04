@@ -203,7 +203,7 @@ func TestRunIncidentGet_LargeIDs(t *testing.T) {
 	}
 
 	// Error should not be about invalid IDs
-	if strings.Contains(err.Error(), "is required") {
+	if strings.Contains(err.Error(), "-id is required") {
 		t.Errorf("got unexpected validation error for valid input: %s", err.Error())
 	}
 }
