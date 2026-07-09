@@ -33,6 +33,7 @@ Complete these items before tagging.
 - [ ] **Version string is correct** — the version comes from the git tag, not from source. Verify `internal/version` uses ldflags injection (no hardcoded version)
 - [ ] **Dependencies are current** — check for any pending Dependabot PRs that should be merged first
 - [ ] **No unmerged breaking changes** — confirm all intended PRs are merged to `main`
+- [ ] **Command reference is current** — if any command, flag, or example changed this cycle, regenerate the docs and reconcile the hand-written pages (see [Command Documentation](#command-documentation) below)
 - [ ] **Test snapshot build locally**:
   ```bash
   make release-dry-run
@@ -298,6 +299,54 @@ The release workflow requires these GitHub repository secrets:
 `GITHUB_TOKEN` is provided automatically by GitHub Actions for GitHub Releases and GHCR.
 
 ---
+
+## Command Documentation
+
+The CLI command reference is generated directly from the cobra command tree, so it
+always matches the implemented commands, flags, and short descriptions.
+
+### Generation targets
+
+| Target | Output | Format |
+|--------|--------|--------|
+| `make markdown` | `docs/markdown/pages/` | One Markdown page per command (via `cobra/doc`) |
+| `make man` | `docs/man/pages/` | roff man pages |
+
+Both generators (`docs/markdown/generate.go`, `docs/man/generate.go`) build the root
+command with `PersistentPreRunE` disabled, so they run without a real config file.
+
+### Generated pages are ephemeral
+
+`docs/markdown/pages/` and `docs/man/pages/` are **git-ignored** (see `.gitignore`) and
+are **not** committed. They are regenerated on demand and consumed by the docs site /
+man-page packaging. Do **not** hand-edit them — changes are overwritten on the next run.
+Keep all hand-written guidance in the source-of-truth docs instead:
+
+- `README.md` — command tables, installation, quick start, exit codes
+- `docs/getting-started.md` — end-to-end tutorial
+- `examples/` — runnable example configs and recipes
+
+### SDK replace directive
+
+`go.mod` has `replace github.com/StackEye-IO/stackeye-go-sdk => ../stackeye-go-sdk`.
+Generation (and any local build) therefore needs the `stackeye-go-sdk` checkout beside
+this repo. CI rewrites the directive to a local `./.sdk` checkout; locally, either check
+the SDK out at `../stackeye-go-sdk` or point the replace directive at your copy.
+
+### Regenerate & reconcile before a release
+
+```bash
+# 1. Regenerate the command reference from current code
+make markdown        # and/or: make man
+
+# 2. Diff generated pages against the hand-written docs and reconcile any drift:
+#    - new/renamed commands or flags -> update README.md command tables
+#    - changed example syntax        -> update docs/getting-started.md and examples/
+#    Use template variables ({probe_id}, {api_key}, ...) in examples — never fake data.
+
+# 3. Clean up generated pages when done (they are not committed)
+make markdown-clean  # and/or: make man-clean
+```
 
 ## Versioning Policy
 
