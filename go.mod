@@ -1,6 +1,7 @@
 module github.com/StackEye-IO/stackeye-cli
 
 go 1.25.0
+toolchain go1.25.8
 
 require (
 	github.com/StackEye-IO/stackeye-go-sdk v0.0.0
