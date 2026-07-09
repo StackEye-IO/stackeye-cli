@@ -57,6 +57,15 @@ jobs:
         if: github.actor != 'dependabot[bot]'
         run: make fmt-check
 
+      - name: Debug Go env (diagnostic, temporary)
+        if: github.actor != 'dependabot[bot]'
+        run: |
+          echo "--- go version ---"; go version
+          echo "--- which -a go ---"; which -a go
+          echo "--- go env ---"; go env GOROOT GOTOOLCHAIN GOPATH GOFLAGS
+          echo "--- compile tool ---"; ls -la "$(go env GOROOT)/pkg/tool/"*/compile 2>/dev/null || true
+          echo "--- GOROOT VERSION file ---"; cat "$(go env GOROOT)/VERSION" 2>/dev/null || true
+
       - name: Run go vet
         if: github.actor != 'dependabot[bot]'
         run: make vet
