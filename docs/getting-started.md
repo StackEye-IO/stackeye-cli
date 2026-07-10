@@ -511,7 +511,12 @@ Now that you have monitoring set up, explore these advanced features:
 - **Maintenance Windows**: Schedule maintenance to suppress alerts
   ```bash
   stackeye maintenance list
-  stackeye maintenance create --probe-id {id} --start "{start_datetime}" --duration 2h
+  # --duration is in minutes; --starts-at is RFC3339 (defaults to now if omitted)
+  stackeye maintenance create \
+    --name "{window_name}" \
+    --probe-id {probe_id} \
+    --starts-at "{start_rfc3339}" \
+    --duration 120
   ```
 
 - **Team Management**: Invite team members to your organization
