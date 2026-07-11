@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,12 +30,24 @@ jobs:
           fetch-depth: 0  # Full history for changelog generation
           clean: true
 
+      - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
+        uses: hashicorp/vault-action@v3
+        with:
+          url: http://vault.vault.svc:8200
+          method: jwt
+          path: github-actions
+          role: gha-stackeye-cli
+          jwtGithubAudience: https://github.com/StackEye-IO
+          exportEnv: true
+          secrets: |
+            secret/data/stackeye/ci/gitops-pat token | GITOPS_PAT
+
       - name: Checkout SDK
         uses: actions/checkout@v6
         with:
           repository: StackEye-IO/stackeye-go-sdk
           path: .sdk
-          token: ${{ secrets.GITOPS_PAT }}
+          token: ${{ env.GITOPS_PAT }}
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -81,8 +94,8 @@ jobs:
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
-          SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.GITOPS_PAT }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ env.GITOPS_PAT }}
+          SCOOP_BUCKET_GITHUB_TOKEN: ${{ env.GITOPS_PAT }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
 
       - name: Upload to Wasabi S3

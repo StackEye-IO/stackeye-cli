@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,13 +30,26 @@ jobs:
         with:
           clean: true
 
+      - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
+        if: github.actor != 'dependabot[bot]'
+        uses: hashicorp/vault-action@v3
+        with:
+          url: http://vault.vault.svc:8200
+          method: jwt
+          path: github-actions
+          role: gha-stackeye-cli
+          jwtGithubAudience: https://github.com/StackEye-IO
+          exportEnv: true
+          secrets: |
+            secret/data/stackeye/ci/gitops-pat token | GITOPS_PAT
+
       - name: Checkout SDK
         if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@v6
         with:
           repository: StackEye-IO/stackeye-go-sdk
           path: .sdk
-          token: ${{ secrets.GITOPS_PAT }}
+          token: ${{ env.GITOPS_PAT }}
 
       - name: Setup Go
         uses: actions/setup-go@v6
