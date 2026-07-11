@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           clean: true
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: Checkout SDK
         if: github.actor != 'dependabot[bot]'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: StackEye-IO/stackeye-go-sdk
           path: .sdk
