@@ -15,9 +15,15 @@ The StackEye CLI (`stackeye`) provides command-line access to the StackEye uptim
 - Browser-based authentication via OAuth
 - Multi-context configuration management
 - API key management
-- Probe management (list, create, update, delete, pause, resume)
-- Alert management (list, acknowledge, resolve)
-- Notification channel management
+- Probe management (list, create, update, delete, pause, resume, test, watch, export/import, dependencies)
+- Alert management (list, acknowledge, resolve, history, stats)
+- Notification channel management (email, Slack, Discord, Teams, PagerDuty, webhook, SMS)
+- Status pages (create, update, custom domains, incidents)
+- Maintenance windows and alert mute periods
+- Team management (invite, roles, invitations)
+- Probe labels for filtering and organization
+- Self-hosted agents and private monitoring regions
+- Billing and subscription management
 - Organization switching
 - Dashboard view
 - Shell completion for bash, zsh, fish, and PowerShell
@@ -420,10 +426,69 @@ jobs:
 | `stackeye org switch <id>` | Switch to a different organization |
 | `stackeye dashboard` | Display dashboard overview |
 | `stackeye region list` | List available monitoring regions |
-| `stackeye apikey list` | List API keys |
-| `stackeye apikey create` | Create a new API key |
+| `stackeye region status` | Show health status of monitoring regions |
+| `stackeye api-key list` | List API keys |
+| `stackeye api-key create` | Create a new API key |
+| `stackeye api-key delete <id>` | Delete an API key |
 
-Run `stackeye --help` for complete command documentation.
+> The `api-key` command also accepts the `apikey` alias.
+
+### Status Pages & Incidents
+
+| Command | Description |
+|---------|-------------|
+| `stackeye status-page list` | List all status pages |
+| `stackeye status-page create` | Create a new status page |
+| `stackeye status-page update <id>` | Update an existing status page |
+| `stackeye status-page delete <id>` | Delete a status page |
+| `stackeye status-page add-probe` | Add a probe to a status page |
+| `stackeye status-page domain-verify <id>` | Get DNS verification record for a custom domain |
+| `stackeye incident list` | List incidents for a status page |
+| `stackeye incident create` | Create a new incident |
+| `stackeye incident update <id>` | Update an existing incident |
+| `stackeye incident resolve <id>` | Resolve an incident |
+
+### Maintenance & Mutes
+
+| Command | Description |
+|---------|-------------|
+| `stackeye maintenance list` | List all maintenance windows |
+| `stackeye maintenance create` | Schedule a new maintenance window |
+| `stackeye maintenance calendar` | Show maintenance windows in calendar view |
+| `stackeye maintenance delete <id>` | Delete a scheduled maintenance window |
+| `stackeye mute list` | List all alert mute periods |
+| `stackeye mute create` | Create a new alert mute period |
+| `stackeye mute expire <id>` | Immediately expire an active mute period |
+| `stackeye mute delete <id>` | Delete an alert mute period |
+
+### Team & Labels
+
+| Command | Description |
+|---------|-------------|
+| `stackeye team list` | List all team members |
+| `stackeye team invite` | Invite a new team member |
+| `stackeye team update-role` | Update a team member's role |
+| `stackeye team remove` | Remove a team member |
+| `stackeye team invitations` | List pending team invitations |
+| `stackeye label list` | List all label keys in your organization |
+| `stackeye label create` | Create a new label key |
+| `stackeye probe label <id> <k=v>` | Add labels to a probe |
+
+### Agents, Private Regions & Billing
+
+| Command | Description |
+|---------|-------------|
+| `stackeye agent list` | List all registered self-hosted agents |
+| `stackeye agent register` | Register a new self-hosted agent |
+| `stackeye private-region list` | List all private monitoring regions |
+| `stackeye private-region create` | Create a new private monitoring region |
+| `stackeye private-region rotate-key <id>` | Rotate the bootstrap key for a private region |
+| `stackeye billing status` | Show current billing status |
+| `stackeye billing usage` | Show current resource usage against plan limits |
+| `stackeye billing invoices` | List billing invoices |
+| `stackeye telemetry status` | Show current telemetry (anonymous analytics) status |
+
+Run `stackeye --help` for complete command documentation, or `stackeye <command> --help` for any subcommand.
 
 ### Authentication Commands
 
@@ -632,13 +697,17 @@ stackeye completion powershell > stackeye.ps1
 
 ## Roadmap
 
-Planned features for upcoming releases:
+Features previously on the roadmap that have now shipped:
 
-- **Status Pages**: `stackeye status list`, `create`, `update`
-- **Watch Mode**: `stackeye watch` for live terminal updates
-- **Incident Management**: `stackeye incident list`, `create`, `update`
-- **Team Management**: `stackeye team list`, `invite`, `remove`
-- **Maintenance Windows**: `stackeye maintenance list`, `create`
+- **Status Pages**: `stackeye status-page list`, `create`, `update` (plus custom domains and incidents)
+- **Watch Mode**: `stackeye probe watch` for live terminal updates
+- **Incident Management**: `stackeye incident list`, `create`, `update`, `resolve`
+- **Team Management**: `stackeye team list`, `invite`, `remove`, `update-role`
+- **Maintenance Windows**: `stackeye maintenance list`, `create`, `calendar`
+- **Alert Mutes**: `stackeye mute list`, `create`, `expire`
+- **Self-Hosted Agents & Private Regions**: `stackeye agent register`, `stackeye private-region create`
+
+See the [Commands](#commands) section for the full, current command set.
 
 ## Contributing
 
