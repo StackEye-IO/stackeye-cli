@@ -32,7 +32,7 @@ jobs:
 
       - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
         if: github.actor != 'dependabot[bot]'
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
           url: http://vault.vault.svc:8200
           method: jwt
