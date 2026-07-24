@@ -313,6 +313,13 @@ func TestNotifier_BackgroundCheckTimeout(t *testing.T) {
 	if duration > maxDuration {
 		t.Errorf("PrintNotification took %v, want well under the server's 2s response (waited for background check instead of timing out)", duration)
 	}
+
+	// Drain the still-in-flight background goroutine before the test returns.
+	// It writes its result to tmpDir via saveCache once the slow server responds;
+	// without waiting for it here, that write can race t.TempDir()'s cleanup
+	// (RemoveAll), intermittently failing with "TempDir RemoveAll cleanup:
+	// directory not empty".
+	_, _ = checker.WaitForBackgroundResult(3 * time.Second)
 }
 
 func TestNewNotifier_Options(t *testing.T) {
