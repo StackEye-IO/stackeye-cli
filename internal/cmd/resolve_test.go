@@ -298,3 +298,132 @@ func TestFormatAmbiguousError_TruncatesLongList(t *testing.T) {
 	assert.Contains(t, errStr, "10 matches")
 	assert.Contains(t, errStr, "and 5 more")
 }
+
+// Task stackeye-5859: ResolveDeviceID tests. Unlike probes, /v1/devices has
+// no server-side search filter, so every case below serves the org's full
+// device list and expects ResolveDeviceID to filter client-side.
+
+func TestResolveDeviceID_ValidUUID(t *testing.T) {
+	expectedID := uuid.New()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("API should not be called when resolving a valid UUID")
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	ctx := context.Background()
+
+	result, err := ResolveDeviceID(ctx, c, expectedID.String())
+	require.NoError(t, err)
+	assert.Equal(t, expectedID, result)
+}
+
+func TestResolveDeviceID_SingleMatch(t *testing.T) {
+	deviceID := uuid.New()
+	deviceName := "web-01"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/devices", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "success",
+			"data": map[string]any{
+				"devices": []client.Device{{ID: deviceID, Name: deviceName}},
+			},
+			"meta": map[string]any{"total": 1},
+		})
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	ctx := context.Background()
+
+	result, err := ResolveDeviceID(ctx, c, deviceName)
+	require.NoError(t, err)
+	assert.Equal(t, deviceID, result)
+}
+
+func TestResolveDeviceID_CaseInsensitiveMatch(t *testing.T) {
+	deviceID := uuid.New()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "success",
+			"data": map[string]any{
+				"devices": []client.Device{{ID: deviceID, Name: "web-01"}},
+			},
+			"meta": map[string]any{"total": 1},
+		})
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	ctx := context.Background()
+
+	result, err := ResolveDeviceID(ctx, c, "WEB-01")
+	require.NoError(t, err)
+	assert.Equal(t, deviceID, result)
+}
+
+func TestResolveDeviceID_NoMatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "success",
+			"data":   map[string]any{"devices": []client.Device{}},
+			"meta":   map[string]any{"total": 0},
+		})
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	ctx := context.Background()
+
+	_, err := ResolveDeviceID(ctx, c, "nonexistent-device")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestResolveDeviceID_AmbiguousMatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "success",
+			"data": map[string]any{
+				"devices": []client.Device{
+					{ID: uuid.New(), Name: "web-01"},
+					{ID: uuid.New(), Name: "web-01"},
+				},
+			},
+			"meta": map[string]any{"total": 2},
+		})
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server)
+	ctx := context.Background()
+
+	_, err := ResolveDeviceID(ctx, c, "web-01")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+	assert.Contains(t, err.Error(), "2 matches")
+	assert.Contains(t, err.Error(), "UUID")
+}
+
+func TestFormatAmbiguousDeviceError_ShowsMatches(t *testing.T) {
+	matches := []client.Device{
+		{ID: uuid.New(), Name: "web-01"},
+		{ID: uuid.New(), Name: "web-02"},
+	}
+
+	err := formatAmbiguousDeviceError("web", matches)
+	errStr := err.Error()
+
+	assert.Contains(t, errStr, "ambiguous")
+	assert.Contains(t, errStr, "2 matches")
+	assert.Contains(t, errStr, "web-01")
+	assert.Contains(t, errStr, "web-02")
+	assert.Contains(t, errStr, "UUID")
+}
