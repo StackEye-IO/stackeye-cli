@@ -104,7 +104,7 @@ rm stackeye.tar.gz
 **Windows (PowerShell)**:
 ```powershell
 # Get latest version
-$VERSION = (Invoke-RestMethod "https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest").tag_name.TrimStart('v')
+$VERSION = (Invoke-RestMethod "https://api.github.com/repos/StackEye-IO/stackeye-cli/releases")[0].tag_name.TrimStart('v')
 
 # Download and extract
 Invoke-WebRequest -Uri "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_windows_amd64.zip" -OutFile stackeye.zip
