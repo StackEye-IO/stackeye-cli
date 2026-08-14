@@ -106,14 +106,20 @@ function Test-WindowsVersion {
 
 # --- Version resolution ---
 
+# Uses the releases LIST endpoint, not /releases/latest. GitHub excludes
+# prereleases from /releases/latest, so while every stackeye-cli release is a
+# prerelease that endpoint returns 404 and version resolution fails. The list
+# endpoint returns all releases newest-first, so the first entry is the most
+# recent release. Drafts are not visible to anonymous callers, so they cannot be
+# selected here.
 function Get-LatestVersion {
-    $url = "https://api.github.com/repos/$GithubRepo/releases/latest"
+    $url = "https://api.github.com/repos/$GithubRepo/releases"
 
     try {
         # Use TLS 1.2 (required by GitHub API)
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $response = Invoke-RestMethod -Uri $url -ErrorAction Stop
-        $tag = $response.tag_name
+        $tag = $response[0].tag_name
         if ([string]::IsNullOrEmpty($tag)) {
             throw "Empty tag_name in API response"
         }
