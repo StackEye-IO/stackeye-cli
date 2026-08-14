@@ -6,17 +6,37 @@ This document describes the end-to-end process for cutting a new StackEye CLI re
 
 A single `git push --tags` triggers all of these:
 
-| Channel | Destination | Mechanism |
-|---------|-------------|-----------|
-| GitHub Releases | github.com/StackEye-IO/stackeye-cli/releases | GoReleaser |
-| CDN Archives | releases.stackeye.io/cli/vX.Y.Z/ | Wasabi S3 + CloudFlare |
-| APT Repository | releases.stackeye.io/dists/stable/ | `scripts/build-apt-repo.sh` |
-| YUM Repository | releases.stackeye.io/yum/stable/ | `scripts/build-rpm-repo.sh` |
-| Homebrew Tap | StackEye-IO/homebrew-tap | GoReleaser brews |
-| Scoop Bucket | StackEye-IO/scoop-bucket | GoReleaser scoops |
-| Docker (GHCR) | ghcr.io/stackeye-io/stackeye-cli | GoReleaser dockers |
-| Installer Scripts | releases.stackeye.io/install.sh, install.ps1 | S3 upload |
-| GPG Signatures | releases.stackeye.io/gpg-key.asc | S3 upload |
+| Channel | Destination | Mechanism | Published? |
+|---------|-------------|-----------|------------|
+| GitHub Releases | github.com/StackEye-IO/stackeye-cli/releases | GoReleaser | Yes |
+| CDN Archives | releases.stackeye.io/cli/vX.Y.Z/ | S3 upload + CloudFlare | Yes |
+| APT Repository | releases.stackeye.io/dists/stable/ | `scripts/build-apt-repo.sh` | **Never** |
+| YUM Repository | releases.stackeye.io/yum/stable/ | `scripts/build-rpm-repo.sh` | **Never** |
+| Homebrew Tap | StackEye-IO/homebrew-tap | GoReleaser brews | Yes |
+| Scoop Bucket | StackEye-IO/scoop-bucket | GoReleaser scoops | Yes |
+| Docker (GHCR) | ghcr.io/stackeye-io/stackeye-cli | GoReleaser dockers | Yes |
+| Installer Scripts | releases.stackeye.io/install.sh, install.ps1 | S3 upload | Yes |
+| GPG Signatures | releases.stackeye.io/gpg-key.asc | S3 upload | **Never** |
+
+> **Two blockers before the "Never" rows can publish — read before cutting a release.**
+>
+> 1. **They have never run.** The `nfpms`/`signs` stanzas in `.goreleaser.yml` and the
+>    APT/YUM/GPG steps in `.github/workflows/release.yml` were added on 2026-02-03, two
+>    days *after* the most recent tag (`v0.2.0-rc.2`, 2026-02-01). No tag has been pushed
+>    since, so no `.deb`, `.rpm`, `checksums.txt.sig`, `apt-key.gpg` or `gpg-key.asc` has
+>    ever been produced or uploaded.
+> 2. **The upload steps still target the decommissioned Wasabi bucket.** Every S3 step in
+>    `release.yml` uses `--endpoint-url https://s3.us-central-1.wasabisys.com`, but
+>    `releases.stackeye.io` has been served from the Cloudflare R2 bucket
+>    `stackeye-releases` since 2026-08-13 (stackeye-6087). A release cut today would
+>    upload to a bucket nothing reads. `--acl public-read` is also a no-op on R2, and
+>    `CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_API_TOKEN` are not configured, so the cache-purge
+>    step would fail.
+>
+> The customer-facing APT/YUM/`.deb`/`.rpm`/signature instructions were removed from
+> `README.md` under stackeye-6093 because they documented paths that returned 404. Restore
+> them only once a release has actually published those objects and a clean-box
+> `apt-get install stackeye` / `dnf install stackeye` has been verified.
 
 ---
 
@@ -82,12 +102,16 @@ The workflow performs these steps in order:
 5. Setup Docker Buildx + QEMU (multi-arch)
 6. Login to GHCR
 7. **GoReleaser** — builds binaries, archives, .deb/.rpm, Docker images, GitHub Release, Homebrew formula, Scoop manifest, GPG-signed checksums
-8. Upload artifacts to Wasabi S3
-9. Upload GPG public key to S3
+8. Upload artifacts to object storage (still points at Wasabi — see the blockers above)
+9. Upload GPG public key to object storage
 10. Build and upload APT repository
 11. Build and upload RPM/YUM repository
-12. Upload installer scripts to S3
+12. Upload installer scripts to object storage
 13. Purge CloudFlare CDN cache
+
+Steps 8-13 target the decommissioned Wasabi endpoint and must be repointed at the
+Cloudflare R2 bucket `stackeye-releases` before the next release. Steps 9-11 have never
+executed.
 
 ### 3. Verify Workflow Completion
 
@@ -121,8 +145,12 @@ curl -fsSI "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_lin
 
 # Verify checksums
 curl -fsSL "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt"
+```
 
-# Verify GPG signature
+GPG signature verification is not yet possible — neither `gpg-key.asc` nor
+`checksums.txt.sig` has ever been published. Once a release produces them, verify with:
+
+```bash
 curl -fsSL https://releases.stackeye.io/gpg-key.asc | gpg --import
 curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt"
 curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt.sig"
@@ -143,6 +171,9 @@ stackeye version
 
 ### APT Repository (Debian/Ubuntu)
 
+Not yet publishable — see the blockers under [Distribution Channels](#distribution-channels).
+Once a release has published `apt-key.gpg` and `dists/`, verify on a clean container:
+
 ```bash
 curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
@@ -151,6 +182,9 @@ stackeye version
 ```
 
 ### YUM Repository (RHEL/Fedora/CentOS)
+
+Not yet publishable — see the blockers under [Distribution Channels](#distribution-channels).
+Once a release has published `gpg-key.asc` and `yum/`, verify on a clean container:
 
 ```bash
 sudo rpm --import https://releases.stackeye.io/gpg-key.asc
