@@ -34,7 +34,7 @@ jobs:
         if: github.actor != 'dependabot[bot]'
         uses: hashicorp/vault-action@v4
         with:
-          url: http://vault.vault.svc:8200
+          url: https://vault.support.tools
           method: jwt
           path: github-actions
           role: gha-stackeye-cli
