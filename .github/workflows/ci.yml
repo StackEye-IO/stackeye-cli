@@ -21,7 +21,7 @@ env:
 jobs:
   validate:
     name: Lint, Test & Build
-    runs-on: self-hosted-linux
+    runs-on: self-hosted-linux-dfw
     timeout-minutes: 15
 
     steps:
