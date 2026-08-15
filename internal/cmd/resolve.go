@@ -123,3 +123,82 @@ func formatAmbiguousError(name string, matches []client.Probe) error {
 
 	return fmt.Errorf("%s", sb.String())
 }
+
+// deviceResolveTimeout is the maximum time to wait for device resolution via
+// the API. Task stackeye-5859.
+const deviceResolveTimeout = 10 * time.Second
+
+// ResolveDeviceID resolves a device identifier to a UUID.
+// If the input is a valid UUID, it returns it immediately without API calls.
+// If the input is not a UUID, it looks up a device by exact (case-insensitive)
+// name match and returns its UUID. Unlike ResolveProbeID, the devices API has
+// no server-side search filter, so this fetches the organization's full
+// device list and matches client-side — deliberately exact-match only (no
+// substring fallback) to keep results predictable across large fleets.
+// Task stackeye-5859.
+func ResolveDeviceID(ctx context.Context, c *client.Client, idOrName string) (uuid.UUID, error) {
+	// Try UUID parse first (fast path - no API call needed)
+	if deviceID, err := uuid.Parse(idOrName); err == nil {
+		return deviceID, nil
+	}
+
+	device, err := resolveDeviceByName(ctx, c, idOrName)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return device.ID, nil
+}
+
+// resolveDeviceByName looks up a device by exact (case-insensitive) name.
+// Returns an error if no device matches or if multiple devices share the name.
+func resolveDeviceByName(ctx context.Context, c *client.Client, name string) (*client.Device, error) {
+	reqCtx, cancel := context.WithTimeout(ctx, deviceResolveTimeout)
+	defer cancel()
+
+	devices, err := client.ListDevices(reqCtx, c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list devices: %w", err)
+	}
+
+	var exactMatches []client.Device
+	for _, d := range devices {
+		if strings.EqualFold(d.Name, name) {
+			exactMatches = append(exactMatches, d)
+		}
+	}
+
+	if len(exactMatches) == 0 {
+		return nil, fmt.Errorf("device %q not found", name)
+	}
+	if len(exactMatches) == 1 {
+		return &exactMatches[0], nil
+	}
+
+	return nil, formatAmbiguousDeviceError(name, exactMatches)
+}
+
+// formatAmbiguousDeviceError creates a user-friendly error message for
+// ambiguous device names.
+func formatAmbiguousDeviceError(name string, matches []client.Device) error {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "ambiguous device name %q: found %d matches\n", name, len(matches))
+
+	limit := 5
+	if len(matches) < limit {
+		limit = len(matches)
+	}
+
+	for i := 0; i < limit; i++ {
+		d := matches[i]
+		fmt.Fprintf(&sb, "  - %s (%s)\n", d.Name, d.ID)
+	}
+
+	if len(matches) > 5 {
+		fmt.Fprintf(&sb, "  ... and %d more\n", len(matches)-5)
+	}
+
+	sb.WriteString("Use the full UUID to specify the exact device")
+
+	return fmt.Errorf("%s", sb.String())
+}

@@ -112,14 +112,21 @@ detect_arch() {
 }
 
 # Get latest version from GitHub API
+#
+# Uses the releases LIST endpoint, not /releases/latest. GitHub excludes
+# prereleases from /releases/latest, so while every stackeye-cli release is a
+# prerelease that endpoint returns 404 and version resolution fails. The list
+# endpoint returns all releases newest-first, so the first tag_name is the most
+# recent release. Drafts are not visible to anonymous callers, so they cannot be
+# selected here.
 get_latest_version() {
-    local latest_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    local releases_url="https://api.github.com/repos/${GITHUB_REPO}/releases"
     local version
 
     if has_command curl; then
-        version=$(curl -fsSL "$latest_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+        version=$(curl -fsSL "$releases_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
     elif has_command wget; then
-        version=$(wget -qO- "$latest_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+        version=$(wget -qO- "$releases_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
     else
         error "Neither curl nor wget found. Please install one of them."
         exit 1

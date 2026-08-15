@@ -32,9 +32,9 @@ jobs:
 
       - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
         if: github.actor != 'dependabot[bot]'
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
-          url: http://vault.vault.svc:8200
+          url: https://vault.support.tools
           method: jwt
           path: github-actions
           role: gha-stackeye-cli
@@ -52,7 +52,7 @@ jobs:
           token: ${{ env.GITOPS_PAT }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false

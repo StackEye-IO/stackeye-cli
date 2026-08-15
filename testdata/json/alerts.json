@@ -9,7 +9,6 @@
       "alert_type": "status_down",
       "message": "Probe has been down for 5 minutes",
       "triggered_at": "2024-01-15T09:30:00Z",
-      "notified_channels": ["Slack #alerts", "Email: team@example.com"],
       "created_at": "2024-01-15T09:30:00Z",
       "updated_at": "2024-01-15T09:30:00Z",
       "probe": {
@@ -30,7 +29,6 @@
       "triggered_at": "2024-01-15T09:30:00Z",
       "acknowledged_at": "2024-01-15T10:00:00Z",
       "acknowledged_by": "dddddddd-dddd-dddd-dddd-dddddddddddd",
-      "notified_channels": ["Email: security@example.com"],
       "created_at": "2024-01-15T09:30:00Z",
       "updated_at": "2024-01-15T10:00:00Z",
       "probe": {
@@ -53,7 +51,6 @@
       "acknowledged_by": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
       "resolved_at": "2024-01-14T11:15:00Z",
       "duration_seconds": 2700,
-      "notified_channels": ["Slack #alerts"],
       "created_at": "2024-01-14T10:30:00Z",
       "updated_at": "2024-01-14T11:15:00Z",
       "probe": {

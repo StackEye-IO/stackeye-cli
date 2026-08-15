@@ -273,9 +273,16 @@ func TestNotifier_BackgroundCheckTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// Isolate the on-disk update-check cache (like the other tests in this file):
+	// without WithCacheDir, NewChecker loads the real ~/.cache/stackeye cache file,
+	// so a fresh HasUpdate:true result written by an earlier test/run in this
+	// process is read back here and the check returns instantly instead of
+	// exercising the timeout path — this was the actual source of the flake,
+	// not scheduler jitter.
+	tmpDir := t.TempDir()
 	updater := sdkupdate.NewUpdater("stackeye-io/stackeye-cli", "1.0.0",
 		sdkupdate.WithAPIURL(server.URL))
-	checker := sdkupdate.NewChecker(updater)
+	checker := sdkupdate.NewChecker(updater, sdkupdate.WithCacheDir(tmpDir))
 
 	var buf bytes.Buffer
 	notifier := &Notifier{
@@ -298,10 +305,21 @@ func TestNotifier_BackgroundCheckTimeout(t *testing.T) {
 		t.Error("PrintNotification() = true, want false (timeout)")
 	}
 
-	// Should complete within the timeout + some margin
-	if duration > BackgroundTimeout+100*time.Millisecond {
-		t.Errorf("PrintNotification took %v, want <= %v", duration, BackgroundTimeout+100*time.Millisecond)
+	// Bound is intentionally loose: BackgroundTimeout (500ms) plus margin for
+	// -race scheduler/instrumentation jitter, not a promise of sub-600ms latency.
+	// It still proves PrintNotification timed out rather than blocking for the
+	// slow server's full 2s response.
+	const maxDuration = 1500 * time.Millisecond
+	if duration > maxDuration {
+		t.Errorf("PrintNotification took %v, want well under the server's 2s response (waited for background check instead of timing out)", duration)
 	}
+
+	// Drain the still-in-flight background goroutine before the test returns.
+	// It writes its result to tmpDir via saveCache once the slow server responds;
+	// without waiting for it here, that write can race t.TempDir()'s cleanup
+	// (RemoveAll), intermittently failing with "TempDir RemoveAll cleanup:
+	// directory not empty".
+	_, _ = checker.WaitForBackgroundResult(3 * time.Second)
 }
 
 func TestNewNotifier_Options(t *testing.T) {

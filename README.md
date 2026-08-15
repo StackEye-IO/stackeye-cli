@@ -67,8 +67,8 @@ Download pre-built archives from [GitHub Releases](https://github.com/StackEye-I
 **macOS (Apple Silicon)**:
 ```bash
 # Replace VERSION with the actual version (e.g., 1.0.0)
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_darwin_arm64.tar.gz"
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"v?([^"]+)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_darwin_arm64.tar.gz"
 tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
 rm stackeye.tar.gz
@@ -76,8 +76,8 @@ rm stackeye.tar.gz
 
 **macOS (Intel)**:
 ```bash
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_darwin_amd64.tar.gz"
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"v?([^"]+)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_darwin_amd64.tar.gz"
 tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
 rm stackeye.tar.gz
@@ -85,8 +85,8 @@ rm stackeye.tar.gz
 
 **Linux (x86_64)**:
 ```bash
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_linux_amd64.tar.gz"
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"v?([^"]+)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_linux_amd64.tar.gz"
 tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
 rm stackeye.tar.gz
@@ -94,8 +94,8 @@ rm stackeye.tar.gz
 
 **Linux (ARM64)**:
 ```bash
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_linux_arm64.tar.gz"
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"v?([^"]+)".*/\1/')
+curl -Lo stackeye.tar.gz "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_linux_arm64.tar.gz"
 tar -xzf stackeye.tar.gz
 sudo mv stackeye /usr/local/bin/
 rm stackeye.tar.gz
@@ -104,10 +104,10 @@ rm stackeye.tar.gz
 **Windows (PowerShell)**:
 ```powershell
 # Get latest version
-$VERSION = (Invoke-RestMethod "https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest").tag_name.TrimStart('v')
+$VERSION = (Invoke-RestMethod "https://api.github.com/repos/StackEye-IO/stackeye-cli/releases")[0].tag_name.TrimStart('v')
 
 # Download and extract
-Invoke-WebRequest -Uri "https://github.com/StackEye-IO/stackeye-cli/releases/latest/download/stackeye_${VERSION}_windows_amd64.zip" -OutFile stackeye.zip
+Invoke-WebRequest -Uri "https://github.com/StackEye-IO/stackeye-cli/releases/download/v${VERSION}/stackeye_${VERSION}_windows_amd64.zip" -OutFile stackeye.zip
 Expand-Archive stackeye.zip -DestinationPath .
 Move-Item stackeye.exe C:\Windows\System32\stackeye.exe
 Remove-Item stackeye.zip
@@ -159,64 +159,13 @@ scoop install stackeye
 scoop update stackeye
 ```
 
-### Debian/Ubuntu (APT Repository)
+### Linux Packages (.deb / .rpm)
 
-Add the StackEye APT repository for automatic updates:
-
-```bash
-# Import the GPG signing key
-curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
-
-# Add the repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
-
-# Install
-sudo apt-get update && sudo apt-get install stackeye
-
-# Update (when new versions are released)
-sudo apt-get update && sudo apt-get upgrade stackeye
-```
-
-**Manual .deb install** (without APT repository):
-
-```bash
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_$(dpkg --print-architecture).deb"
-sudo dpkg -i "stackeye_${VERSION}_linux_$(dpkg --print-architecture).deb"
-```
-
-### RHEL/Fedora/CentOS (DNF)
-
-Add the StackEye YUM repository:
-
-```bash
-# Import the GPG signing key
-sudo rpm --import https://releases.stackeye.io/gpg-key.asc
-
-# Add the repository
-sudo tee /etc/yum.repos.d/stackeye.repo << 'EOF'
-[stackeye]
-name=StackEye CLI
-baseurl=https://releases.stackeye.io/yum/stable/$basearch
-enabled=1
-gpgcheck=1
-gpgkey=https://releases.stackeye.io/gpg-key.asc
-EOF
-
-# Install
-sudo dnf install stackeye
-
-# Update (when new versions are released)
-sudo dnf upgrade stackeye
-```
-
-**Manual .rpm install** (without DNF repository):
-
-```bash
-VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases/latest | grep tag_name | sed 's/.*"v\([^"]*\)".*/\1/')
-curl -LO "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_linux_amd64.rpm"
-sudo rpm -i "stackeye_${VERSION}_linux_amd64.rpm"
-```
+StackEye does not currently publish an APT or YUM/DNF repository, and no `.deb` or
+`.rpm` packages are attached to releases. On Debian, Ubuntu, RHEL, Fedora and CentOS,
+use the [installer script](#installer-script-recommended-for-macoslinux), a
+[manual archive download](#manual-download), [Homebrew](#homebrew-macoslinux),
+[`go install`](#go-install), or [Docker](#docker).
 
 ### Docker
 
@@ -237,22 +186,21 @@ Multi-arch images are available for `linux/amd64` and `linux/arm64`.
 
 ### Verifying Downloads
 
-All release checksums are GPG-signed. To verify:
+Every release publishes a `checksums.txt` covering all archives. To verify a download:
 
 ```bash
-# Import the StackEye GPG public key
-curl -fsSL https://releases.stackeye.io/gpg-key.asc | gpg --import
+VERSION=$(curl -fsSL https://api.github.com/repos/StackEye-IO/stackeye-cli/releases | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"v?([^"]+)".*/\1/')
 
-# Download checksums and signature for your version
+# Download the checksums for your version
 curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt"
-curl -LO "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt.sig"
 
-# Verify the signature
-gpg --verify checksums.txt.sig checksums.txt
-
-# Verify your downloaded file against the checksums
+# Verify your downloaded archive against the checksums
 sha256sum -c checksums.txt --ignore-missing
 ```
+
+`checksums.txt` is not currently accompanied by a detached GPG signature, so this
+verifies integrity against the published checksums but does not independently
+authenticate them.
 
 ## Quick Start
 

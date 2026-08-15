@@ -31,9 +31,9 @@ jobs:
           clean: true
 
       - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
-          url: http://vault.vault.svc:8200
+          url: https://vault.support.tools
           method: jwt
           path: github-actions
           role: gha-stackeye-cli
@@ -50,7 +50,7 @@ jobs:
           token: ${{ env.GITOPS_PAT }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -98,19 +98,21 @@ jobs:
           SCOOP_BUCKET_GITHUB_TOKEN: ${{ env.GITOPS_PAT }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
 
-      - name: Upload to Wasabi S3
+      - name: Upload to Cloudflare R2
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-central-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           # Get version from tag
           VERSION="${GITHUB_REF_NAME}"
 
-          # Upload archives and checksums to Wasabi S3
-          aws s3 cp dist/ "s3://releases.stackeye.io/cli/${VERSION}/" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com \
+          # Upload archives and checksums to Cloudflare R2 (bucket: stackeye-releases,
+          # served publicly at https://releases.stackeye.io via the R2 custom-domain binding).
+          # R2 does not implement S3 ACLs -- do NOT add --acl public-read; it is a silent no-op.
+          aws s3 cp dist/ "s3://stackeye-releases/cli/${VERSION}/" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" \
             --recursive \
             --exclude "*" \
             --include "*.tar.gz" \
@@ -118,81 +120,76 @@ jobs:
             --include "*.deb" \
             --include "*.rpm" \
             --include "*.sig" \
-            --include "checksums.txt" \
-            --acl public-read
+            --include "checksums.txt"
 
-          echo "Uploaded release artifacts to s3://releases.stackeye.io/cli/${VERSION}/"
+          echo "Uploaded release artifacts to s3://stackeye-releases/cli/${VERSION}/ (served at https://releases.stackeye.io/cli/${VERSION}/)"
 
-      - name: Upload GPG public key to S3
+      - name: Upload GPG public key to R2
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-central-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           gpg --armor --export "${{ steps.import_gpg.outputs.fingerprint }}" > /tmp/gpg-key.asc
           gpg --export "${{ steps.import_gpg.outputs.fingerprint }}" > /tmp/apt-key.gpg
 
-          aws s3 cp /tmp/gpg-key.asc "s3://releases.stackeye.io/gpg-key.asc" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com \
-            --acl public-read \
+          aws s3 cp /tmp/gpg-key.asc "s3://stackeye-releases/gpg-key.asc" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" \
             --content-type "text/plain"
 
-          aws s3 cp /tmp/apt-key.gpg "s3://releases.stackeye.io/apt-key.gpg" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com \
-            --acl public-read \
+          aws s3 cp /tmp/apt-key.gpg "s3://stackeye-releases/apt-key.gpg" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" \
             --content-type "application/octet-stream"
 
       - name: Build and upload APT repository
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-central-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           # dpkg-dev/apt-utils are baked into the runner image (runner:*-arc2).
           chmod +x scripts/build-apt-repo.sh
           ./scripts/build-apt-repo.sh "${GITHUB_REF_NAME}" "${{ steps.import_gpg.outputs.fingerprint }}" dist
 
           # Clean old pool and upload new (only latest version indexed)
-          aws s3 rm "s3://releases.stackeye.io/pool/" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com --recursive
+          aws s3 rm "s3://stackeye-releases/pool/" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" --recursive
 
-          aws s3 sync apt-repo/pool/ "s3://releases.stackeye.io/pool/" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read
+          aws s3 sync apt-repo/pool/ "s3://stackeye-releases/pool/" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}"
 
-          aws s3 sync apt-repo/dists/ "s3://releases.stackeye.io/dists/" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read --delete
+          aws s3 sync apt-repo/dists/ "s3://stackeye-releases/dists/" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" --delete
 
       - name: Build and upload RPM repository
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-central-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           # createrepo-c is baked into the runner image (runner:*-arc2).
           chmod +x scripts/build-rpm-repo.sh
           ./scripts/build-rpm-repo.sh "${GITHUB_REF_NAME}" "${{ steps.import_gpg.outputs.fingerprint }}" dist
 
-          aws s3 sync yum-repo/ "s3://releases.stackeye.io/yum/" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com --acl public-read --delete
+          aws s3 sync yum-repo/ "s3://stackeye-releases/yum/" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" --delete
 
-      - name: Upload installer scripts to S3
+      - name: Upload installer scripts to R2
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.WASABI_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.WASABI_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-central-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
-          aws s3 cp scripts/install.sh "s3://releases.stackeye.io/install.sh" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com \
-            --acl public-read \
+          aws s3 cp scripts/install.sh "s3://stackeye-releases/install.sh" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" \
             --content-type "text/plain"
 
-          aws s3 cp scripts/install.ps1 "s3://releases.stackeye.io/install.ps1" \
-            --endpoint-url https://s3.us-central-1.wasabisys.com \
-            --acl public-read \
+          aws s3 cp scripts/install.ps1 "s3://stackeye-releases/install.ps1" \
+            --endpoint-url "${{ secrets.R2_S3_ENDPOINT }}" \
             --content-type "text/plain"
 
       - name: Purge CloudFlare cache
