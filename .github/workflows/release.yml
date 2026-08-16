@@ -36,9 +36,35 @@ jobs:
       # runner image, since that image is a separate fleet resource this repo doesn't own.
       - name: Install release tooling (aws-cli, gnupg2)
         run: |
-          if ! command -v aws >/dev/null 2>&1 || ! command -v gpg2 >/dev/null 2>&1; then
+          if ! command -v gpg2 >/dev/null 2>&1; then
             sudo apt-get update -qq
-            sudo apt-get install -y -qq awscli gnupg2
+            sudo apt-get install -y -qq gnupg2 unzip
+          fi
+          if ! command -v gpg2 >/dev/null 2>&1 && command -v gpg >/dev/null 2>&1; then
+            # Some base images ship only `gpg`; goreleaser's signs.cmd and the apt/rpm
+            # scripts hardcode `gpg2`, so alias it rather than editing every caller.
+            sudo ln -sf "$(command -v gpg)" /usr/local/bin/gpg2
+          fi
+          if ! command -v aws >/dev/null 2>&1; then
+            # `awscli` isn't in this runner's apt sources (no installation candidate),
+            # so use the official installer instead of depending on a distro package.
+            # Signature-verified against AWS's published GPG key, extracted into a
+            # job-scoped temp dir (not shared /tmp).
+            workdir="${RUNNER_TEMP}/awscli-install"
+            mkdir -p "$workdir"
+            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$workdir/awscliv2.zip"
+            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip.sig" -o "$workdir/awscliv2.zip.sig"
+            curl -sSL "https://docs.aws.amazon.com/cli/v1/userguide/samples/aws_cli_public_key.txt" -o "$workdir/aws_cli_public_key.txt"
+            gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --import "$workdir/aws_cli_public_key.txt"
+            fingerprint=$(gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --with-colons --show-keys "$workdir/aws_cli_public_key.txt" | awk -F: '/^fpr:/ {print $10; exit}')
+            if [ "$fingerprint" != "FB5DB77FD5C118B80511ADA8A6319CAEFF1166AE" ]; then
+              echo "::error::AWS CLI signing key fingerprint mismatch: $fingerprint" >&2
+              exit 1
+            fi
+            gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --verify "$workdir/awscliv2.zip.sig" "$workdir/awscliv2.zip"
+            unzip -q "$workdir/awscliv2.zip" -d "$workdir"
+            sudo "$workdir/aws/install"
+            rm -rf "$workdir"
           fi
           aws --version
           gpg2 --version
