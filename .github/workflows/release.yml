@@ -30,6 +30,19 @@ jobs:
           fetch-depth: 0  # Full history for changelog generation
           clean: true
 
+      # The self-hosted-linux-dfw runner image (T10 migration, #43) never shipped these —
+      # every aws s3 step and the apt/rpm gpg2 signing steps fail with "command not found"
+      # (stackeye-6095). Installed here, in-job, rather than baking into the shared ARC
+      # runner image, since that image is a separate fleet resource this repo doesn't own.
+      - name: Install release tooling (aws-cli, gnupg2)
+        run: |
+          if ! command -v aws >/dev/null 2>&1 || ! command -v gpg2 >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq awscli gnupg2
+          fi
+          aws --version
+          gpg2 --version
+
       - name: Fetch GITOPS_PAT from Vault (keyless OIDC)
         uses: hashicorp/vault-action@v4
         with:
