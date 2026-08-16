@@ -35,14 +35,14 @@ The StackEye CLI (`stackeye`) provides command-line access to the StackEye uptim
 The easiest way to install StackEye CLI:
 
 ```bash
-curl -fsSL https://get.stackeye.io/cli | bash
+curl -fsSL https://releases.stackeye.io/install.sh | bash
 ```
 
 This auto-detects your OS and architecture, downloads the appropriate binary, verifies the checksum, and installs it.
 
 **Options:**
-- Install a specific version: `curl -fsSL https://get.stackeye.io/cli | bash -s -- --version v1.0.0`
-- Install to custom directory: `STACKEYE_INSTALL_DIR=~/bin curl -fsSL https://get.stackeye.io/cli | bash`
+- Install a specific version: `curl -fsSL https://releases.stackeye.io/install.sh | bash -s -- --version v1.0.0`
+- Install to custom directory: `STACKEYE_INSTALL_DIR=~/bin curl -fsSL https://releases.stackeye.io/install.sh | bash`
 
 The script installs to `/usr/local/bin` (with sudo) or `~/.local/bin` (without sudo) by default.
 
@@ -300,7 +300,7 @@ jobs:
         env:
           STACKEYE_API_KEY: ${{ secrets.STACKEYE_API_KEY }}
         run: |
-          curl -fsSL https://get.stackeye.io/cli | bash
+          curl -fsSL https://releases.stackeye.io/install.sh | bash
           stackeye setup --no-input
           stackeye probe create --name "${{ github.repository }}" --url "https://api.example.com"
 ```

@@ -17,7 +17,7 @@ Before you begin, you'll need:
 ### Quick Install (macOS/Linux)
 
 ```bash
-curl -fsSL https://get.stackeye.io/cli | bash
+curl -fsSL https://releases.stackeye.io/install.sh | bash
 ```
 
 ### Other Installation Methods

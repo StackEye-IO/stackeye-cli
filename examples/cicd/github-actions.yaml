@@ -44,7 +44,7 @@ jobs:
 
       - name: Install StackEye CLI
         run: |
-          curl -fsSL https://get.stackeye.io/cli | bash
+          curl -fsSL https://releases.stackeye.io/install.sh | bash
           stackeye version
 
       - name: Configure StackEye
@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install StackEye CLI
-        run: curl -fsSL https://get.stackeye.io/cli | bash
+        run: curl -fsSL https://releases.stackeye.io/install.sh | bash
 
       - name: Create Slack Channel
         env:

@@ -62,7 +62,7 @@ if command -v stackeye >/dev/null 2>&1; then
     log_success "StackEye CLI already installed"
     stackeye version
 else
-    curl -fsSL https://get.stackeye.io/cli | bash
+    curl -fsSL https://releases.stackeye.io/install.sh | bash
     export PATH="$PATH:$HOME/.local/bin"
     log_success "StackEye CLI installed"
 fi
