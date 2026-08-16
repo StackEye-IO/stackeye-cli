@@ -48,16 +48,18 @@ jobs:
           if ! command -v aws >/dev/null 2>&1; then
             # `awscli` isn't in this runner's apt sources (no installation candidate),
             # so use the official installer instead of depending on a distro package.
-            # Signature-verified against AWS's published GPG key, extracted into a
-            # job-scoped temp dir (not shared /tmp).
+            # AWS doesn't publish the public key at a fetchable URL -- their docs
+            # (https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+            # have you paste the literal PGP block, so it's committed at
+            # .github/aws-cli-pubkey.asc instead. Verified against a job-scoped temp
+            # dir (not shared /tmp).
             workdir="${RUNNER_TEMP}/awscli-install"
             mkdir -p "$workdir"
             curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$workdir/awscliv2.zip"
             curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip.sig" -o "$workdir/awscliv2.zip.sig"
-            curl -sSL "https://docs.aws.amazon.com/cli/v1/userguide/samples/aws_cli_public_key.txt" -o "$workdir/aws_cli_public_key.txt"
-            gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --import "$workdir/aws_cli_public_key.txt"
-            fingerprint=$(gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --with-colons --show-keys "$workdir/aws_cli_public_key.txt" | awk -F: '/^fpr:/ {print $10; exit}')
-            if [ "$fingerprint" != "FB5DB77FD5C118B80511ADA8A6319CAEFF1166AE" ]; then
+            gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --import .github/aws-cli-pubkey.asc
+            fingerprint=$(gpg --no-default-keyring --keyring "$workdir/aws-keyring.gpg" --with-colons --show-keys .github/aws-cli-pubkey.asc | awk -F: '/^fpr:/ {print $10; exit}')
+            if [ "$fingerprint" != "FB5DB77FD5C118B80511ADA8A6310ACC4672475C" ]; then
               echo "::error::AWS CLI signing key fingerprint mismatch: $fingerprint" >&2
               exit 1
             fi
