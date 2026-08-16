@@ -449,7 +449,7 @@ Authenticate with StackEye via browser-based OAuth flow:
 stackeye login
 
 # Login to a specific environment
-stackeye login --api-url https://api.dev.stackeye.io
+stackeye login --api-url https://api-dev.stackeye.io
 ```
 
 #### `stackeye logout`
@@ -511,7 +511,7 @@ stackeye context list
 # Output:
 #    NAME                 ORGANIZATION              API URL
 # *  {context_name}       {org_name}                https://api.stackeye.io
-#    {context_name_dev}   {org_name}                https://api.dev.stackeye.io
+#    {context_name_dev}   {org_name}                https://api-dev.stackeye.io
 ```
 
 #### `stackeye context use`
@@ -548,7 +548,7 @@ contexts:
     organization_id: {org_id}
     organization_name: {org_name}
   {context_name_dev}:
-    api_url: https://api.dev.stackeye.io
+    api_url: https://api-dev.stackeye.io
     api_key: se_{api_key_suffix_dev}
     organization_name: {org_name}
 
