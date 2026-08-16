@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/github/license/StackEye-IO/stackeye-cli)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/StackEye-IO/stackeye-cli)](https://goreportcard.com/report/github.com/StackEye-IO/stackeye-cli)
-[![Release](https://img.shields.io/github/v/release/StackEye-IO/stackeye-cli)](https://github.com/StackEye-IO/stackeye-cli/releases/latest)
+[![Release](https://img.shields.io/github/v/release/StackEye-IO/stackeye-cli?include_prereleases)](https://github.com/StackEye-IO/stackeye-cli/releases)
 [![CI](https://github.com/StackEye-IO/stackeye-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/StackEye-IO/stackeye-cli/actions/workflows/ci.yml)
 
 Command-line interface for [StackEye](https://stackeye.io) - the full-stack uptime monitoring platform.
@@ -62,7 +62,7 @@ The script automatically adds the install directory to your User PATH.
 
 ### Manual Download
 
-Download pre-built archives from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases/latest). Archives are named `stackeye_<VERSION>_<OS>_<ARCH>.tar.gz`.
+Download pre-built archives from [GitHub Releases](https://github.com/StackEye-IO/stackeye-cli/releases) (all current releases are prereleases, so use this page rather than `/releases/latest`, which excludes them). Archives are named `stackeye_<VERSION>_<OS>_<ARCH>.tar.gz`.
 
 **macOS (Apple Silicon)**:
 ```bash

@@ -60,7 +60,7 @@ Examples:
   stackeye login
 
   # Login to a specific environment
-  stackeye login --api-url https://api.dev.stackeye.io`,
+  stackeye login --api-url https://api-dev.stackeye.io`,
 		// Override PersistentPreRunE to skip config loading.
 		// The login command should work without a valid configuration.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

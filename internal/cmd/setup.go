@@ -65,7 +65,7 @@ Examples:
   stackeye setup
 
   # Run setup with a specific API URL (for development environments)
-  stackeye setup --api-url https://api.dev.stackeye.io
+  stackeye setup --api-url https://api-dev.stackeye.io
 
   # Skip the probe creation step
   stackeye setup --skip-probe
