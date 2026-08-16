@@ -46,7 +46,7 @@ pipeline {
                 script {
                     // Install StackEye CLI
                     sh '''
-                        curl -fsSL https://get.stackeye.io/cli | bash
+                        curl -fsSL https://releases.stackeye.io/install.sh | bash
                         export PATH="$PATH:$HOME/.local/bin"
                         stackeye version
                     '''
@@ -151,7 +151,7 @@ def setupStackEyeMonitoring(Map config) {
 
     withCredentials([string(credentialsId: 'stackeye-api-key', variable: 'STACKEYE_API_KEY')]) {
         sh '''
-            curl -fsSL https://get.stackeye.io/cli | bash
+            curl -fsSL https://releases.stackeye.io/install.sh | bash
             export PATH="$PATH:$HOME/.local/bin"
             stackeye setup --no-input
 
