@@ -26,9 +26,23 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # The `gh` CLI is NOT installed on self-hosted-linux-dfw (it only ships on
+      # GitHub-hosted images), so `gh pr merge --auto` died with exit 127. Use the
+      # enablePullRequestAutoMerge GraphQL mutation via github-script instead — it
+      # is Node-based and needs no host binary. Auto-merge still respects branch
+      # protection, so nothing merges without its required checks passing.
       - name: Enable auto-merge for patch/minor updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr merge --auto --squash "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.graphql(
+              `mutation($id: ID!) {
+                 enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: SQUASH }) {
+                   pullRequest { number }
+                 }
+               }`,
+              { id: context.payload.pull_request.node_id },
+            );
+            core.info(`Auto-merge enabled on #${context.payload.pull_request.number}`);
