@@ -12,6 +12,12 @@ jobs:
   auto-merge:
     name: Auto-merge Dependabot PR
     runs-on: self-hosted-linux-dfw
+    # SECURITY-CRITICAL: this is pull_request_target (workflow from `main`, full
+    # write perms) on a self-hosted runner — the single most dangerous GitHub
+    # Actions trigger/permission/runner combination that exists. This actor
+    # guard is the ONLY thing stopping an attacker-authored PR from running
+    # with write credentials on our runner. Do NOT weaken it, and do NOT add
+    # any step above it (SECURITY: stackeye-6124).
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
       - name: Fetch Dependabot metadata
