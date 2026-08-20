@@ -154,6 +154,9 @@ func TestExtractEnvironment(t *testing.T) {
 		{"https://api.dev.stackeye.io", "dev"},
 		{"https://api.stg.stackeye.io", "stg"},
 		{"https://api.staging.stackeye.io", "stg"},
+		// Real StackEye hostnames are hyphenated, not dotted (stackeye-6082).
+		{"https://api-dev.stackeye.io", "dev"},
+		{"https://api-staging.stackeye.io", "stg"},
 		{"http://localhost:8080", ""},
 		{"invalid-url", ""},
 	}
