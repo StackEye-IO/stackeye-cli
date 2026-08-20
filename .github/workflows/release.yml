@@ -236,8 +236,12 @@ jobs:
       - name: Purge CloudFlare cache
         if: always() && hashFiles('dist/checksums.txt') != ''
         run: |
-          # Purge CDN cache for new release binaries
-          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+          # Purge CDN cache for new release binaries.
+          # NOTE: the "prefixes" purge type takes bare host+path, NOT full URLs —
+          # a leading https:// makes Cloudflare reject the whole request (error 1119).
+          # --fail so a bad/missing token or zone id reddens this step instead of
+          # curl silently exiting 0 on a non-2xx response.
+          curl --fail -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            --data '{"prefixes":["https://releases.stackeye.io/cli/","https://releases.stackeye.io/dists/","https://releases.stackeye.io/pool/","https://releases.stackeye.io/yum/","https://releases.stackeye.io/gpg-key.asc","https://releases.stackeye.io/apt-key.gpg","https://releases.stackeye.io/install.sh","https://releases.stackeye.io/install.ps1"]}'
+            --data '{"prefixes":["releases.stackeye.io/cli/","releases.stackeye.io/dists/","releases.stackeye.io/pool/","releases.stackeye.io/yum/","releases.stackeye.io/gpg-key.asc","releases.stackeye.io/apt-key.gpg","releases.stackeye.io/install.sh","releases.stackeye.io/install.ps1"]}'
