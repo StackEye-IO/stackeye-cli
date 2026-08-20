@@ -173,14 +173,18 @@ func extractEnvironment(apiURL string) string {
 
 	host := u.Host
 
-	// Check for common environment patterns
-	if strings.Contains(host, ".dev.") || strings.HasPrefix(host, "dev.") {
+	// Check for common environment patterns. StackEye's real hostnames are
+	// hyphenated (api-dev.stackeye.io, api-staging.stackeye.io) — *.stackeye.io
+	// is a single-label wildcard that does not cover the dotted form
+	// (api.dev.stackeye.io), so the dotted checks below are legacy/defensive
+	// only and must not be removed without confirming no config still uses them.
+	if strings.Contains(host, "-dev.") || strings.Contains(host, ".dev.") || strings.HasPrefix(host, "dev.") {
 		return "dev"
 	}
-	if strings.Contains(host, ".stg.") || strings.HasPrefix(host, "stg.") {
+	if strings.Contains(host, "-stg.") || strings.Contains(host, ".stg.") || strings.HasPrefix(host, "stg.") {
 		return "stg"
 	}
-	if strings.Contains(host, ".staging.") || strings.HasPrefix(host, "staging.") {
+	if strings.Contains(host, "-staging.") || strings.Contains(host, ".staging.") || strings.HasPrefix(host, "staging.") {
 		return "stg"
 	}
 
