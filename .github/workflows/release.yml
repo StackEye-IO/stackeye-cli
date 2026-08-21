@@ -139,6 +139,34 @@ jobs:
           SCOOP_BUCKET_GITHUB_TOKEN: ${{ env.GITOPS_PAT }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
 
+      # goreleaser has continue-on-error above (needed to tolerate the known
+      # homebrew-tap/scoop-bucket 403 -- stackeye-6236/task 21418, which happens
+      # AFTER the release+checksums exist). But every downstream publish step
+      # below only runs `if: hashFiles('dist/checksums.txt') != ''`, which is
+      # silently FALSE (skip, not fail) if GoReleaser fails earlier -- e.g. the
+      # GitHub Release creation itself fails. That combination let the job report
+      # overall success with zero assets published and no release object
+      # (stackeye-6292). This step hard-fails the job in that case, before any
+      # downstream publish step's hashFiles guard gets a chance to silently skip.
+      - name: Assert GoReleaser published a release
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s dist/checksums.txt ]; then
+            echo "::error::GoReleaser failed before producing dist/checksums.txt -- no release was published" >&2
+            exit 1
+          fi
+
+          VERSION="${GITHUB_REF_NAME}"
+          asset_count=$(gh release view "${VERSION}" --json assets --jq '.assets | length')
+          if [ "${asset_count:-0}" -eq 0 ]; then
+            echo "::error::GitHub release ${VERSION} exists but has no assets -- GoReleaser did not publish successfully" >&2
+            exit 1
+          fi
+
+          echo "Verified release ${VERSION} exists with ${asset_count} assets"
+
       - name: Upload to Cloudflare R2
         if: always() && hashFiles('dist/checksums.txt') != ''
         env:
