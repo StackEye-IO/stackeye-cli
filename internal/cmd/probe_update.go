@@ -41,6 +41,7 @@ type probeUpdateFlags struct {
 	keywordCheckType *string
 	jsonPathCheck    *string
 	jsonPathExpected *string
+	consequenceNote  *string
 
 	// SSL
 	sslCheckEnabled        *bool
@@ -100,9 +101,19 @@ Examples:
 		},
 	}
 
-	// All flags are optional for partial updates
-	// Using custom functions to handle nil vs zero-value distinction
+	registerProbeUpdateFlags(cmd, flags)
 
+	return cmd
+}
+
+// registerProbeUpdateFlags wires probeUpdateFlags onto cmd's flag set. Split
+// out from NewProbeUpdateCmd so tests can build an isolated *cobra.Command
+// with production flag definitions and exercise buildUpdateProbeRequest's
+// cmd.Flags().Changed() gating directly, without a live API client.
+//
+// All flags are optional for partial updates. Using custom functions to
+// handle nil vs zero-value distinction.
+func registerProbeUpdateFlags(cmd *cobra.Command, flags *probeUpdateFlags) {
 	// Basic configuration flags
 	cmd.Flags().StringVar(stringPtrVar(&flags.name), "name", "", "probe name")
 	cmd.Flags().StringVar(stringPtrVar(&flags.url), "url", "", "target URL or host to monitor")
@@ -123,12 +134,11 @@ Examples:
 	cmd.Flags().StringVar(stringPtrVar(&flags.keywordCheckType), "keyword-check-type", "", "keyword check type: contains, not_contains")
 	cmd.Flags().StringVar(stringPtrVar(&flags.jsonPathCheck), "json-path-check", "", "JSONPath expression to evaluate (empty to clear)")
 	cmd.Flags().StringVar(stringPtrVar(&flags.jsonPathExpected), "json-path-expected", "", "expected value from JSONPath")
+	cmd.Flags().StringVar(stringPtrVar(&flags.consequenceNote), "consequence-note", "", "operator-facing note appended to the down-alert message (empty to clear)")
 
 	// SSL flags
 	cmd.Flags().BoolVar(boolPtrVar(&flags.sslCheckEnabled), "ssl-check-enabled", false, "enable SSL certificate monitoring")
 	cmd.Flags().IntVar(intPtrVar(&flags.sslExpiryThresholdDays), "ssl-expiry-threshold-days", 0, "alert when SSL expires within N days (1-365)")
-
-	return cmd
 }
 
 // Helper functions to work with pointer flags
@@ -148,15 +158,18 @@ func boolPtrVar(p **bool) *bool {
 }
 
 // runProbeUpdate executes the probe update command logic.
-func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) error {
-	// Build request with only the changed fields
+// buildUpdateProbeRequest builds the update request from only the flags that
+// were explicitly set (cmd.Flags().Changed), so an omitted flag never
+// overwrites the existing value with a zero value. Returns an error if no
+// update flags were provided, or if a provided flag fails validation.
+func buildUpdateProbeRequest(cmd *cobra.Command, flags *probeUpdateFlags) (*client.UpdateProbeRequest, error) {
 	req := &client.UpdateProbeRequest{}
 	hasUpdates := false
 
 	// Check each flag and add to request only if it was explicitly set
 	if cmd.Flags().Changed("name") {
 		if *flags.name == "" {
-			return fmt.Errorf("--name cannot be empty")
+			return nil, fmt.Errorf("--name cannot be empty")
 		}
 		req.Name = flags.name
 		hasUpdates = true
@@ -164,10 +177,10 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("url") {
 		if *flags.url == "" {
-			return fmt.Errorf("--url cannot be empty")
+			return nil, fmt.Errorf("--url cannot be empty")
 		}
 		if err := validateProbeURL(*flags.url); err != nil {
-			return err
+			return nil, err
 		}
 		req.URL = flags.url
 		hasUpdates = true
@@ -176,7 +189,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 	if cmd.Flags().Changed("method") {
 		upperMethod := strings.ToUpper(*flags.method)
 		if err := validateHTTPMethod(upperMethod); err != nil {
-			return err
+			return nil, err
 		}
 		req.Method = &upperMethod
 		hasUpdates = true
@@ -184,7 +197,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("interval") {
 		if *flags.intervalSeconds < 30 || *flags.intervalSeconds > 3600 {
-			return fmt.Errorf("--interval must be between 30 and 3600 seconds, got %d", *flags.intervalSeconds)
+			return nil, fmt.Errorf("--interval must be between 30 and 3600 seconds, got %d", *flags.intervalSeconds)
 		}
 		req.IntervalSeconds = flags.intervalSeconds
 		hasUpdates = true
@@ -192,7 +205,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("timeout") {
 		if *flags.timeoutSeconds < 1 || *flags.timeoutSeconds > 60 {
-			return fmt.Errorf("--timeout must be between 1 and 60 seconds, got %d", *flags.timeoutSeconds)
+			return nil, fmt.Errorf("--timeout must be between 1 and 60 seconds, got %d", *flags.timeoutSeconds)
 		}
 		timeoutMs := *flags.timeoutSeconds * 1000
 		req.TimeoutMs = &timeoutMs
@@ -217,7 +230,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 	if cmd.Flags().Changed("expected-status-codes") {
 		codes, err := parseStatusCodes(*flags.expectedStatusCodes)
 		if err != nil {
-			return fmt.Errorf("invalid --expected-status-codes: %w", err)
+			return nil, fmt.Errorf("invalid --expected-status-codes: %w", err)
 		}
 		req.ExpectedStatusCodes = codes
 		hasUpdates = true
@@ -230,7 +243,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("max-redirects") {
 		if *flags.maxRedirects < 0 || *flags.maxRedirects > 20 {
-			return fmt.Errorf("--max-redirects must be between 0 and 20, got %d", *flags.maxRedirects)
+			return nil, fmt.Errorf("--max-redirects must be between 0 and 20, got %d", *flags.maxRedirects)
 		}
 		req.MaxRedirects = flags.maxRedirects
 		hasUpdates = true
@@ -243,7 +256,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("keyword-check-type") {
 		if err := validateKeywordCheckType(*flags.keywordCheckType); err != nil {
-			return err
+			return nil, err
 		}
 		req.KeywordCheckType = flags.keywordCheckType
 		hasUpdates = true
@@ -259,6 +272,11 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 		hasUpdates = true
 	}
 
+	if cmd.Flags().Changed("consequence-note") {
+		req.ConsequenceNote = flags.consequenceNote
+		hasUpdates = true
+	}
+
 	if cmd.Flags().Changed("ssl-check-enabled") {
 		req.SSLCheckEnabled = flags.sslCheckEnabled
 		hasUpdates = true
@@ -266,7 +284,7 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	if cmd.Flags().Changed("ssl-expiry-threshold-days") {
 		if *flags.sslExpiryThresholdDays < 1 || *flags.sslExpiryThresholdDays > 365 {
-			return fmt.Errorf("--ssl-expiry-threshold-days must be between 1 and 365, got %d", *flags.sslExpiryThresholdDays)
+			return nil, fmt.Errorf("--ssl-expiry-threshold-days must be between 1 and 365, got %d", *flags.sslExpiryThresholdDays)
 		}
 		req.SSLExpiryThresholdDays = flags.sslExpiryThresholdDays
 		hasUpdates = true
@@ -274,7 +292,17 @@ func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) e
 
 	// Require at least one update flag
 	if !hasUpdates {
-		return fmt.Errorf("no update flags specified; use --help to see available options")
+		return nil, fmt.Errorf("no update flags specified; use --help to see available options")
+	}
+
+	return req, nil
+}
+
+func runProbeUpdate(cmd *cobra.Command, idArg string, flags *probeUpdateFlags) error {
+	// Build request with only the changed fields
+	req, err := buildUpdateProbeRequest(cmd, flags)
+	if err != nil {
+		return err
 	}
 
 	// Dry-run check: print what would happen and exit without making API calls

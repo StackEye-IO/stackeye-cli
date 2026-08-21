@@ -458,6 +458,7 @@ func TestConvertExportConfigToCreateRequest(t *testing.T) {
 	kwType := "contains"
 	jpCheck := "$.status"
 	jpExpected := "ok"
+	consNote := "Blocks checkout; page #payments-oncall"
 	labelVal := "production"
 
 	cfg := &probeExportConfig{
@@ -475,6 +476,7 @@ func TestConvertExportConfigToCreateRequest(t *testing.T) {
 		KeywordCheckType:       &kwType,
 		JSONPathCheck:          &jpCheck,
 		JSONPathExpected:       &jpExpected,
+		ConsequenceNote:        &consNote,
 		SSLCheckEnabled:        true,
 		SSLExpiryThresholdDays: 30,
 		FollowRedirects:        true,
@@ -523,6 +525,9 @@ func TestConvertExportConfigToCreateRequest(t *testing.T) {
 	}
 	if req.JSONPathExpected == nil || *req.JSONPathExpected != "ok" {
 		t.Error("expected JSONPathExpected='ok'")
+	}
+	if req.ConsequenceNote == nil || *req.ConsequenceNote != "Blocks checkout; page #payments-oncall" {
+		t.Error("expected ConsequenceNote='Blocks checkout; page #payments-oncall'")
 	}
 	if !req.SSLCheckEnabled {
 		t.Error("expected SSLCheckEnabled=true")
@@ -873,5 +878,46 @@ func TestProbeExportConfig_RoundTrip_YAML(t *testing.T) {
 	}
 	if imported[0].Name != original[0].Name {
 		t.Errorf("Name mismatch: %q vs %q", imported[0].Name, original[0].Name)
+	}
+}
+
+// TestConvertExportConfigToCreateRequest_ConsequenceNote_Nil proves that an
+// export config with no consequence note at all (nil, distinct from an
+// explicit empty string) does not set the field on the create request.
+func TestConvertExportConfigToCreateRequest_ConsequenceNote_Nil(t *testing.T) {
+	cfg := &probeExportConfig{
+		Name:      "No Note Probe",
+		URL:       "https://example.com/health",
+		CheckType: "http",
+	}
+
+	req := convertExportConfigToCreateRequest(cfg)
+
+	if req.ConsequenceNote != nil {
+		t.Errorf("expected ConsequenceNote to be nil, got %q", *req.ConsequenceNote)
+	}
+}
+
+// TestConvertExportConfigToCreateRequest_ConsequenceNote_ExplicitEmpty proves
+// that an explicit empty string in the exported config (distinct from the
+// field being absent/nil) is preserved through import rather than being
+// treated the same as "not provided", matching the update command's clear
+// semantics.
+func TestConvertExportConfigToCreateRequest_ConsequenceNote_ExplicitEmpty(t *testing.T) {
+	empty := ""
+	cfg := &probeExportConfig{
+		Name:            "Explicit Empty Note Probe",
+		URL:             "https://example.com/health",
+		CheckType:       "http",
+		ConsequenceNote: &empty,
+	}
+
+	req := convertExportConfigToCreateRequest(cfg)
+
+	if req.ConsequenceNote == nil {
+		t.Fatal("expected ConsequenceNote to be preserved as a non-nil empty string, got nil")
+	}
+	if *req.ConsequenceNote != "" {
+		t.Errorf("expected ConsequenceNote to be empty string, got %q", *req.ConsequenceNote)
 	}
 }

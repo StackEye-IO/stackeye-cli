@@ -308,13 +308,55 @@ func TestNewProbeCreateCmd(t *testing.T) {
 		"check-type", "method", "interval", "timeout", "regions",
 		"headers", "body", "expected-status-codes", "follow-redirects",
 		"max-redirects", "keyword-check", "keyword-check-type",
-		"json-path-check", "json-path-expected", "ssl-check-enabled",
-		"ssl-expiry-threshold-days",
+		"json-path-check", "json-path-expected", "consequence-note",
+		"ssl-check-enabled", "ssl-expiry-threshold-days",
 	}
 
 	for _, flagName := range optionalFlags {
 		if cmd.Flags().Lookup(flagName) == nil {
 			t.Errorf("Expected --%s flag to exist", flagName)
 		}
+	}
+}
+
+func TestBuildCreateProbeRequest_ConsequenceNote(t *testing.T) {
+	flags := &probeCreateFlags{
+		name:            "Payments API",
+		url:             "https://payments.example.com",
+		checkType:       "http",
+		method:          "GET",
+		intervalSeconds: 60,
+		timeoutSeconds:  10,
+		followRedirects: true,
+		maxRedirects:    10,
+		consequenceNote: "Blocks checkout; page #payments-oncall",
+	}
+
+	req := buildCreateProbeRequest(flags, []int{200})
+
+	if req.ConsequenceNote == nil {
+		t.Fatal("expected ConsequenceNote to be set, got nil")
+	}
+	if *req.ConsequenceNote != flags.consequenceNote {
+		t.Errorf("ConsequenceNote = %q, want %q", *req.ConsequenceNote, flags.consequenceNote)
+	}
+}
+
+func TestBuildCreateProbeRequest_ConsequenceNote_Omitted(t *testing.T) {
+	flags := &probeCreateFlags{
+		name:            "No Note Probe",
+		url:             "https://example.com",
+		checkType:       "http",
+		method:          "GET",
+		intervalSeconds: 60,
+		timeoutSeconds:  10,
+		followRedirects: true,
+		maxRedirects:    10,
+	}
+
+	req := buildCreateProbeRequest(flags, []int{200})
+
+	if req.ConsequenceNote != nil {
+		t.Errorf("expected ConsequenceNote to be nil when flag omitted, got %q", *req.ConsequenceNote)
 	}
 }
