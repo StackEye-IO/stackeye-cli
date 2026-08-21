@@ -46,6 +46,7 @@ type probeExportConfig struct {
 	KeywordCheckType       *string            `json:"keyword_check_type,omitempty" yaml:"keyword_check_type,omitempty"`
 	JSONPathCheck          *string            `json:"json_path_check,omitempty" yaml:"json_path_check,omitempty"`
 	JSONPathExpected       *string            `json:"json_path_expected,omitempty" yaml:"json_path_expected,omitempty"`
+	ConsequenceNote        *string            `json:"consequence_note,omitempty" yaml:"consequence_note,omitempty"`
 	SSLCheckEnabled        bool               `json:"ssl_check_enabled" yaml:"ssl_check_enabled"`
 	SSLExpiryThresholdDays int                `json:"ssl_expiry_threshold_days" yaml:"ssl_expiry_threshold_days"`
 	FollowRedirects        bool               `json:"follow_redirects" yaml:"follow_redirects"`
@@ -294,6 +295,7 @@ func convertProbeToExportConfig(p *client.Probe) probeExportConfig {
 		KeywordCheckType:       p.KeywordCheckType,
 		JSONPathCheck:          p.JSONPathCheck,
 		JSONPathExpected:       p.JSONPathExpected,
+		ConsequenceNote:        p.ConsequenceNote,
 		SSLCheckEnabled:        p.SSLCheckEnabled,
 		SSLExpiryThresholdDays: p.SSLExpiryThresholdDays,
 		FollowRedirects:        p.FollowRedirects,

@@ -1,7 +1,14 @@
 package cmd
 
 import (
+	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/StackEye-IO/stackeye-cli/internal/output"
+	"github.com/StackEye-IO/stackeye-go-sdk/client"
+	sdkoutput "github.com/StackEye-IO/stackeye-go-sdk/output"
+	"github.com/google/uuid"
 )
 
 func TestNewProbeGetCmd(t *testing.T) {
@@ -141,3 +148,57 @@ func TestRunProbeGet_ValidPeriods(t *testing.T) {
 }
 
 // Note: contains() helper is defined in config_test.go within the same package
+
+// TestPrintProbe_ConsequenceNote proves probe_get's generic output.Print path
+// (used for the default, non-table single-probe view) surfaces
+// ConsequenceNote once the SDK struct carries the field, since probe_get.go
+// itself has no field-specific rendering code.
+func TestPrintProbe_ConsequenceNote(t *testing.T) {
+	note := "Blocks checkout; page #payments-oncall"
+	probe := client.Probe{
+		ID:              uuid.New(),
+		Name:            "Payments API",
+		URL:             "https://payments.example.com",
+		ConsequenceNote: &note,
+	}
+
+	var buf bytes.Buffer
+	printer := output.NewPrinterWithOptions(sdkoutput.DefaultOptions().WithFormat(sdkoutput.FormatJSON))
+	printer.SetWriter(&buf)
+
+	if err := printer.Print(probe); err != nil {
+		t.Fatalf("Print() error = %v", err)
+	}
+
+	if !strings.Contains(buf.String(), note) {
+		t.Errorf("expected output to contain consequence note %q, got: %s", note, buf.String())
+	}
+	if !strings.Contains(buf.String(), `"consequence_note"`) {
+		t.Errorf("expected output to contain \"consequence_note\" key, got: %s", buf.String())
+	}
+}
+
+// TestPrintProbe_ConsequenceNote_TableView proves the default table view
+// (reflection-based single-struct dump in the SDK's TableFormatter) also
+// surfaces ConsequenceNote when set, since it has no "table" tag excluding it.
+func TestPrintProbe_ConsequenceNote_TableView(t *testing.T) {
+	note := "Revenue-critical; do not ack without lead approval"
+	probe := client.Probe{
+		ID:              uuid.New(),
+		Name:            "Payments API",
+		URL:             "https://payments.example.com",
+		ConsequenceNote: &note,
+	}
+
+	var buf bytes.Buffer
+	printer := output.NewPrinterWithOptions(sdkoutput.DefaultOptions().WithFormat(sdkoutput.FormatTable))
+	printer.SetWriter(&buf)
+
+	if err := printer.Print(probe); err != nil {
+		t.Fatalf("Print() error = %v", err)
+	}
+
+	if !strings.Contains(buf.String(), note) {
+		t.Errorf("expected table output to contain consequence note %q, got: %s", note, buf.String())
+	}
+}

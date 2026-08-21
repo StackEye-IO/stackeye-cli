@@ -45,6 +45,7 @@ type probeCreateFlags struct {
 	keywordCheckType string
 	jsonPathCheck    string
 	jsonPathExpected string
+	consequenceNote  string
 
 	// Optional - SSL
 	sslCheckEnabled        bool
@@ -137,6 +138,7 @@ Examples:
 	cmd.Flags().StringVar(&flags.keywordCheckType, "keyword-check-type", "contains", "keyword check type: contains, not_contains")
 	cmd.Flags().StringVar(&flags.jsonPathCheck, "json-path-check", "", "JSONPath expression to evaluate")
 	cmd.Flags().StringVar(&flags.jsonPathExpected, "json-path-expected", "", "expected value from JSONPath")
+	cmd.Flags().StringVar(&flags.consequenceNote, "consequence-note", "", "operator-facing note appended to the down-alert message when set")
 
 	// SSL flags
 	cmd.Flags().BoolVar(&flags.sslCheckEnabled, "ssl-check-enabled", true, "enable SSL certificate monitoring")
@@ -370,6 +372,13 @@ func buildCreateProbeRequest(flags *probeCreateFlags, expectedCodes []int) *clie
 		if flags.jsonPathExpected != "" {
 			req.JSONPathExpected = &flags.jsonPathExpected
 		}
+	}
+
+	// Set consequence note if provided. There is no "clear" concept on create
+	// (nothing to clear yet), so this mirrors the keyword-check guard: only
+	// send it when non-empty.
+	if flags.consequenceNote != "" {
+		req.ConsequenceNote = &flags.consequenceNote
 	}
 
 	// Set follow redirects

@@ -4,7 +4,20 @@ package cmd
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
+
+// newTestProbeUpdateCmd builds an isolated *cobra.Command with production
+// flag definitions (via registerProbeUpdateFlags) and returns the backing
+// flags struct, so tests can exercise buildUpdateProbeRequest's
+// cmd.Flags().Changed() gating directly without a live API client.
+func newTestProbeUpdateCmd() (*cobra.Command, *probeUpdateFlags) {
+	flags := &probeUpdateFlags{}
+	cmd := &cobra.Command{Use: "update"}
+	registerProbeUpdateFlags(cmd, flags)
+	return cmd, flags
+}
 
 func TestNewProbeUpdateCmd(t *testing.T) {
 	cmd := NewProbeUpdateCmd()
@@ -18,8 +31,8 @@ func TestNewProbeUpdateCmd(t *testing.T) {
 		"name", "url", "method", "interval", "timeout", "regions",
 		"headers", "body", "expected-status-codes", "follow-redirects",
 		"max-redirects", "keyword-check", "keyword-check-type",
-		"json-path-check", "json-path-expected", "ssl-check-enabled",
-		"ssl-expiry-threshold-days",
+		"json-path-check", "json-path-expected", "consequence-note",
+		"ssl-check-enabled", "ssl-expiry-threshold-days",
 	}
 
 	for _, flagName := range optionalFlags {
@@ -259,5 +272,77 @@ func TestProbeUpdateCmd_InvalidExpectedStatusCodes(t *testing.T) {
 	expectedMsg := "invalid --expected-status-codes"
 	if err != nil && !strings.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Error = %q, want to contain %q", err.Error(), expectedMsg)
+	}
+}
+
+func TestBuildUpdateProbeRequest_ConsequenceNote_Set(t *testing.T) {
+	cmd, flags := newTestProbeUpdateCmd()
+	if err := cmd.Flags().Set("consequence-note", "Blocks checkout; page #payments-oncall"); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
+
+	req, err := buildUpdateProbeRequest(cmd, flags)
+	if err != nil {
+		t.Fatalf("buildUpdateProbeRequest() error = %v", err)
+	}
+
+	if req.ConsequenceNote == nil {
+		t.Fatal("expected ConsequenceNote to be set on the request, got nil")
+	}
+	if *req.ConsequenceNote != "Blocks checkout; page #payments-oncall" {
+		t.Errorf("ConsequenceNote = %q, want %q", *req.ConsequenceNote, "Blocks checkout; page #payments-oncall")
+	}
+}
+
+// TestBuildUpdateProbeRequest_ConsequenceNote_OmittedDoesNotClear proves that
+// leaving --consequence-note off the command line (as opposed to passing it
+// with an empty value) leaves the request field nil, so an existing note on
+// the server is left untouched rather than being cleared.
+func TestBuildUpdateProbeRequest_ConsequenceNote_OmittedDoesNotClear(t *testing.T) {
+	cmd, flags := newTestProbeUpdateCmd()
+	// Set an unrelated flag so hasUpdates is true; consequence-note is
+	// deliberately left unset.
+	if err := cmd.Flags().Set("name", "Renamed Probe"); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
+
+	req, err := buildUpdateProbeRequest(cmd, flags)
+	if err != nil {
+		t.Fatalf("buildUpdateProbeRequest() error = %v", err)
+	}
+
+	if req.ConsequenceNote != nil {
+		t.Errorf("expected ConsequenceNote to be nil (unchanged) when flag omitted, got %q", *req.ConsequenceNote)
+	}
+}
+
+// TestBuildUpdateProbeRequest_ConsequenceNote_ExplicitClear proves that
+// passing --consequence-note "" is distinguishable from omitting the flag:
+// it results in a non-nil pointer to an empty string, which the SDK/API
+// treats as an explicit clear rather than "leave unchanged".
+func TestBuildUpdateProbeRequest_ConsequenceNote_ExplicitClear(t *testing.T) {
+	cmd, flags := newTestProbeUpdateCmd()
+	if err := cmd.Flags().Set("consequence-note", ""); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
+
+	req, err := buildUpdateProbeRequest(cmd, flags)
+	if err != nil {
+		t.Fatalf("buildUpdateProbeRequest() error = %v", err)
+	}
+
+	if req.ConsequenceNote == nil {
+		t.Fatal("expected ConsequenceNote to be present (explicit clear), got nil")
+	}
+	if *req.ConsequenceNote != "" {
+		t.Errorf("expected ConsequenceNote to be empty string, got %q", *req.ConsequenceNote)
+	}
+}
+
+func TestBuildUpdateProbeRequest_NoFlags(t *testing.T) {
+	cmd, flags := newTestProbeUpdateCmd()
+
+	if _, err := buildUpdateProbeRequest(cmd, flags); err == nil {
+		t.Error("expected error when no update flags are specified, got nil")
 	}
 }

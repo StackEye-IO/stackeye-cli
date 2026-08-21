@@ -90,6 +90,7 @@ func TestConvertProbeToExportConfig(t *testing.T) {
 	body := "test body"
 	kwCheck := "healthy"
 	kwType := "contains"
+	consNote := "Blocks checkout; page #payments-oncall"
 	labelVal := "production"
 
 	probe := &client.Probe{
@@ -106,6 +107,7 @@ func TestConvertProbeToExportConfig(t *testing.T) {
 		ExpectedStatusCodes:    []int{200, 201},
 		KeywordCheck:           &kwCheck,
 		KeywordCheckType:       &kwType,
+		ConsequenceNote:        &consNote,
 		SSLCheckEnabled:        true,
 		SSLExpiryThresholdDays: 30,
 		FollowRedirects:        true,
@@ -150,6 +152,9 @@ func TestConvertProbeToExportConfig(t *testing.T) {
 	}
 	if cfg.KeywordCheckType == nil || *cfg.KeywordCheckType != "contains" {
 		t.Error("expected KeywordCheckType='contains'")
+	}
+	if cfg.ConsequenceNote == nil || *cfg.ConsequenceNote != "Blocks checkout; page #payments-oncall" {
+		t.Error("expected ConsequenceNote='Blocks checkout; page #payments-oncall'")
 	}
 	if !cfg.SSLCheckEnabled {
 		t.Error("expected SSLCheckEnabled=true")

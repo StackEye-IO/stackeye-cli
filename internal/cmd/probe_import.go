@@ -381,6 +381,13 @@ func convertExportConfigToCreateRequest(cfg *probeExportConfig) *client.CreatePr
 		req.JSONPathExpected = cfg.JSONPathExpected
 	}
 
+	// Set consequence note if provided. Unlike keyword-check, an explicit
+	// empty string is meaningful here (it clears the note), so this checks
+	// nil rather than requiring non-empty content.
+	if cfg.ConsequenceNote != nil {
+		req.ConsequenceNote = cfg.ConsequenceNote
+	}
+
 	// Set follow redirects
 	req.FollowRedirects = &cfg.FollowRedirects
 
