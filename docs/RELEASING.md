@@ -10,33 +10,32 @@ A single `git push --tags` triggers all of these:
 |---------|-------------|-----------|------------|
 | GitHub Releases | github.com/StackEye-IO/stackeye-cli/releases | GoReleaser | Yes |
 | CDN Archives | releases.stackeye.io/cli/vX.Y.Z/ | S3 upload + CloudFlare | Yes |
-| APT Repository | releases.stackeye.io/dists/stable/ | `scripts/build-apt-repo.sh` | **Never** |
-| YUM Repository | releases.stackeye.io/yum/stable/ | `scripts/build-rpm-repo.sh` | **Never** |
-| Homebrew Tap | StackEye-IO/homebrew-tap | GoReleaser brews | Yes |
-| Scoop Bucket | StackEye-IO/scoop-bucket | GoReleaser scoops | Yes |
+| APT Repository | releases.stackeye.io/dists/stable/ | `scripts/build-apt-repo.sh` | Yes |
+| YUM Repository | releases.stackeye.io/yum/stable/ | `scripts/build-rpm-repo.sh` | Yes |
+| Homebrew Tap | StackEye-IO/homebrew-tap | GoReleaser brews | **No — see below** |
+| Scoop Bucket | StackEye-IO/scoop-bucket | GoReleaser scoops | **No — see below** |
 | Docker (GHCR) | ghcr.io/stackeye-io/stackeye-cli | GoReleaser dockers | Yes |
 | Installer Scripts | releases.stackeye.io/install.sh, install.ps1 | S3 upload | Yes |
-| GPG Signatures | releases.stackeye.io/gpg-key.asc | S3 upload | **Never** |
+| GPG Signatures | releases.stackeye.io/gpg-key.asc | S3 upload | Yes |
 
-> **Two blockers before the "Never" rows can publish — read before cutting a release.**
+> **Homebrew Tap and Scoop Bucket pushes 403 on every release — read before cutting one.**
 >
-> 1. **They have never run.** The `nfpms`/`signs` stanzas in `.goreleaser.yml` and the
->    APT/YUM/GPG steps in `.github/workflows/release.yml` were added on 2026-02-03, two
->    days *after* the most recent tag (`v0.2.0-rc.2`, 2026-02-01). No tag has been pushed
->    since, so no `.deb`, `.rpm`, `checksums.txt.sig`, `apt-key.gpg` or `gpg-key.asc` has
->    ever been produced or uploaded.
-> 2. **The upload steps still target the decommissioned Wasabi bucket.** Every S3 step in
->    `release.yml` uses `--endpoint-url https://s3.us-central-1.wasabisys.com`, but
->    `releases.stackeye.io` has been served from the Cloudflare R2 bucket
->    `stackeye-releases` since 2026-08-13 (stackeye-6087). A release cut today would
->    upload to a bucket nothing reads. `--acl public-read` is also a no-op on R2, and
->    `CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_API_TOKEN` are not configured, so the cache-purge
->    step would fail.
+> Every other channel above is confirmed live: verified 2026-08-23 against the `v0.2.0-rc.4`
+> release (2026-08-20) with direct `curl` checks against `releases.stackeye.io` — CDN
+> archives, `gpg-key.asc`/`checksums.txt.sig`, and both the APT and YUM repositories
+> (`dists/stable/`, `yum/stable/<arch>/`) all resolve. The R2 migration (stackeye-6087) and
+> the release-tooling/hard-fail fixes from stackeye-6095 and stackeye-6292 are done; this
+> doc's earlier "still points at Wasabi" / "never run" blockers no longer apply.
 >
-> The customer-facing APT/YUM/`.deb`/`.rpm`/signature instructions were removed from
-> `README.md` under stackeye-6093 because they documented paths that returned 404. Restore
-> them only once a release has actually published those objects and a clean-box
-> `apt-get install stackeye` / `dnf install stackeye` has been verified.
+> What is still broken: the `GITOPS_PAT` fetched from Vault (see step 3 below) lacks write
+> access to `StackEye-IO/homebrew-tap` and `StackEye-IO/scoop-bucket`, so GoReleaser's brew
+> and scoop pushes fail with `403 Resource not accessible by personal access token` on every
+> run. The GoReleaser step's `continue-on-error: true` exists specifically to tolerate this,
+> so the release itself still succeeds — but `Formula/stackeye.rb` and `stackeye.json` are
+> stuck at stale versions (verified 2026-08-23: the tap is still at `v0.1.0-alpha.2`, the
+> bucket at `v0.2.0-rc.2`, while the latest published release is `v0.2.0-rc.4`). Tracked as
+> stackeye-6236 (task 21418, `backlog` as of this writing). Do not tell customers
+> `brew install`/`scoop install` will get the latest release until that lands.
 
 ---
 
@@ -96,22 +95,27 @@ The tag push triggers `.github/workflows/release.yml`. Monitor progress at [Acti
 The workflow performs these steps in order:
 
 1. Checkout repository (full history for changelog)
-2. Checkout `stackeye-go-sdk` (private dependency)
-3. Setup Go and dependencies
-4. Import GPG signing key
-5. Setup Docker Buildx + QEMU (multi-arch)
-6. Login to GHCR
-7. **GoReleaser** — builds binaries, archives, .deb/.rpm, Docker images, GitHub Release, Homebrew formula, Scoop manifest, GPG-signed checksums
-8. Upload artifacts to object storage (still points at Wasabi — see the blockers above)
-9. Upload GPG public key to object storage
-10. Build and upload APT repository
-11. Build and upload RPM/YUM repository
-12. Upload installer scripts to object storage
-13. Purge CloudFlare CDN cache
+2. Install release tooling (`aws-cli`, `gnupg2`) — the `self-hosted-linux-dfw` runner image
+   doesn't ship these, so they're bootstrapped in-job (stackeye-6095)
+3. Fetch `GITOPS_PAT` from Vault (keyless OIDC, `secret/data/stackeye/ci/gitops-pat`)
+4. Checkout `stackeye-go-sdk` (private dependency, using the fetched `GITOPS_PAT`)
+5. Setup Go
+6. Update the `go.mod` replace directive to the checked-out SDK path (`./.sdk`) and `go mod tidy`
+7. Download dependencies
+8. Import GPG signing key
+9. Setup Docker Buildx + QEMU (multi-arch)
+10. Login to GHCR
+11. **GoReleaser** — builds binaries, archives, .deb/.rpm, Docker images, GitHub Release, Homebrew formula, Scoop manifest, GPG-signed checksums (`continue-on-error: true`, to tolerate the known Homebrew/Scoop 403 — see the blocker above)
+12. Assert GoReleaser published a release — hard-fails the job if `dist/checksums.txt` is missing or the GitHub release has zero assets, so a silently-skipped publish can't pass as green (stackeye-6292)
+13. Upload artifacts to Cloudflare R2 (bucket `stackeye-releases`)
+14. Upload GPG public key to R2
+15. Build and upload APT repository
+16. Build and upload RPM/YUM repository
+17. Upload installer scripts to R2
+18. Purge CloudFlare CDN cache
 
-Steps 8-13 target the decommissioned Wasabi endpoint and must be repointed at the
-Cloudflare R2 bucket `stackeye-releases` before the next release. Steps 9-11 have never
-executed.
+All S3-compatible steps (13-17) target the Cloudflare R2 bucket `stackeye-releases` via
+`secrets.R2_S3_ENDPOINT` — there is no remaining Wasabi dependency anywhere in this workflow.
 
 ### 3. Verify Workflow Completion
 
@@ -147,8 +151,7 @@ curl -fsSI "https://releases.stackeye.io/cli/v${VERSION}/stackeye_${VERSION}_lin
 curl -fsSL "https://releases.stackeye.io/cli/v${VERSION}/checksums.txt"
 ```
 
-GPG signature verification is not yet possible — neither `gpg-key.asc` nor
-`checksums.txt.sig` has ever been published. Once a release produces them, verify with:
+Verify with:
 
 ```bash
 curl -fsSL https://releases.stackeye.io/gpg-key.asc | gpg --import
@@ -171,8 +174,7 @@ stackeye version
 
 ### APT Repository (Debian/Ubuntu)
 
-Not yet publishable — see the blockers under [Distribution Channels](#distribution-channels).
-Once a release has published `apt-key.gpg` and `dists/`, verify on a clean container:
+Verify on a clean container:
 
 ```bash
 curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
@@ -183,8 +185,7 @@ stackeye version
 
 ### YUM Repository (RHEL/Fedora/CentOS)
 
-Not yet publishable — see the blockers under [Distribution Channels](#distribution-channels).
-Once a release has published `gpg-key.asc` and `yum/`, verify on a clean container:
+Verify on a clean container:
 
 ```bash
 sudo rpm --import https://releases.stackeye.io/gpg-key.asc
@@ -209,6 +210,8 @@ stackeye version
 ```
 
 Verify the formula was updated in [StackEye-IO/homebrew-tap](https://github.com/StackEye-IO/homebrew-tap).
+This currently fails on every release — see the blocker under
+[Distribution Channels](#distribution-channels) (stackeye-6236 / task 21418).
 
 ### Scoop (Windows)
 
@@ -219,6 +222,8 @@ stackeye version
 ```
 
 Verify the manifest was updated in [StackEye-IO/scoop-bucket](https://github.com/StackEye-IO/scoop-bucket).
+This currently fails on every release — see the blocker under
+[Distribution Channels](#distribution-channels) (stackeye-6236 / task 21418).
 
 ### Docker
 
@@ -264,9 +269,9 @@ git tag -d vX.Y.Z
 ### 2. Remove CDN Artifacts
 
 ```bash
-# Remove the version directory from S3
-aws s3 rm "s3://releases.stackeye.io/cli/vX.Y.Z/" \
-  --endpoint-url https://s3.us-central-1.wasabisys.com \
+# Remove the version directory from R2 (endpoint is the R2_S3_ENDPOINT secret value)
+aws s3 rm "s3://stackeye-releases/cli/vX.Y.Z/" \
+  --endpoint-url "$R2_S3_ENDPOINT" \
   --recursive
 
 # Purge CDN cache
@@ -322,13 +327,17 @@ The release workflow requires these GitHub repository secrets:
 
 | Secret | Purpose |
 |--------|---------|
-| `GITOPS_PAT` | Checkout private SDK, push Homebrew formula and Scoop manifest |
 | `GPG_PRIVATE_KEY` | GPG signing of checksums and APT/RPM repositories |
 | `GPG_PASSPHRASE` | GPG key passphrase (empty if key has no passphrase) |
-| `WASABI_ACCESS_KEY_ID` | Wasabi S3 access for artifact uploads |
-| `WASABI_SECRET_ACCESS_KEY` | Wasabi S3 secret for artifact uploads |
+| `R2_ACCESS_KEY_ID` | Cloudflare R2 S3-compatible access key for artifact uploads |
+| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 S3-compatible secret key for artifact uploads |
+| `R2_S3_ENDPOINT` | Cloudflare R2 S3-compatible endpoint URL for the `stackeye-releases` bucket |
 | `CLOUDFLARE_ZONE_ID` | CloudFlare zone for CDN cache purge |
 | `CLOUDFLARE_API_TOKEN` | CloudFlare API token for cache purge |
+
+`GITOPS_PAT` (checkout of the private SDK, and the Homebrew/Scoop pushes — see the blocker
+under [Distribution Channels](#distribution-channels)) is **not** a static GitHub secret; it's
+fetched at job runtime from Vault via keyless OIDC (`secret/data/stackeye/ci/gitops-pat`).
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions for GitHub Releases and GHCR.
 
