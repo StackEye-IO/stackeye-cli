@@ -146,6 +146,13 @@ sudo mv bin/stackeye /usr/local/bin/
 brew install stackeye-io/tap/stackeye
 ```
 
+> ⚠️ The Homebrew tap currently lags behind the latest release — GoReleaser's push to
+> `StackEye-IO/homebrew-tap` fails on every release (tracked as stackeye-6236 / task 21418),
+> so `brew install`/`brew upgrade` can silently install an old version with no error. Run
+> `stackeye version` after installing to confirm, and prefer the [installer
+> script](#installer-script-recommended-for-macoslinux) or [manual
+> download](#manual-download) if you need the latest release.
+
 ### Scoop (Windows)
 
 ```powershell
@@ -159,13 +166,43 @@ scoop install stackeye
 scoop update stackeye
 ```
 
-### Linux Packages (.deb / .rpm)
+> ⚠️ The Scoop bucket currently lags behind the latest release — GoReleaser's push to
+> `StackEye-IO/scoop-bucket` fails on every release (tracked as stackeye-6236 / task 21418),
+> so `scoop install`/`scoop update` can silently install an old version with no error. Run
+> `stackeye version` after installing to confirm, and prefer the [installer
+> script](#installer-script-recommended-for-macoslinux) or [manual
+> download](#manual-download) if you need the latest release.
 
-StackEye does not currently publish an APT or YUM/DNF repository, and no `.deb` or
-`.rpm` packages are attached to releases. On Debian, Ubuntu, RHEL, Fedora and CentOS,
-use the [installer script](#installer-script-recommended-for-macoslinux), a
-[manual archive download](#manual-download), [Homebrew](#homebrew-macoslinux),
-[`go install`](#go-install), or [Docker](#docker).
+### Linux Packages (APT / YUM / DNF)
+
+Both repositories are live and updated on every release.
+
+**Debian/Ubuntu (APT)**:
+
+```bash
+curl -fsSL https://releases.stackeye.io/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/stackeye-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/stackeye-archive-keyring.gpg] https://releases.stackeye.io stable main" | sudo tee /etc/apt/sources.list.d/stackeye.list > /dev/null
+sudo apt-get update && sudo apt-get install stackeye
+```
+
+**RHEL/Fedora/CentOS (YUM/DNF)**:
+
+```bash
+sudo rpm --import https://releases.stackeye.io/gpg-key.asc
+sudo tee /etc/yum.repos.d/stackeye.repo << 'EOF'
+[stackeye]
+name=StackEye CLI
+baseurl=https://releases.stackeye.io/yum/stable/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://releases.stackeye.io/gpg-key.asc
+EOF
+sudo dnf install stackeye
+```
+
+`.deb` and `.rpm` packages are also attached directly to each [GitHub
+Release](https://github.com/StackEye-IO/stackeye-cli/releases) if you'd rather install
+manually with `dpkg -i` / `rpm -i`.
 
 ### Docker
 
