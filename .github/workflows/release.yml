@@ -159,7 +159,15 @@ jobs:
           fi
 
           VERSION="${GITHUB_REF_NAME}"
-          asset_count=$(gh release view "${VERSION}" --json assets --jq '.assets | length')
+          asset_count=0
+          for attempt in 1 2 3; do
+            if asset_count=$(gh release view "${VERSION}" --json assets --jq '.assets | length' 2>/dev/null); then
+              break
+            fi
+            echo "::warning::gh release view attempt ${attempt}/3 failed for ${VERSION}, retrying..." >&2
+            asset_count=0
+            [ "${attempt}" -lt 3 ] && sleep 5
+          done
           if [ "${asset_count:-0}" -eq 0 ]; then
             echo "::error::GitHub release ${VERSION} exists but has no assets -- GoReleaser did not publish successfully" >&2
             exit 1
