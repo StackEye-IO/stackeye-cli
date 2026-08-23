@@ -93,6 +93,18 @@ Examples:
 3. Keep the PR focused. Large changes should be broken into smaller PRs when possible.
 4. A maintainer will review your PR. Address feedback and push updates to the same branch.
 
+### CI on Fork PRs
+
+If you open a PR from a personal fork, only the **Format Check** job runs automatically —
+it needs no module resolution and works on a public runner. The **Lint, Test & Build** job
+requires this repo's private `stackeye-go-sdk` dependency and Vault-fetched credentials, so
+it intentionally never schedules for fork PRs and will show as pending/skipped indefinitely
+in the PR checks UI rather than passing or failing. This is expected, not a bug in your PR.
+
+A maintainer will manually review the diff and either force-merge (branch protection allows
+admin override) or ask you to push your change to a branch on this repo instead, which lets
+the full job run normally.
+
 ## Security Vulnerabilities
 
 If you discover a security vulnerability, **do not open a public issue**. Instead, follow the process in [SECURITY.md](SECURITY.md).
