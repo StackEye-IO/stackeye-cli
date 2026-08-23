@@ -274,11 +274,13 @@ aws s3 rm "s3://stackeye-releases/cli/vX.Y.Z/" \
   --endpoint-url "$R2_S3_ENDPOINT" \
   --recursive
 
-# Purge CDN cache
-curl -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+# Purge CDN cache. NOTE: the "prefixes" purge type takes bare host+path, NOT
+# full URLs — a leading https:// makes Cloudflare reject the whole request
+# (error 1119, stackeye-6096).
+curl --fail -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
   -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
   -H "Content-Type: application/json" \
-  --data '{"prefixes":["https://releases.stackeye.io/cli/vX.Y.Z/"]}'
+  --data '{"prefixes":["releases.stackeye.io/cli/vX.Y.Z/"]}'
 ```
 
 ### 3. Rebuild Package Repositories
