@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
 
 jobs:
   # Runs for every PR, including forks: only gofmt, which needs no module

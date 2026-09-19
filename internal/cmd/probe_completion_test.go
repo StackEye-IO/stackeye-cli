@@ -133,7 +133,7 @@ func TestProbeCompletion_APIError_GracefulDegradation(t *testing.T) {
 func TestProbeCompletion_NoConfig_GracefulDegradation(t *testing.T) {
 	// Clear the config getter to simulate no config
 	prev := api.SetConfigGetter(nil)
-	defer api.SetConfigGetter(prev)
+	t.Cleanup(func() { api.SetConfigGetter(prev) })
 
 	// Create completion function
 	completionFunc := ProbeCompletion()
