@@ -115,7 +115,7 @@ Remove-Item stackeye.zip
 
 ### Go Install
 
-If you have Go 1.25+ installed:
+If you have Go 1.26+ installed:
 
 ```bash
 go install github.com/StackEye-IO/stackeye-cli/cmd/stackeye@latest
@@ -125,7 +125,7 @@ The binary will be installed to `$GOPATH/bin/stackeye` (or `$HOME/go/bin/stackey
 
 ### Build from Source
 
-Requires Go 1.25 or later:
+Requires Go 1.26 or later:
 
 ```bash
 # Clone the repository

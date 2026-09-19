@@ -6,7 +6,7 @@ Please review and follow our [Code of Conduct](CODE_OF_CONDUCT.md) before partic
 
 ## Prerequisites
 
-- **Go 1.25** or later
+- **Go 1.26** or later
 - **Make** (GNU Make)
 - **Git**
 - **golangci-lint** (installed automatically by Makefile if not present)

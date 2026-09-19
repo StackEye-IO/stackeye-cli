@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
 
 jobs:
   # Runs for every PR, including forks: only gofmt, which needs no module
@@ -50,7 +50,7 @@ jobs:
   # ordering, not a guard).
   validate-private:
     name: Lint, Test & Build
-    runs-on: self-hosted-linux-dfw
+    runs-on: self-hosted-linux
     timeout-minutes: 15
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
