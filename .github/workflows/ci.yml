@@ -19,7 +19,7 @@ jobs:
   # resolution and therefore no access to the private stackeye-go-sdk.
   validate-public:
     name: Format Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-linux
     timeout-minutes: 5
 
     permissions:
