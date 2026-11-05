@@ -30,10 +30,13 @@ jobs:
           fetch-depth: 0  # Full history for changelog generation
           clean: true
 
-      # The self-hosted-linux-dfw runner image (T10 migration, #43) never shipped these —
-      # every aws s3 step and the apt/rpm gpg2 signing steps fail with "command not found"
-      # (stackeye-6095). Installed here, in-job, rather than baking into the shared ARC
-      # runner image, since that image is a separate fleet resource this repo doesn't own.
+      # The since-retired self-hosted-linux-dfw runner image (T10 migration, #43) shipped
+      # neither — every aws s3 step and the apt/rpm gpg2 signing steps failed with "command
+      # not found" (stackeye-6095). The current self-hosted-linux image ships the AWS CLI
+      # and `gpg` but no `gpg2` binary, so the step below provides `gpg2` (apt gnupg2,
+      # falling back to aliasing `gpg`) and installs aws only if missing, in-job, rather than
+      # baking them into the shared ARC runner image, since that image is a separate fleet
+      # resource this repo doesn't own.
       - name: Install release tooling (aws-cli, gnupg2)
         run: |
           if ! command -v gpg2 >/dev/null 2>&1; then
